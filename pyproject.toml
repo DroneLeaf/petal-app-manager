@@ -1,0 +1,32 @@
+[project]
+name = "petal-app-manager"
+version = "0.1.0"
+description = "A FastAPI interface for loading, managing and running Droneleaf Petal applications"
+authors = [
+    {name = "Khalil Al Handawi", email = "khalil.alhandawi@mail.mcgill.ca"},
+]
+dependencies = [
+    "pymavlink>=2.4.47", 
+    "tqdm>=4.67.1", 
+    "tabulate>=0.9.0", 
+    "fastapi[standard]>=0.115.12", 
+    "uvicorn[standard]>=0.34.3"
+]
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "LICENSE.md"}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+
+[tool.pdm]
+distribution = true
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+    "pytest-asyncio>=1.0.0",
+    "anyio>=4.9.0",
+]
