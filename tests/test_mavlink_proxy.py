@@ -313,7 +313,7 @@ async def test_get_px4_time(msg_cls, expect_error, expect_seconds):
 @pytest.mark.asyncio
 async def test_download_logs_hardware_integration():
     """
-    Real-hardware integration test – skipped in CI.
+    Real-hardware integration test - skipped in CI.
     Connects to actual PX4, lists logs, downloads the first one.
     """
     try:
@@ -325,7 +325,7 @@ async def test_download_logs_hardware_integration():
     ulogs = await proxy.list_ulogs()
     assert ulogs, "No ULogs on vehicle"
 
-    remote = ulogs[0].remote_path
+    remote = ulogs[15].remote_path
     local  = Path("ulog_downloads") / Path(remote).name
     local.parent.mkdir(exist_ok=True)
 
