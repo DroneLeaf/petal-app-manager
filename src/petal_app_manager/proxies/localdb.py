@@ -70,7 +70,7 @@ class LocalDBProxy(Proxy):
             is_arm = "arm" in arch
             
             # Build path to executable
-            utils_dir = Path(__file__).parent / "utils"
+            utils_dir = Path(__file__).parent.parent / "utils"
             machine_id_exe = utils_dir / (
                 "machineid_arm" if is_arm else "machineid_x86"
             )
@@ -127,7 +127,7 @@ class LocalDBProxy(Proxy):
             self.log.error(f"Request failed: {e}")
             return {"error": f"Request failed: {e}"}
 
-    async def get_current_instance(self) -> Dict[str, Any]:
+    async def _get_current_instance(self) -> Dict[str, Any]:
         """
         Retrieve the current robot instance data from the local database.
         

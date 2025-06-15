@@ -9,6 +9,7 @@ import subprocess
 import concurrent.futures
 from unittest.mock import patch, MagicMock
 from petal_app_manager.proxies.localdb import LocalDBProxy
+import uuid
 
 from typing import Generator, AsyncGenerator
 
@@ -21,6 +22,86 @@ async def proxy() -> AsyncGenerator[LocalDBProxy, None]:
     with patch.object(proxy, '_get_machine_id', return_value="test-machine-id"):
         await proxy.start()
         yield proxy  # This is what gets passed to the test
+        await proxy.stop()
+
+def test_get_machine_id():
+    """Test that _get_machine_id returns a string or specifically a UUID4."""
+    proxy = LocalDBProxy(host="localhost", port=3000)
+    
+    # Call the private method directly
+    machine_id = proxy._get_machine_id()
+    
+    if machine_id is not None:
+        assert isinstance(machine_id, str)
+        assert len(machine_id) > 0, "Machine ID should be a non-empty string"
+        
+        # Try to validate if it's a UUID4
+        try:
+            uuid_obj = uuid.UUID(machine_id)
+            assert uuid_obj.version == 4, f"Expected UUID4, got UUID{uuid_obj.version}"
+        except ValueError:
+            # If not a valid UUID format, still pass as we only require a string
+            pass
+    else:
+        raise AssertionError("Machine ID should not be None, unless running in an environment without the executable.")
+
+@pytest.mark.asyncio
+async def test_get_current_instance_with_mock():
+    """Test _get_current_instance method with mocking."""
+    proxy = LocalDBProxy(host="localhost", port=3000)
+    proxy._machine_id = "test-machine-id"
+    
+    # Mock successful response
+    mock_response = {"id": "test-machine-id", "name": "Test Robot", "status": "active"}
+    
+    with patch.object(proxy, 'get_item', return_value=mock_response):
+        result = await proxy._get_current_instance()
+        assert result == mock_response
+        proxy.get_item.assert_called_once_with(
+            table_name="config-robot_instances",
+            partition_key="id",
+            partition_value="test-machine-id"
+        )
+    
+    # Test when machine ID is not available
+    proxy._machine_id = None
+    result = await proxy._get_current_instance()
+    assert result is None
+    
+    # Test when exception occurs
+    proxy._machine_id = "test-machine-id"
+    with patch.object(proxy, 'get_item', side_effect=Exception("Test error")):
+        result = await proxy._get_current_instance()
+        assert result is None
+
+@pytest.mark.asyncio
+async def test_get_current_instance_without_mock():
+    """Test _get_current_instance method without mocking (integration test)."""
+    # Create a real proxy instance
+    proxy = LocalDBProxy(host="localhost", port=3000, debug=True)
+    
+    # Start the proxy to get a machine ID
+    await proxy.start()
+    
+    try:
+        # Only proceed with the test if we successfully got a machine ID
+        if proxy._machine_id:
+            # Call the method directly
+            result = await proxy._get_current_instance()
+            
+            # We may or may not get actual data depending on if this robot
+            # is registered in the database, but the method should not raise exceptions
+            if result is not None:
+                assert isinstance(result, dict)
+                assert "id" in result
+                assert result["id"] == proxy._machine_id
+        else:
+            # If we didn't get a machine ID, the method should return None
+            result = await proxy._get_current_instance()
+            assert result is None
+            
+    finally:
+        # Always clean up
         await proxy.stop()
 
 @pytest.mark.asyncio
