@@ -126,6 +126,27 @@ class LocalDBProxy(Proxy):
         except Exception as e:
             self.log.error(f"Request failed: {e}")
             return {"error": f"Request failed: {e}"}
+
+    async def get_current_instance(self) -> Dict[str, Any]:
+        """
+        Retrieve the current robot instance data from the local database.
+        
+        Returns:
+            The robot instance data as a dictionary if found, or None if an error occurs
+        """
+        if not self._machine_id:
+            self.log.warning("Machine ID not available, cannot get current instance")
+            return None
+        
+        try:
+            return await self.get_item(
+                table_name="config-robot_instances",
+                partition_key="id",
+                partition_value=self._machine_id
+            )
+        except Exception as e:
+            self.log.error(f"Failed to get current instance: {e}")
+            return None
             
     # ------ Public API methods ------ #
     
