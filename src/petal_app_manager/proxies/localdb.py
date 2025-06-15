@@ -43,7 +43,24 @@ class LocalDBProxy(Proxy):
         self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self.log = logging.getLogger("LocalDBProxy")
         self._machine_id = None
-        
+        self._organization_id = None
+        self._robot_type_id = None
+
+    @property
+    def machine_id(self) -> Optional[str]:
+        """Get the machine ID for this instance."""
+        return self._machine_id
+    
+    @property
+    def organization_id(self) -> Optional[str]:
+        """Get the organization ID for this instance."""
+        return self._organization_id
+    
+    @property
+    def robot_type_id(self) -> Optional[str]:
+        """Get the robot type ID for this instance."""
+        return self._robot_type_id
+
     async def start(self):
         """Initialize the connection to the local API service."""
         self._loop = asyncio.get_running_loop()
@@ -56,6 +73,27 @@ class LocalDBProxy(Proxy):
             self.log.warning("Failed to get machine ID, some operations may fail")
         else:
             self.log.info("LocalDBProxy initialized with machine ID: %s", self._machine_id)
+
+        current_instance = await self._get_current_instance()
+        if current_instance:
+            self.log.info("Current robot instance: %s", current_instance)
+        else:
+            self.log.warning("No current robot instance found")
+
+        # Get machine ID and organization ID
+        self._organization_id = current_instance.get("organization_id", None)
+        self._robot_type_id = current_instance.get("robot_type_id", None)
+        if not self._organization_id or not self._robot_type_id:
+            self.log.warning(
+                "Organization ID or Robot Type ID not found in current instance"
+            )
+        else:
+            self.log.info(
+                "Organization ID: %s, Robot Type ID: %s",
+                self._organization_id,
+                self._robot_type_id
+            )
+        self.log.info("LocalDBProxy started successfully")
         
     async def stop(self):
         """Clean up resources when shutting down."""
