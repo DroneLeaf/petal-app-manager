@@ -7,7 +7,7 @@ import logging
 import platform
 import subprocess
 import concurrent.futures
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, PropertyMock
 from petal_app_manager.proxies.localdb import LocalDBProxy
 import uuid
 
@@ -226,8 +226,12 @@ async def test_no_machine_id():
     """Test behavior when machine ID is not available."""
     proxy = LocalDBProxy(host="localhost", port=3000)
     
-    with patch.object(proxy, '_get_machine_id', return_value=None):
+    # Option 2: Use PropertyMock if you prefer patching
+    with patch.object(LocalDBProxy, 'machine_id', new_callable=PropertyMock, return_value=None):
+    
         await proxy.start()
+        # Directly set the underlying attribute
+        proxy._machine_id = None
         
         result = await proxy.get_item(
             table_name="test-table",

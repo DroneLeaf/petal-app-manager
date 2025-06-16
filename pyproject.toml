@@ -31,4 +31,5 @@ dev = [
     "pytest-asyncio>=1.0.0",
     "anyio>=4.9.0",
     "pytest-cov>=6.2.1",
+    "-e file:///home/khalil/repos/petal-flight-log/#egg=petal-flight-log",
 ]

@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "PetalAppManager (debug)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/.venv/bin/uvicorn",
+      // If you use PDM’s isolated venv, point to its uvicorn;
+      // otherwise just "uvicorn" works on PATH.
+      "args": [
+        "petal_app_manager.main:app",
+        "--host", "0.0.0.0",
+        "--port", "9000",
+        "--reload",
+        "--log-level", "debug"
+      ],
+      "jinja": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
+}
