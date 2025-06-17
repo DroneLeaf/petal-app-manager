@@ -75,15 +75,15 @@ class LocalDBProxy(BaseProxy):
             self.log.info("LocalDBProxy initialized with machine ID: %s", self._machine_id)
 
         current_instance = await self._get_current_instance()
-        if current_instance:
+        if current_instance is not None:
             self.log.info("Current robot instance: %s", current_instance)
         else:
             self.log.warning("No current robot instance found")
 
         # Get machine ID and organization ID
-        self._organization_id = current_instance.get("organization_id", None)
-        self._robot_type_id = current_instance.get("robot_type_id", None)
-        if not self._organization_id or not self._robot_type_id:
+        self._organization_id = current_instance.get("data",{}).get("organization_id", None)
+        self._robot_type_id = current_instance.get("data",{}).get("robot_type_id", None)
+        if self._organization_id is None or self._robot_type_id is None:
             self.log.warning(
                 "Organization ID or Robot Type ID not found in current instance"
             )
@@ -156,7 +156,7 @@ class LocalDBProxy(BaseProxy):
             # Parse the JSON response
             try:
                 data = json.loads(raw_data.decode('utf-8'))
-                return data
+                return {"data": data, "success": True}
             except json.JSONDecodeError as e:
                 self.log.error(f"Failed to parse response: {e}")
                 return {"error": f"Failed to parse response: {e}"}

@@ -14,7 +14,6 @@ from petal_app_manager.proxies.external import (
     MavLinkExternalProxy
 )
 
-@pytest.mark.asyncio
 def test_external_proxy():
     # Use a pytest fixture to run async test
     asyncio.run(_test_mavlink_proxy())
