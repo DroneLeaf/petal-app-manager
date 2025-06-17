@@ -22,9 +22,9 @@ import platform
 import subprocess
 from pathlib import Path
 
-from .base import Proxy
+from .base import BaseProxy
 
-class LocalDBProxy(Proxy):
+class LocalDBProxy(BaseProxy):
     """
     Proxy for communicating with a local DynamoDB instance through a custom API.
     """

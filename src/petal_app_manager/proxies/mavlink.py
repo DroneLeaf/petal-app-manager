@@ -25,6 +25,8 @@ import asyncio, concurrent.futures, logging, time, shutil, sys
 
 from pydantic import BaseModel, Field
 
+from .base import BaseProxy
+
 from pymavlink import mavutil, mavftp
 from tabulate import tabulate
 
@@ -59,7 +61,7 @@ ProgressCB = Callable[[float], Awaitable[None]]       # 0.0 - 1.0
 #  Implementation: the proxy object                                           #
 # --------------------------------------------------------------------------- #
 
-class MavLinkProxy:
+class MavLinkProxy(BaseProxy):
     """
     Singleton owned by PetalAppManager.  Petals never touch pymavlink
     directly - they only call the async helpers below.

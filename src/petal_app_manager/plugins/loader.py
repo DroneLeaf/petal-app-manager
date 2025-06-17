@@ -2,14 +2,18 @@ import importlib.metadata as md
 from fastapi import FastAPI, APIRouter
 import logging
 
+from ..proxies.base import BaseProxy
+from typing import List
+from ..plugins.base import Petal
+
 from .decorators import action
 
 logger = logging.getLogger("PluginsLoader")
 
-def load_petals(app: FastAPI, proxies):
+def load_petals(app: FastAPI, proxies: List[BaseProxy]):
     for ep in md.entry_points(group="petal.plugins"):
-        petal_cls = ep.load()
-        petal     = petal_cls()
+        petal_cls    = ep.load()
+        petal: Petal = petal_cls()
         petal.inject_proxies(proxies)
 
         router = APIRouter(

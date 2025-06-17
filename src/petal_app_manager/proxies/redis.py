@@ -19,9 +19,9 @@ import logging
 
 import redis
 
-from .base import Proxy
+from .base import BaseProxy
 
-class RedisProxy(Proxy):
+class RedisProxy(BaseProxy):
     """
     Proxy for communicating with a Redis server.
     """
