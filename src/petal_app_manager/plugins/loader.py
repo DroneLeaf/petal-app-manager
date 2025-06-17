@@ -20,8 +20,16 @@ def load_petals(app: FastAPI, proxies):
             fn = getattr(petal, attr)
             meta = getattr(fn, "__petal_action__", None)
             if meta:
+                # Extract method and path
+                method = meta.pop("method")
+                path = meta.pop("path")
+                
+                # Pass all remaining parameters directly
                 router.add_api_route(
-                    meta["path"], fn, methods=[meta["method"]]
+                    path,
+                    fn,
+                    methods=[method],
+                    **meta  # This will include response_model, status_code, responses, etc.
                 )
         app.include_router(router)
         logger.info("Mounted petal '%s' (%s)", petal.name, petal.version)

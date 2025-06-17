@@ -1,6 +1,6 @@
 from typing import Literal
 
-def action(http: Literal["GET", "POST"], path: str):
+def action(http: Literal["GET", "POST"], path: str, **kwargs):
     """
     Marks a petal method to be surfaced as an HTTP endpoint.
     """
