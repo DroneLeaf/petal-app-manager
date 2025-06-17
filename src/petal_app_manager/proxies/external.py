@@ -243,7 +243,7 @@ class MavLinkExternalProxy(ExternalProxy):
         ----------
         message_id : int
             The numeric ID of the MAVLink message to request.
-            
+
         Returns
         -------
         mavutil.mavlink.MAVLink_command_long_message
@@ -288,6 +288,53 @@ class MavLinkExternalProxy(ExternalProxy):
         )
 
         return cmd
+
+    async def send_and_wait(
+        self,
+        *,
+        match_key: str,
+        request_msg: mavutil.mavlink.MAVLink_message,
+        collector: Callable[[mavutil.mavlink.MAVLink_message], bool],
+        timeout: float = 3.0,
+    ) -> None:
+        """
+        Transmit *request_msg*, register a handler on *match_key* and keep feeding
+        incoming packets to *collector* until it returns **True** or *timeout* expires.
+
+        Parameters
+        ----------
+        match_key :
+            The key used when the proxy dispatches inbound messages
+            (numeric ID as string, e.g. `"147"`).
+        request_msg :
+            Encoded MAVLink message to send – COMMAND_LONG, LOG_REQUEST_LIST, …
+        collector :
+            Callback that receives each matching packet.  Must return **True**
+            once the desired condition is satisfied; returning **False** keeps
+            waiting.
+        timeout :
+            Maximum seconds to block.
+        """
+
+        # always transmit on “mav” so the proxy’s writer thread sees it
+        self.send("mav", request_msg)
+
+        done = threading.Event()
+
+        def _handler(pkt):
+            try:
+                if collector(pkt):        # True => finished
+                    done.set()
+            except Exception as exc:
+                print(f"[collector] raised: {exc}")
+
+        self.register_handler(match_key, _handler)
+
+        if not done.wait(timeout):
+            self.unregister_handler(match_key, _handler)
+            raise TimeoutError(f"No reply/condition for message id {match_key} in {timeout}s")
+
+        self.unregister_handler(match_key, _handler)
 
 # ──────────────────────────────────────────────────────────────────────────────
 class ROS1ExternalProxy(ExternalProxy):
