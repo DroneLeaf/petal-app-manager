@@ -336,6 +336,7 @@ class MavLinkExternalProxy(ExternalProxy):
 
         self.unregister_handler(match_key, _handler)
 
+
 # ──────────────────────────────────────────────────────────────────────────────
 class ROS1ExternalProxy(ExternalProxy):
     """

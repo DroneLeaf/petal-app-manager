@@ -1,3 +1,0 @@
-[submodule "src/mavlink"]
-	path = src/mavlink
-	url = https://github.com/DroneLeaf/mavlink

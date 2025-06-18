@@ -11,6 +11,7 @@ dependencies = [
     "fastapi[standard]>=0.115.12", 
     "uvicorn[standard]>=0.34.3", 
     "redis>=6.2.0",
+    "leaf-pymavlink>=0.1.1",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
@@ -31,5 +32,5 @@ dev = [
     "anyio>=4.9.0",
     "pytest-cov>=6.2.1",
     "-e file:///home/khalil/repos/petal-flight-log/#egg=petal-flight-log",
-    "-e file:///home/khalil/repos/petal-app-manager/src/mavlink/pymavlink/#egg=pymavlink",
+    "-e file:///home/khalil/repos/mavlink/pymavlink/#egg=leaf-pymavlink",
 ]
