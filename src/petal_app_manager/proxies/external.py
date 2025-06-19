@@ -47,6 +47,7 @@ from pymavlink import mavutil, mavftp
 
 class ULogInfo(BaseModel):
     """Metadata for a ULog that resides on the PX4 SD-card."""
+    index      : int          # 0-based index in the list
     remote_path: str
     size_bytes : int
     utc        : int          # epoch seconds
@@ -231,9 +232,6 @@ class MavLinkExternalProxy(ExternalProxy):
         await super().start()
         
         self._loop = asyncio.get_running_loop()
-        msg_id = str(mavutil.mavlink.MAVLINK_MSG_ID_LOG_ENTRY)
-        msg = self.build_req_msg_log_request(message_id=msg_id)
-
         self._parser:_BlockingParser = await self._loop.run_in_executor(
             self._exe, 
             _BlockingParser, 
@@ -488,13 +486,17 @@ class _BlockingParser:
             return []
 
         mapping = _match_ls_to_entries(ulog_files, entries)
+        # sort the mapping by utc descending
+        mapping = sorted(
+            mapping.values(),
+            key=lambda x: [2],  # sort by utc
+            reverse=True
+        )
         result  = []
-        for name, size, utc in mapping.values():
+        for i, (name, size, utc) in enumerate(mapping):
             result.append(
-                dict(remote_path=name, size_bytes=size, utc=utc)
+                dict(index=i, remote_path=name, size_bytes=size, utc=utc)
             )
-        # sort ascending by utc
-        result.sort(key=lambda x: x["utc"])
         return result
 
     # 2) download_ulog ------------------------------------------------------- #

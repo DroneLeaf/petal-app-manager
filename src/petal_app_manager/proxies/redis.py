@@ -75,8 +75,16 @@ class RedisProxy(BaseProxy):
     async def stop(self):
         """Close the Redis connection and clean up resources."""
         if self._client:
-            await self._loop.run_in_executor(self._exe, self._client.close)
-        self._exe.shutdown(wait=False)
+            try:
+                # First close the Redis connection
+                await self._loop.run_in_executor(self._exe, self._client.close)
+            except Exception as e:
+                self.log.error(f"Error closing Redis connection: {e}")
+        
+        # Then shutdown the executor with wait=True to ensure all tasks complete
+        if self._exe:
+            self._exe.shutdown(wait=True)
+            
         self.log.info("RedisProxy stopped")
         
     # ------ Public API methods ------ #

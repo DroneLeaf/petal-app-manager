@@ -8,7 +8,7 @@ async def list_proxies():
     """List all available proxies in the system."""
     return {
         "proxies": [
-            "mavlink",
+            "ext_mavlink",
             "redis",
             "db"
         ]

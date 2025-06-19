@@ -75,6 +75,7 @@ async def test_get_current_instance_with_mock():
         assert result is None
 
 @pytest.mark.asyncio
+@pytest.mark.hardware
 async def test_get_current_instance_without_mock():
     """Test _get_current_instance method without mocking (integration test)."""
     # Create a real proxy instance
@@ -92,13 +93,14 @@ async def test_get_current_instance_without_mock():
             # We may or may not get actual data depending on if this robot
             # is registered in the database, but the method should not raise exceptions
             if result is not None:
-                assert isinstance(result, dict)
-                assert "id" in result
-                assert result["id"] == proxy._machine_id
+                assert "data" in result
+                assert isinstance(result["data"], dict)
+                assert "id" in result["data"]
+                assert result["data"]["id"] == proxy._machine_id
         else:
-            # If we didn't get a machine ID, the method should return None
+            # If we didn't get a machine ID, the method should return {"error": "Machine ID not available"}
             result = await proxy._get_current_instance()
-            assert result is None
+            assert "error" in result
             
     finally:
         # Always clean up

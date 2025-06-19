@@ -14,19 +14,27 @@ async def proxy() -> AsyncGenerator[RedisProxy, None]:
     # Create the proxy with test configuration
     proxy = RedisProxy(host="localhost", port=6379, db=0, debug=True)
     
-    # Mock the actual Redis client creation
-    with patch('redis.Redis') as mock_redis:
-        # Setup the mock Redis client
-        mock_client = MagicMock()
-        mock_client.ping.return_value = True
-        mock_redis.return_value = mock_client
-        
-        # Store reference to the mock for assertions
-        proxy._mock_client = mock_client
-        
-        await proxy.start()
-        yield proxy
-        await proxy.stop()
+    # Use try/finally to ensure proper cleanup
+    try:
+        # Mock the actual Redis client creation
+        with patch('redis.Redis') as mock_redis:
+            # Setup the mock Redis client
+            mock_client = MagicMock()
+            mock_client.ping.return_value = True
+            mock_redis.return_value = mock_client
+            
+            # Store reference to the mock for assertions
+            proxy._mock_client = mock_client
+            
+            await proxy.start()
+            yield proxy
+    finally:
+        # Always try to stop the proxy even if tests fail
+        try:
+            if hasattr(proxy, "_client") and proxy._client:
+                await proxy.stop()
+        except Exception as e:
+            print(f"Error during proxy cleanup: {e}")
 
 @pytest.mark.asyncio
 async def test_start_connection(proxy: RedisProxy):
@@ -38,9 +46,20 @@ async def test_start_connection(proxy: RedisProxy):
 @pytest.mark.asyncio
 async def test_stop_connection(proxy: RedisProxy):
     """Test that Redis connection is closed properly."""
-    with patch.object(proxy._client, 'close') as mock_close:
+    # Replace the close method with a mock, don't use context manager
+    original_close = proxy._mock_client.close
+    mock_close = MagicMock()
+    proxy._mock_client.close = mock_close
+    
+    try:
+        # Call the stop method
         await proxy.stop()
+        
+        # Verify the mock was called
         mock_close.assert_called_once()
+    finally:
+        # Restore original method to avoid affecting other tests
+        proxy._mock_client.close = original_close
 
 @pytest.mark.asyncio
 async def test_get(proxy: RedisProxy):
