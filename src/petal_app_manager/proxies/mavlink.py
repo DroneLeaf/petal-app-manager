@@ -143,7 +143,7 @@ class _BlockingParser:
 
     # ---------- life-cycle -------------------------------------------------- #
 
-    def __init__(self, endpoint: str, baud: int, debug: int):
+    def __init__(self, endpoint: str, baud: int, debug: int, log_entries: Dict[int, Dict[str, int]]):
         self._log = logging.getLogger("MavLinkParser")
 
         self.master = mavutil.mavlink_connection(endpoint, baud=baud)
@@ -160,7 +160,7 @@ class _BlockingParser:
         self.ftp.ftp_settings.burst_read_size  = 239
         self.ftp.burst_size                    = 239
 
-        self.entries = self._fetch_log_entries()       # {id: {"size":…, "utc":…}}
+        self.entries = log_entries.copy()       # {id: {"size":…, "utc":…}}
 
     @property
     def system_id(self):          # convenience for log message in proxy.start()
@@ -231,50 +231,7 @@ class _BlockingParser:
                        local_path.name, local_path.stat().st_size / 1024)
         return str(local_path)
 
-    # 3) get_px4_time -------------------------------------------------------- #
-    def get_px4_time(self) -> Dict:
-        _request_message(self.master, mavutil.mavlink.MAVLINK_MSG_ID_AUTOPILOT_VERSION)
-        msg = self.master.recv_match(type='AUTOPILOT_VERSION', blocking=True, timeout=3)
-        if not msg:
-            raise TimeoutError("No AUTOPILOT_VERSION reply")
-
-        if hasattr(msg, "time_utc") and msg.time_utc:
-            ts = int(msg.time_utc)
-            return dict(
-                timestamp_s = ts,
-                utc_human   = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(ts)),
-                source_msg  = "AUTOPILOT_VERSION"
-            )
-
-        # fallback fields
-        for fld in ("time_boot_ms", "time_usec", "_timestamp"):
-            if hasattr(msg, fld):
-                raw = getattr(msg, fld)
-                ts  = int(raw / (1000 if fld == "time_boot_ms" else
-                                 1_000_000 if fld == "time_usec" else 1))
-                return dict(
-                    timestamp_s = ts,
-                    utc_human   = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(ts)),
-                    source_msg  = f"AUTOPILOT_VERSION[{fld}]"
-                )
-
-        raise ValueError("Message lacks usable timestamp fields")
-
     # ---------- internal helpers ------------------------------------------- #
-
-    def _fetch_log_entries(self) -> Dict[int, Dict[str, int]]:
-        self.master.mav.log_request_list_send(
-            self.master.target_system, self.master.target_component, 0, 0xFFFF
-        )
-        entries: Dict[int, Dict[str, int]] = {}
-        while True:
-            msg = self.master.recv_match(type='LOG_ENTRY', blocking=True, timeout=5)
-            if not msg:
-                break
-            entries[msg.id] = {"size": msg.size, "utc": msg.time_utc}
-            if len(entries) == msg.num_logs:
-                break
-        return entries
 
     def _walk_ulogs(self, base="fs/microsd/log") -> Generator[Tuple[str, int], None, None]:
         dates = self._ls(base)
@@ -294,11 +251,11 @@ class _BlockingParser:
             time.sleep(delay)
             # soft reconnect
             self.__init__(self.master.address, self.master.baud, self.ftp.ftp_settings.debug)
-        raise RuntimeError(f"ls('{path}') failed {retries}×")
+        raise RuntimeError(f"ls('{path}') failed {retries} times, giving up")
 
 
 # --------------------------------------------------------------------------- #
-#  helper copied as-is from your script                                       #
+#  helper functions                                                           #
 # --------------------------------------------------------------------------- #
 
 def _match_ls_to_entries(
@@ -318,11 +275,3 @@ def _match_ls_to_entries(
                 mapping[log_id] = (name, sz, info['utc'])
                 break
     return mapping
-
-
-def _request_message(connection, message_id):
-    connection.mav.command_long_send(
-        connection.target_system, connection.target_component,
-        mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE, 0,
-        message_id, 0, 0, 0, 0, 0, 0
-    )
