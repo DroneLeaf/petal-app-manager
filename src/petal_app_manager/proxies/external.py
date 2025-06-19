@@ -39,6 +39,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .base import BaseProxy
 from pymavlink import mavutil, mavftp
+from pymavlink.mavftp_op import FTP_OP
 # import rospy   # ← uncomment in ROS-enabled environments
 
 # --------------------------------------------------------------------------- #
@@ -55,6 +56,9 @@ class ULogInfo(BaseModel):
 # Progress callback signature used by download_ulog
 ProgressCB = Callable[[float], Awaitable[None]]       # 0.0 - 1.0
 
+class DownloadCancelledException(Exception):
+    """Raised when a download is cancelled by the user."""
+    pass
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -424,18 +428,24 @@ class MavLinkExternalProxy(ExternalProxy):
     async def download_ulog(
         self,
         remote_path: str,
-        local_path : Path,
+        local_path: Path,
         on_progress: ProgressCB | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> Path:
         """
         Fetch *remote_path* from the vehicle into *local_path*.
 
-        Returns the Path actually written on success.
+        Returns the Path actually written on success or None if cancelled.
         """
-        await self._loop.run_in_executor(
-            self._exe, self._parser.download_ulog, remote_path, local_path, on_progress
+        result = await self._loop.run_in_executor(
+            self._exe, 
+            self._parser.download_ulog, 
+            remote_path, 
+            local_path, 
+            on_progress,
+            cancel_event
         )
-        return local_path
+        return local_path if result else None
 
 class _BlockingParser:
     """
@@ -503,43 +513,136 @@ class _BlockingParser:
     def download_ulog(
         self,
         remote_path: str,
-        local_path : Path,
+        local_path: Path,
         on_progress: ProgressCB | None = None,
+        cancel_event: threading.Event | None = None,
     ):
-        """Blocking download with retry + tmp-file recovery."""
+        """Blocking download with retry + tmp-file recovery with cancellation support."""
 
         # ------------------------------------------------------------------ #
         def _progress_cb(frac: float | None):
             if frac is None or on_progress is None:
                 return
+            # Check for cancellation
+            if cancel_event and cancel_event.is_set():
+                # Use our custom exception to signal cancellation
+                raise DownloadCancelledException("Download cancelled by user")
+                
             asyncio.run_coroutine_threadsafe(
-                on_progress(frac),                                   # type: ignore[arg-type]
-                loop=self.proxy._loop  # type: ignore[attr-defined]
+                on_progress(frac),
+                loop=self.proxy._loop
             )
         # ------------------------------------------------------------------ #
 
-        self._log.info("Downloading %s → %s", remote_path, local_path)
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-        ret = self.ftp.cmd_get(
-            [remote_path, str(local_path.absolute())],
-            progress_callback=lambda x: _progress_cb(x)
-        )
-        if ret.return_code != 0:
-            raise RuntimeError(f"OpenFileRO failed: {ret.return_code}")
+        try:
+            self._log.info("Downloading %s → %s", remote_path, local_path)
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            ret = self.ftp.cmd_get(
+                [remote_path, str(local_path.absolute())],
+                progress_callback=lambda x: _progress_cb(x)
+            )
+            if ret.return_code != 0:
+                raise RuntimeError(f"OpenFileRO failed: {ret.return_code}")
 
-        self.ftp.process_ftp_reply(ret.operation_name, timeout=0)
+            # Check for cancellation before processing reply
+            if cancel_event and cancel_event.is_set():
+                self._reset_ftp_state()
+                if local_path.exists():
+                    local_path.unlink()
+                return None
 
-        if not local_path.exists():
-            # handle temp-file move failure
-            tmp = Path(self.ftp.temp_filename)
-            shutil.move(tmp, local_path)
-            self._log.warning("Temp file recovered to %s", local_path)
+            # Process the reply with a try-except to handle potential issues
+            try:
+                self.ftp.process_ftp_reply(ret.operation_name, timeout=0)
+            except DownloadCancelledException:
+                # Handle cancellation gracefully
+                self._log.info("Download cancelled by user")
+                self._reset_ftp_state()
+                if local_path.exists():
+                    local_path.unlink()
+                return None
+            except Exception as e:
+                self._log.error(f"Error processing FTP reply: {str(e)}")
+                self._reset_ftp_state()
+                raise
 
-        self._log.info("Saved %s (%.1f KiB)",
-                       local_path.name, local_path.stat().st_size / 1024)
-        return str(local_path)
+            if not local_path.exists():
+                # handle temp-file move failure
+                tmp = Path(self.ftp.temp_filename)
+                if tmp.exists():
+                    shutil.move(tmp, local_path)
+                    self._log.warning("Temp file recovered to %s", local_path)
+
+            self._log.info("Saved %s (%.1f KiB)",
+                        local_path.name, local_path.stat().st_size / 1024)
+            return str(local_path)
+            
+        except DownloadCancelledException:
+            # Handle cancellation gracefully at the outer level too
+            self._log.info("Download cancelled by user")
+            self._reset_ftp_state()
+            if local_path.exists():
+                local_path.unlink()
+            return None
+        except Exception as e:
+            self._log.error(f"Download error: {str(e)}")
+            # Always reset FTP state on error
+            self._reset_ftp_state()
+            
+            # Clean up partial file
+            if local_path.exists():
+                local_path.unlink()
+                
+            # Re-raise the original exception
+            raise
 
     # ---------- internal helpers ------------------------------------------- #
+    def _reset_ftp_state(self):
+        """Reset all FTP state to handle canceled transfers properly."""
+        self._log.warning("Resetting FTP state")
+        try:
+            # First try to terminate the current session
+            self.ftp._MAVFTP__terminate_session()
+            self.ftp.process_ftp_reply("TerminateSession")
+        except Exception as e:
+            self._log.warning(f"Error terminating session: {e}")
+        
+        try:
+            # Then reset all sessions for good measure
+            op = mavftp.OP_ResetSessions
+            self.ftp._MAVFTP__send(FTP_OP(self.ftp.seq, self.ftp.session, op, 0, 0, 0, 0, None))
+            self.ftp.process_ftp_reply("ResetSessions")
+        except Exception as e:
+            self._log.warning(f"Error resetting sessions: {e}")
+            
+        # Reset internal dictionaries that could cause issues
+        self.ftp.active_read_sessions = {}
+        
+        # These are the problematic data structures that cause the KeyError
+        if hasattr(self.ftp, 'read_gap_times'):
+            self.ftp.read_gap_times = {}
+        if hasattr(self.ftp, 'read_gaps'):
+            # This should be a list, not a dict
+            self.ftp.read_gaps = []
+            
+        # Reset session counter and tracking
+        if hasattr(self.ftp, 'next_read_session'):
+            self.ftp.next_read_session = 1
+        if hasattr(self.ftp, 'session'):
+            self.ftp.session = 0
+        if hasattr(self.ftp, 'seq'):
+            self.ftp.seq = 0
+            
+        # Reset other stateful variables
+        if hasattr(self.ftp, 'read_total'):
+            self.ftp.read_total = 0
+        if hasattr(self.ftp, 'read_offset'):
+            self.ftp.read_offset = 0
+        if hasattr(self.ftp, 'remote_file_size'):
+            self.ftp.remote_file_size = 0
+        if hasattr(self.ftp, 'burst_state'):
+            self.ftp.burst_state = 0
 
     def _walk_ulogs(self, base="fs/microsd/log") -> Generator[Tuple[str, int], None, None]:
         dates = self._ls(base)

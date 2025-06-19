@@ -3,6 +3,7 @@ import asyncio, sys, time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch, AsyncMock
+import threading
 
 import pytest
 
@@ -154,7 +155,7 @@ class MockBlockingParser:
             {"index": 1, "remote_path": "fs/microsd/log/2023-01-01/log2.ulg", "size_bytes": 2048, "utc": 1612345679}
         ]
         
-    def download_ulog(self, remote_path, local_path, on_progress=None):
+    def download_ulog(self, remote_path, local_path, on_progress=None, cancel_event=None):
         # Simulate download with progress
         if on_progress:
             for i in range(11):
@@ -233,6 +234,22 @@ def event_loop():
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+@pytest.fixture
+def hardware_cleanup():
+    """Fixture to ensure hardware resources are released if test is interrupted."""
+    cancel_events = []
+    
+    def register_event(event):
+        cancel_events.append(event)
+        
+    yield register_event
+    
+    # This runs even if test is aborted or fails
+    for event in cancel_events:
+        if not event.is_set():
+            print("Cleaning up hardware resources...")
+            event.set()
 
 # --------------------------------------------------------------------------- #
 #  Tests – pure helper function                                               #
@@ -353,42 +370,43 @@ async def test_download(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 # --------------------------------------------------------------------------- #
 @pytest.mark.hardware
 @pytest.mark.asyncio
-async def test_download_logs_hardware_integration():
+async def test_download_logs_hardware_integration(hardware_cleanup):
     """
     Real-hardware integration test - skipped in CI.
     Connects to actual PX4, lists logs, downloads the first one.
     """
+    cancel_event = threading.Event()
+    hardware_cleanup(cancel_event) # Register cleanup event
+    
     try:
         proxy = MavLinkExternalProxy(endpoint="udp:127.0.0.1:14551")
         await proxy.start()
     except Exception:
         pytest.skip("Hardware connection not available")
 
-    ulogs = await proxy.list_ulogs()
-    if not ulogs or len(ulogs) == 0:
+    try:
+        ulogs = await proxy.list_ulogs()
+        if not ulogs or len(ulogs) == 0:
+            pytest.skip("No ULogs found on vehicle")
+
+        # find the smallest file to download
+        smallest = min(ulogs, key=lambda u: u.size_bytes)
+        remote = smallest.remote_path
+        print(f"Downloading {remote}...")
+
+        local = Path("ulog_downloads") / Path(remote).name
+        local.parent.mkdir(exist_ok=True)
+
+        async def on_progress(frac):
+            print(f"Download progress: {frac * 100:.1f}%")
+
+        await proxy.download_ulog(remote, local, on_progress=on_progress, cancel_event=cancel_event)
+
+        if not local.exists():
+            pytest.fail(f"Download failed: {remote} -> {local}")
+        assert local.exists() and local.stat().st_size > 0
+    finally:
+        # Local cleanup - happens even if test fails
+        if not cancel_event.is_set():
+            cancel_event.set()
         await proxy.stop()
-        pytest.skip("No ULogs found on vehicle")
-
-    remote = ulogs[2].remote_path
-    # find the smallest file to download
-    if not remote:
-        await proxy.stop()
-        pytest.skip("No ULogs found on vehicle")
-
-    # dict(index=i, remote_path=name, size_bytes=size, utc=utc)
-    smallest = min(ulogs, key=lambda u: u.size_bytes)
-    remote = smallest.remote_path
-    print(f"Downloading {remote}...")
-
-    local  = Path("ulog_downloads") / Path(remote).name
-    local.parent.mkdir(exist_ok=True)
-
-    async def on_progress(frac):
-        print(f"Download progress: {frac * 100:.1f}%")
-
-    await proxy.download_ulog(remote, local, on_progress=on_progress)
-    if not local.exists():
-        await proxy.stop()
-        pytest.fail(f"Download failed: {remote} -> {local}")
-    assert local.exists() and local.stat().st_size > 0
-    await proxy.stop()
