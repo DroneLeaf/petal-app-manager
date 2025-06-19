@@ -28,18 +28,21 @@ pip install petal-app-manager
 
 ### Development Installation
 
-For development, it's recommended to use an editable installation.
+For development, it's recommended to use an editable installation where you define your local dependancies in [pyproject.toml](pyproject.toml) as
+
+```toml
+local = [
+    "-e file:///path/to/your/my-petal/#egg=my-petal",
+    "-e file:///path/to/pymavlink/#egg=leaf-pymavlink",
+]
+```
 
 ```bash
 # Clone the repository
 git clone https://github.com/your-org/petal-app-manager.git
 cd petal-app-manager
 
-# Install in development mode
-pip install -e .
-
-# If you're using PDM
-pdm install -G dev
+pdm install -G dev -G local
 ```
 
 #### Dependencies Setup
@@ -143,7 +146,7 @@ pdm init
 # Answer the prompts:
 # - Python interpreter: Select your Python version (3.8+ recommended)
 # - Project name: my-petal
-# - Package name: my_petal
+# - Package name: my-petal
 # - Version: 0.1.0
 # - Description: My custom petal for Petal App Manager
 # - License: MIT (or your preferred license)
@@ -152,11 +155,11 @@ pdm init
 # - Do you want to build this project for redistribution as a wheel? yes
 
 # Create the source directory structure
-mkdir -p src/my_petal
+mkdir -p src/my-petal
 
 # Create the initial files
-touch src/my_petal/__init__.py
-touch src/my_petal/plugin.py
+touch src/my-petal/__init__.py
+touch src/my-petal/plugin.py
 
 # Add petal-app-manager as a dependency
 pdm add petal-app-manager
@@ -231,17 +234,17 @@ Once you've created your petal, you'll want to test it with the petal-app-manage
 
     ```toml
     # In petal-app-manager's pyproject.toml
-    [tool.pdm.dev-dependencies]
-    dev = [
+    [dependency-groups]
+    local = [
         # Add your petal in development mode
-        "-e /path/to/your/my-petal",  # Adjust path to your petal directory
+            "-e file:///path/to/your/my-petal/#egg=my-petal",  # Adjust path to your petal directory
     ]
     ```
 
     - From your `petal-app-manager` directory run the following
 
     ```bash
-    pdm install --dev
+    pdm install -G dev -G local
     ```
 
     - `petal-app-manager` should automatically discover your petal through entry points defined in your petal's `pyproject.toml`

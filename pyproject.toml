@@ -30,7 +30,9 @@ dev = [
     "pytest>=8.4.0",
     "pytest-asyncio>=1.0.0",
     "anyio>=4.9.0",
-    "pytest-cov>=6.2.1",
+    "pytest-cov>=6.2.1"
+]
+local = [
     "-e file:///home/khalil/repos/petal-flight-log/#egg=petal-flight-log",
     "-e file:///home/khalil/repos/mavlink/pymavlink/#egg=leaf-pymavlink",
 ]

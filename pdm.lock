@@ -2,10 +2,10 @@
 # It is not intended for manual editing.
 
 [metadata]
-groups = ["default", "dev"]
+groups = ["default", "dev", "local"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:39bed2405decd9c31600ce5b48315b66b400095bbbd4855b86bafaa5ce055a41"
+content_hash = "sha256:a32979baff16058bb2662b551a46db2b5c5e990031122bcf41cf6ac21c1b31c3"
 
 [[metadata.targets]]
 requires_python = ">=3.10"
@@ -342,7 +342,7 @@ name = "future"
 version = "1.0.0"
 requires_python = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 summary = "Clean single-source support for Python 3 and 2"
-groups = ["default", "dev"]
+groups = ["default", "local"]
 files = [
     {file = "future-1.0.0-py3-none-any.whl", hash = "sha256:929292d34f5872e70396626ef385ec22355a1fae8ad29e1a734c3e43f9fbc216"},
     {file = "future-1.0.0.tar.gz", hash = "sha256:bd2968309307861edae1458a4f8a4f3598c03be43b97521076aebf5d94c07b05"},
@@ -471,7 +471,7 @@ version = "0.1.1"
 editable = true
 path = "/home/khalil/repos/mavlink/pymavlink"
 summary = "Python MAVLink code"
-groups = ["default", "dev"]
+groups = ["default", "local"]
 dependencies = [
     "future",
     "lxml",
@@ -482,7 +482,7 @@ name = "lxml"
 version = "5.4.0"
 requires_python = ">=3.6"
 summary = "Powerful and Pythonic XML processing library combining libxml2/libxslt with the ElementTree API."
-groups = ["default", "dev"]
+groups = ["default", "local"]
 files = [
     {file = "lxml-5.4.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:e7bc6df34d42322c5289e37e9971d6ed114e3776b45fa879f734bded9d1fea9c"},
     {file = "lxml-5.4.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:6854f8bd8a1536f8a1d9a3655e6354faa6406621cf857dc27b681b69860645c7"},
@@ -664,7 +664,7 @@ requires_python = ">=3.8"
 editable = true
 path = "/home/khalil/repos/petal-flight-log"
 summary = "A petal for creating flight logs and download Ulog files from PXHawk"
-groups = ["dev"]
+groups = ["local"]
 
 [[package]]
 name = "pluggy"
@@ -796,7 +796,7 @@ files = [
 
 [[package]]
 name = "pytest"
-version = "8.4.0"
+version = "8.4.1"
 requires_python = ">=3.9"
 summary = "pytest: simple powerful testing with Python"
 groups = ["dev"]
@@ -810,8 +810,8 @@ dependencies = [
     "tomli>=1; python_version < \"3.11\"",
 ]
 files = [
-    {file = "pytest-8.4.0-py3-none-any.whl", hash = "sha256:f40f825768ad76c0977cbacdf1fd37c6f7a468e460ea6a0636078f8972d4517e"},
-    {file = "pytest-8.4.0.tar.gz", hash = "sha256:14d920b48472ea0dbf68e45b96cd1ffda4705f33307dcc86c676c1b5104838a6"},
+    {file = "pytest-8.4.1-py3-none-any.whl", hash = "sha256:539c70ba6fcead8e78eebbf1115e8b589e7565830d7d006a8723f19ac8a0afb7"},
+    {file = "pytest-8.4.1.tar.gz", hash = "sha256:7c67fd69174877359ed9371ec3af8a3d2b04741818c51e5e99cc1742251fa93c"},
 ]
 
 [[package]]
