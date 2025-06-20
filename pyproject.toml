@@ -33,6 +33,6 @@ dev = [
     "pytest-cov>=6.2.1"
 ]
 local = [
-    "-e file:///home/khalil/repos/petal-flight-log/#egg=petal-flight-log",
-    "-e file:///home/khalil/repos/mavlink/pymavlink/#egg=leaf-pymavlink",
+    "petal-flight-log @ file:///${PROJECT_ROOT}/../petal-flight-log",
+    "leaf-pymavlink @ file:///${PROJECT_ROOT}/../mavlink/pymavlink",
 ]
