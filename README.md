@@ -32,10 +32,21 @@ For development, it's recommended to use an editable installation where you defi
 
 ```toml
 local = [
-    "-e file:///path/to/your/my-petal/#egg=my-petal",
-    "-e file:///path/to/pymavlink/#egg=leaf-pymavlink",
+    "-e file:///path/to/your/my-petal/#egg=my-petal"
 ]
 ```
+
+> [!NOTE]
+> If you would like to develop mavlink or add user-defined mavlink messages, you must clone the mavlink project with submodules:
+> ```bash
+> git clone --recurse-submodules https://github.com/DroneLeaf/mavlink.git
+> ```
+> `pymavlink` will be available at `/path/to/mavlink/pymavlink` under the mavlink directory. You can then add it to [pyroject.toml](pyproject.toml)
+> ```toml
+> local = [
+>     "-e file:///path/to/pymavlink/#egg=leaf-pymavlink",
+> ]
+> ```
 
 ```bash
 # Clone the repository
@@ -45,7 +56,7 @@ cd petal-app-manager
 pdm install -G dev -G local
 ```
 
-#### Dependencies Setup
+### Dependencies Setup
 
 - Ensure python3-dev is installed (see above)
 
@@ -123,13 +134,6 @@ pip install petal-app-manager
 uvicorn petal_app_manager.main:app --reload
 ```
 
-<!-- ### Docker Deployment
-
-```bash
-docker build -t petal-app-manager .
-docker run -p 8000:8000 petal-app-manager
-``` -->
-
 ## Developing Petals
 
 ### Creating a New Petal
@@ -144,22 +148,26 @@ cd my-petal
 # Initialize a PDM project
 pdm init
 # Answer the prompts:
-# - Python interpreter: Select your Python version (3.8+ recommended)
-# - Project name: my-petal
-# - Package name: my-petal
-# - Version: 0.1.0
-# - Description: My custom petal for Petal App Manager
-# - License: MIT (or your preferred license)
-# - Author: Your Name
-# - Email: your.email@example.com
-# - Do you want to build this project for redistribution as a wheel? yes
+
+# Creating a pyproject.toml for PDM...
+# Please enter the Python interpreter to use (any python version >= 3.8 should suffice)
+# Project name (my-petal): 
+# Project version (0.1.0): 
+# Do you want to build this project for distribution(such as wheel)?
+# If yes, it will be installed by default when running `pdm install`. [y/n] (n)# : y (very important)
+# Project description (): 
+# Which build backend to use? (0. pdm-backend)
+# License(SPDX name) (MIT): or any license you want 
+# Author name (Khalil Al Handawi): 
+# Author email (khalil.alhandawi@mail.mcgill.ca): 
+# Python requires('*' to allow any) (>=3.xx): hit Enter
 
 # Create the source directory structure
-mkdir -p src/my-petal
+mkdir -p src/my_petal
 
 # Create the initial files
-touch src/my-petal/__init__.py
-touch src/my-petal/plugin.py
+touch src/my_petal/__init__.py
+touch src/my_petal/plugin.py
 
 # Add petal-app-manager as a dependency
 pdm add petal-app-manager
@@ -175,17 +183,6 @@ my-petal/
         ├── __init__.py
         └── plugin.py
 ```
-
-> [!NOTE]
-> For integrated development mode with `petal-app-manager`, add a reference to your local clone in `pyproject.toml`:
-> ```toml
-> [tool.pdm.dev-dependencies]
-> dev = [
->     "-e file:///path/to/petal-app-manager/#egg=petal-app-manager",
-> ]
-> ```
-> This enables you to make changes to both your petal and the framework simultaneously.
-
 
 2. Define your petal in `plugin.py`
 
@@ -219,6 +216,13 @@ my_petal = "my_petal.plugin:MyPetal"
 pdm install --dev
 ```
 
+5. You may now run the `petal-app-manager` server
+
+```bash
+source .venv/bin/activate # to activate the pdm virtual environment in which everythign is installed
+uvicorn petal_app_manager.main:app --port 9000
+```
+
 ### Testing Your Petal
 
 Once you've created your petal, you'll want to test it with the petal-app-manager:
@@ -229,7 +233,17 @@ Once you've created your petal, you'll want to test it with the petal-app-manage
     cd petal-app-manager
     ```
 
-2. Install your petal in development mode:
+> [!TIP]
+> For integrated development mode with `petal-app-manager`, add a reference to your local clone of `petal-app-manager` in you petal's `pyproject.toml`:
+> ```toml
+> [tool.pdm.dev-dependencies]
+> dev = [
+>     "-e file:///path/to/petal-app-manager/#egg=petal-app-manager",
+> ]
+> ```
+> This enables your petal's intellisense to pick up changes that you make to `petal-app-manager`.
+
+2. Install your petal in development mode in `petal-app-manager`:
     - Add your petal to the [pyproject.toml](pyproject.toml) file
 
     ```toml
@@ -291,7 +305,7 @@ Once you've created your petal, you'll want to test it with the petal-app-manage
 
 ### Example: FlightLogPetal
 
-The FlightLogPetal demonstrates a comprehensive petal implementation:
+The [`FlightLogPetal`](https://github.com/DroneLeaf/petal-flight-log.git) demonstrates a comprehensive petal implementation:
 
 - Downloads and manages flight logs from a PX4 drone
 - Provides HTTP endpoints for retrieving and storing flight records
