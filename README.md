@@ -61,6 +61,21 @@ You may run the server using
 uvicorn petal_app_manager.main:app --port 9000
 ```
 
+> [!TIP]
+> If you would like to run the server with logging to a file enabled:
+> To a default location:
+> ```bash
+> PETAL_LOG_TO_FILE=true uvicorn petal_app_manager.main:app --port 9000
+> ```
+> Specify custom log file path
+> ```bash
+> PETAL_LOG_TO_FILE=true PETAL_LOG_FILE_PATH=./app.log uvicorn petal_app_manager.main:app --port 9000
+> ```
+> Set custom log level
+> ```bash
+> PETAL_LOG_LEVEL=ERROR PETAL_LOG_TO_FILE=true PETAL_LOG_FILE_PATH=./app.log uvicorn petal_app_manager.main:app --port 9000
+> ```
+
 ### Development Installation (recommended for developers)
 
 For development of `petal-app-manager` concurrently with your `petal`, it's recommended to use an editable installation. 
