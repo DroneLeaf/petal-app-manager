@@ -101,7 +101,7 @@ For development of `petal-app-manager` concurrently with your `petal`, it's reco
 > [!NOTE]
 > If you would like to develop mavlink or add user-defined mavlink messages, you must clone the mavlink project with submodules:
 > ```bash
-> git clone --recurse-submodules https://github.com/DroneLeaf/mavlink.git
+> git clone --recurse-submodules https://github.com/DroneLeaf/leaf-mavlink.git mavlink
 > ```
 > `pymavlink` will be available at `/path/to/mavlink/pymavlink` under the mavlink directory. You can then add it to [pyproject.toml](pyproject.toml)
 > ```toml
