@@ -41,6 +41,7 @@ dev = [
     "pytest-asyncio>=1.0.0",
     "anyio>=4.9.0",
     "pytest-cov>=6.2.1",
-    "petal-flight-log @ file:///${PROJECT_ROOT}/../petal-flight-log",
-    "leaf-pymavlink @ file:///${PROJECT_ROOT}/../mavlink/pymavlink",
+    "-e file:///${PROJECT_ROOT}/../petal-flight-log/#egg=petal-flight-log",
+    "-e file:///${PROJECT_ROOT}/../mavlink/pymavlink/#egg=leaf-pymavlink",
+    "-e file:///${PROJECT_ROOT}/../petal-hello-world/#egg=petal-hello-world",
 ]
