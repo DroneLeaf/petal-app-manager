@@ -6,6 +6,10 @@ from .api import health, proxy_info
 from .logger import setup_logging
 from pathlib import Path
 import os
+import dotenv
+
+# Load environment variables from .env file if it exists
+dotenv.load_dotenv(dotenv.find_dotenv())
 
 def build_app(
     log_level="INFO", 
@@ -83,4 +87,8 @@ log_level = os.environ.get("PETAL_LOG_LEVEL", "INFO")
 log_to_file = os.environ.get("PETAL_LOG_TO_FILE", "").lower() in ("true", "1", "yes")
 log_file_path = os.environ.get("PETAL_LOG_FILE_PATH", None)
 
-app = build_app(log_level=log_level, log_to_file=log_to_file, log_file_path=log_file_path)
+app = build_app(
+    log_level=log_level, 
+    log_to_file=log_to_file, 
+    log_file_path=log_file_path
+)
