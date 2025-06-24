@@ -12,9 +12,9 @@ dependencies = [
     "uvicorn[standard]>=0.34.3", 
     "redis>=6.2.0",
     "leaf-pymavlink>=0.1.1",
-    "petal-flight-log @ git+https://github.com/DroneLeaf/petal-flight-log.git@v0.1.0",
+    # "petal-flight-log @ git+https://github.com/DroneLeaf/petal-flight-log.git@v0.1.0",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 readme = "README.md"
 license = {text = "LICENSE.md"}
 
