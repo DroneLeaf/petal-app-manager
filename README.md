@@ -34,7 +34,7 @@ sudo apt-get install python3.11-dev
 
 ```bash
 export CC=gcc
-pdm install -G dev  # or pip install -e .
+pdm install -G prod  # or pip install -e .
 ```
 
 - Redis server must be running
@@ -87,13 +87,16 @@ For development of `petal-app-manager` concurrently with your `petal`, it's reco
 
     ```bash
     git clone https://github.com/DroneLeaf/petal-app-manager.git
+    git clone https://github.com/DroneLeaf/petal-flight-log.git
     cd petal-app-manager
     ```
 
 2. Define your local dependancies (i.e., your petal) in [pyproject.toml](pyproject.toml) as
 
     ```toml
-    local = [
+    dev = [
+        # your existing dependancies
+        # ...
         "-e file:///path/to/your/my-petal/#egg=my-petal"
     ]
     ```
@@ -127,7 +130,7 @@ For development of `petal-app-manager` concurrently with your `petal`, it's reco
 3. Finally, you may install your dependancies in editable mode
 
     ```bash
-    pdm install -G dev -G local
+    pdm install -G dev
     ```
 
 4. You may now run the `petal-app-manager` server
