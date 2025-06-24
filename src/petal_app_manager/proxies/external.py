@@ -225,15 +225,29 @@ class MavLinkExternalProxy(ExternalProxy):
     async def start(self):
         """Open the MAVLink connection then launch the worker thread."""
         self.master = mavutil.mavlink_connection(self.endpoint, baud=self.baud)
-        while not self.master.wait_heartbeat(timeout=5):
-            self._log.warning(
-                "No heartbeat from MAVLink endpoint %s at %d baud",
-                self.endpoint, self.baud
-            )
-        self._log.info("Heartbeat from sys %s, comp %s",
-                        self.master.target_system, self.master.target_component)
-
+        self.connected = False
+        
+        # Try to get a heartbeat but don't block indefinitely
+        try:
+            # Attempt to get heartbeat once with timeout
+            if self.master.wait_heartbeat(timeout=5):
+                self.connected = True
+                self._log.info("Heartbeat from sys %s, comp %s",
+                            self.master.target_system, self.master.target_component)
+            else:
+                self._log.warning(
+                    "No heartbeat from MAVLink endpoint %s at %d baud - continuing anyway",
+                    self.endpoint, self.baud
+                )
+        except Exception as e:
+            self._log.error(f"Error establishing MAVLink connection: {str(e)} - continuing anyway")
+        
+        # Start the worker thread regardless of connection status
         await super().start()
+        
+        # Start a background task to attempt reconnection if needed
+        if not self.connected:
+            asyncio.create_task(self._attempt_reconnect())
         
         self._loop = asyncio.get_running_loop()
         self._parser:_BlockingParser = await self._loop.run_in_executor(
@@ -244,6 +258,19 @@ class MavLinkExternalProxy(ExternalProxy):
             self,
             0
         )
+
+    async def _attempt_reconnect(self):
+        """Background task to periodically try to get a heartbeat if not connected"""
+        while not self.connected and self._running.is_set():
+            try:
+                if self.master.wait_heartbeat(timeout=2):
+                    self.connected = True
+                    self._log.info("Heartbeat established from sys %s, comp %s",
+                                self.master.target_system, self.master.target_component)
+                    break
+            except Exception:
+                pass
+            await asyncio.sleep(10)  # Try again every 10 seconds
 
     async def stop(self):
         """Stop the worker and close the link."""

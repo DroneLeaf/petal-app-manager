@@ -64,7 +64,7 @@ def build_app(
 
     # ---------- start proxies ----------
     proxies = {
-        "ext_mavlink": external.MavLinkExternalProxy("udp:127.0.0.1:14551"),
+        "ext_mavlink": external.MavLinkExternalProxy("udp:127.0.0.1:14552"),
         # "cloud"  : cloud.CloudProxy(),
         "redis"  : redis.RedisProxy(),
         "db"     : localdb.LocalDBProxy(),
