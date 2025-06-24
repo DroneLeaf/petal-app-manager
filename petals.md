@@ -16,9 +16,19 @@ Petals are pluggable components that:
 - `@websocket_action(path="/ws/endpoint")`: Define WebSocket endpoints
 - `@mqtt_action(topic="topic/name")`: Define MQTT handlers (planned)
 
-### Example: FlightLogPetal
+### Example: petal-hello-world
 
-The [`FlightLogPetal`](https://github.com/DroneLeaf/petal-flight-log.git) demonstrates a comprehensive petal implementation:
+The [`petal-hello-world`](https://github.com/DroneLeaf/petal-hello-world.git) demonstrates a basic skeleton that you can clone and modify to quickly get started with petal development
+
+> [!WARNING]
+> Remember to change the origin when pushing to GitHub
+> ```bash
+> git remote set-url origin https://github.com/DroneLeaf/your-petal-name.git
+> ```
+
+### Example: petal-flight-log
+
+The [`petal-flight-log`](https://github.com/DroneLeaf/petal-flight-log.git) demonstrates a comprehensive petal implementation:
 
 - Downloads and manages flight logs from a PX4 drone
 - Provides HTTP endpoints for retrieving and storing flight records
@@ -39,8 +49,8 @@ Key endpoints include:
 
     ```bash
     # Create a new directory for your petal
-    mkdir my-petal
-    cd my-petal
+    mkdir petal-hello-world
+    cd petal-hello-world
 
     # Initialize a PDM project
     pdm init
@@ -48,7 +58,7 @@ Key endpoints include:
 
     # Creating a pyproject.toml for PDM...
     # Please enter the Python interpreter to use (any python version >= 3.8 should suffice)
-    # Project name (my-petal): 
+    # Project name (petal-hello-world): 
     # Project version (0.1.0): 
     # Do you want to build this project for distribution(such as wheel)?
     # If yes, it will be installed by default when running `pdm install`. [y/n] (n)# : y (very important)
@@ -59,12 +69,15 @@ Key endpoints include:
     # Author email (khalil.alhandawi@mail.mcgill.ca): 
     # Python requires('*' to allow any) (>=3.xx): hit Enter
 
-    # Create the source directory structure
-    mkdir -p src/my_petal
-
     # Create the initial files
-    touch src/my_petal/__init__.py
-    touch src/my_petal/plugin.py
+    touch src/petal_hello_world/__init__.py
+    cat > src/petal-hello-world/__init__.py <<'PY'
+    import logging
+
+    logger = logging.getLogger(__name__)
+    PY
+
+    touch src/petal_hello_world/plugin.py
 
     # Add petal-app-manager as a dependency
     pdm add petal-app-manager
@@ -76,7 +89,7 @@ Key endpoints include:
     my-petal/
     ├── pyproject.toml
     └── src/
-        └── my_petal/
+        └── petal_hello_world/
             ├── __init__.py
             └── plugin.py
     ```
@@ -84,27 +97,78 @@ Key endpoints include:
 2. Define your petal in `plugin.py`
 
     ```python
+    from . import logger
+
     from petal_app_manager.plugins.base import Petal
     from petal_app_manager.plugins.decorators import http_action, websocket_action
     from petal_app_manager.proxies.redis import RedisProxy
+    from petal_app_manager.proxies.localdb import LocalDBProxy
+    from petal_app_manager.proxies.external import MavLinkExternalProxy
 
-    class MyPetal(Petal):
-        name = "my-petal"
+    from pymavlink import mavutil, mavftp
+    from pymavlink.dialects.v10 import common
+    import asyncio
+
+    import time
+
+    class PetalHelloWorld(Petal):
+        name = "petal-hello-world"
         version = "1.0.0"
         
-        @http_action(method="GET", path="/hello")
+        @http_action(
+            method="GET", 
+            path="/hello", 
+            description="Returns a Hello World message and stores it in Redis"
+        )
         async def hello_world(self):
             # Access proxies through self._proxies
             redis_proxy: RedisProxy = self._proxies["redis"]
-            await redis_proxy.set("hello", "world")
+            localdb_proxy: LocalDBProxy = self._proxies["db"]
+            mavlink_proxy: MavLinkExternalProxy = self._proxies["ext_mavlink"]
+
+            # Create and send a GPS_RAW_INT message
+            logger.info("Sending GPS_RAW_INT message...")
+
+            try:
+                mav = common.MAVLink(None)
+                gps_msg = mav.gps_raw_int_encode(
+                    time_usec=int(time.time() * 1e6),
+                    fix_type=3,  # 3D fix
+                    lat=int(45.5017 * 1e7),  # Montreal latitude
+                    lon=int(-73.5673 * 1e7),  # Montreal longitude
+                    alt=50 * 1000,  # Altitude in mm (50m)
+                    eph=100,  # GPS HDOP
+                    epv=100,  # GPS VDOP
+                    vel=0,  # Ground speed in cm/s
+                    cog=0,  # Course over ground
+                    satellites_visible=10,  # Number of satellites
+                )
+                
+                # Send the message
+                mavlink_proxy.send("mav", gps_msg)
+            except Exception as e:
+                logger.error(f"Failed to send GPS_RAW_INT message: {e}")
+                return {"error": "Failed to send GPS message"}
+            
+            # Wait a bit for the message to be sent
+            await asyncio.sleep(0.5)
+
+            try:
+                await redis_proxy.set("hello", "world")
+            except Exception as e:
+                logger.error(f"Failed to store message in Redis: {e}")
+                return {"error": "Failed to store message in Redis"}
+
+            logger.info("Hello World message sent and stored in Redis.")
             return {"message": "Hello World!"}
+
     ```
 
 3. Register your petal in your petal's `pyproject.toml`
 
     ```toml
     [project.entry-points."petal.plugins"]
-    my_petal = "my_petal.plugin:MyPetal"
+    hello_world = "petal_hello_world.plugin:PetalHelloWorld"
     ```
 
 4. (Optional) For integrated development mode with `petal-app-manager`, add a reference to your local clone of `petal-app-manager` in you petal's `pyproject.toml`:
@@ -114,18 +178,21 @@ Key endpoints include:
     ```bash
     cd .. # if in `my-petal` directory
     git clone https://github.com/DroneLeaf/petal-app-manager.git
+    git clone --recurse-submodules https://github.com/DroneLeaf/leaf-mavlink.git mavlink
     ```
 
-    Next add `petal-app-manager` to your petal's dev dependancies
+    Next add `petal-app-manager` and `leaf-pymavlink` to your petal's dev dependancies
 
     ```toml
-    [tool.pdm.dev-dependencies]
+    [dependency-groups]
     dev = [
-        "-e file:///path/to/petal-app-manager/#egg=petal-app-manager",
+        "pytest-cov>=6.2.1",
+        "-e file:///${PROJECT_ROOT}/../mavlink/pymavlink/#egg=leaf-pymavlink",
+        "-e file:///${PROJECT_ROOT}/../petal-app-manager/#egg=petal-app-manager",
     ]
     ```
 
-    This enables your petal's intellisense to pick up changes that you make to `petal-app-manager`
+    This enables your petal's intellisense to pick up changes that you make to `petal-app-manager` and/or `leaf-pymavlink`
 
 > [!TIP]
 > You may use relative paths for your `petal-app-manager`
@@ -138,5 +205,5 @@ Key endpoints include:
 5. Install your petal in development mode
 
     ```bash
-    pdm install --dev
+    pdm install -G dev
     ```

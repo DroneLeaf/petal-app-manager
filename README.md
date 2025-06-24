@@ -13,9 +13,10 @@ Petal App Manager serves as a backbone for developing modular applications. It:
 
 ## Dependencies
 
-- Python 3.8+
+- Python 3.10+
 - `python3-dev` package (for building some dependencies)
 - Redis server (for caching and message passing)
+- Controller-dashboard setup
 - Additional dependencies based on specific petals
 
 ## Installation
@@ -91,7 +92,7 @@ For development of `petal-app-manager` concurrently with your `petal`, it's reco
     cd petal-app-manager
     ```
 
-2. Define your local dependancies (i.e., your petal) in [pyproject.toml](pyproject.toml) as
+2. Define your dev dependancies (i.e., your petal) in [pyproject.toml](pyproject.toml) as
 
     ```toml
     dev = [
@@ -108,7 +109,7 @@ For development of `petal-app-manager` concurrently with your `petal`, it's reco
 > ```
 > `pymavlink` will be available at `/path/to/mavlink/pymavlink` under the mavlink directory. You can then add it to [pyproject.toml](pyproject.toml)
 > ```toml
-> local = [
+> dev = [
 >     "-e file:///path/to/pymavlink/#egg=leaf-pymavlink",
 > ]
 > ```
@@ -121,7 +122,7 @@ For development of `petal-app-manager` concurrently with your `petal`, it's reco
 > ```
 > and then add them to your dependancies under [pyproject.toml](pyproject.toml)
 > ```toml
-> local = [
+> dev = [
 >     "-e file:///${PROJECT_ROOT}/../mavlink/pymavlink/#egg=leaf-pymavlink",
 >     "-e file:///${PROJECT_ROOT}/../my-petal/#egg=my-petal",
 > ]
