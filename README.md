@@ -13,40 +13,47 @@ Petal App Manager serves as a backbone for developing modular applications. It:
 
 ## Dependencies
 
-- Python 3.10+
-- `python3-dev` package (for building some dependencies)
+- Python 3.10+ and `python3-dev` package (for building some dependencies)
+
+    ```bash
+    sudo add-apt-repository ppa:deadsnakes/ppa --yes
+    sudo apt update; apt-get update;
+    sudo apt-get install python3.11 -y
+    sudo apt-get install python3.11-dev
+    ```
+
+> [!NOTE]
+> You can change `python3.11` to whatever version you like `>=3.10`
+
 - Redis server (for caching and message passing)
+
+    ```bash
+    # Install Redis on Ubuntu/Debian
+    sudo apt-get install redis-server
+
+    # Start Redis service
+    sudo systemctl start redis-server
+    sudo systemctl enable redis-server  # Auto-start on boot
+    ```
+
 - Controller-dashboard setup
+
+    The controller dashboard can be installed using
+    ```bash
+    hear-cli local_machine run_program --p controller_dashboard_prepare
+    ```
+
 - Additional dependencies based on specific petals
 
 ## Installation
 
 ### Dependencies Setup
 
-- Ensure python3-dev is installed (see above)
-
-```bash
-sudo apt-get install python3-dev
-# or for specific Python versions
-sudo apt-get install python3.11-dev
-```
-
 - For building pymavlink from source, ensure GCC is used (see above)
 
 ```bash
 export CC=gcc
-pdm install -G prod  # or pip install -e .
-```
-
-- Redis server must be running
-
-```bash
-# Install Redis on Ubuntu/Debian
-sudo apt-get install redis-server
-
-# Start Redis service
-sudo systemctl start redis-server
-sudo systemctl enable redis-server  # Auto-start on boot
+pdm install -G prod
 ```
 
 ### Installation From PyPI (recommended for users)
@@ -89,6 +96,7 @@ For development of `petal-app-manager` concurrently with your `petal`, it's reco
     ```bash
     git clone https://github.com/DroneLeaf/petal-app-manager.git
     git clone https://github.com/DroneLeaf/petal-flight-log.git
+    git clone --recurse-submodules https://github.com/DroneLeaf/mavlink.git
     cd petal-app-manager
     ```
 
@@ -97,16 +105,15 @@ For development of `petal-app-manager` concurrently with your `petal`, it's reco
     ```toml
     dev = [
         # your existing dependancies
+        "-e file:///${PROJECT_ROOT}/../petal-flight-log/#egg=petal-flight-log",
+        "-e file:///${PROJECT_ROOT}/../mavlink/pymavlink/#egg=leaf-pymavlink",
         # ...
         "-e file:///path/to/your/my-petal/#egg=my-petal"
     ]
     ```
 
 > [!NOTE]
-> If you would like to develop mavlink or add user-defined mavlink messages, you must clone the mavlink project with submodules:
-> ```bash
-> git clone --recurse-submodules https://github.com/DroneLeaf/leaf-mavlink.git mavlink
-> ```
+> If you would like to develop mavlink or add user-defined mavlink messages, you may do so under your local clone of `mavlink` [https://github.com/DroneLeaf/mavlink.git](https://github.com/DroneLeaf/mavlink.git)
 > `pymavlink` will be available at `/path/to/mavlink/pymavlink` under the mavlink directory. You can then add it to [pyproject.toml](pyproject.toml)
 > ```toml
 > dev = [
@@ -123,6 +130,7 @@ For development of `petal-app-manager` concurrently with your `petal`, it's reco
 > and then add them to your dependancies under [pyproject.toml](pyproject.toml)
 > ```toml
 > dev = [
+>     # existing petals
 >     "-e file:///${PROJECT_ROOT}/../mavlink/pymavlink/#egg=leaf-pymavlink",
 >     "-e file:///${PROJECT_ROOT}/../my-petal/#egg=my-petal",
 > ]

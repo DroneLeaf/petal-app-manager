@@ -207,3 +207,7 @@ Key endpoints include:
     ```bash
     pdm install -G dev
     ```
+
+6. Debugging your petal
+
+    You may use the provided debug launch configuration in [.vscode/launch.json](.vscode/launch.json) to debug your petal. It will launch the `petal-app-manager` and will stop at breakpoints you set within your `plugin.py` file
