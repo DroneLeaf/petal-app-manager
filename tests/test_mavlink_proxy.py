@@ -149,10 +149,10 @@ class MockBlockingParser:
         self.proxy = mavlink_proxy
         self.ftp = MockFTP(master, master.target_system, master.target_component)
         
-    def list_ulogs(self, entries=None):
+    def list_ulogs(self, entries=None, base = "fs/microsd/log"):
         return [
-            {"index": 0, "remote_path": "fs/microsd/log/2023-01-01/log1.ulg", "size_bytes": 1024, "utc": 1612345678},
-            {"index": 1, "remote_path": "fs/microsd/log/2023-01-01/log2.ulg", "size_bytes": 2048, "utc": 1612345679}
+            {"index": 0, "remote_path": f"{base}/2023-01-01/log1.ulg", "size_bytes": 1024, "utc": 1612345678},
+            {"index": 1, "remote_path": f"{base}/2023-01-01/log2.ulg", "size_bytes": 2048, "utc": 1612345679}
         ]
         
     def download_ulog(self, remote_path, local_path, on_progress=None, cancel_event=None):
@@ -385,7 +385,7 @@ async def test_download_logs_hardware_integration(hardware_cleanup):
         pytest.skip("Hardware connection not available")
 
     try:
-        ulogs = await proxy.list_ulogs()
+        ulogs = await proxy.list_ulogs("/fs/microsd/log")
         if not ulogs or len(ulogs) == 0:
             pytest.skip("No ULogs found on vehicle")
 

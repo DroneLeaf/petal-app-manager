@@ -1,6 +1,6 @@
 [project]
 name = "petal-app-manager"
-version = "0.1.2"
+version = "0.1.3"
 description = "A FastAPI interface for loading, managing and running Droneleaf Petal applications"
 authors = [
     {name = "Khalil Al Handawi", email = "khalil.alhandawi@mail.mcgill.ca"},
@@ -34,7 +34,7 @@ cicd = [
 ]
 prod = [
     "leaf-pymavlink>=0.1.1",
-    "petal-flight-log @ git+https://github.com/DroneLeaf/petal-flight-log.git@v0.1.0",
+    "petal-flight-log @ git+https://github.com/DroneLeaf/petal-flight-log.git@v0.1.1",
 ]
 dev = [
     "pytest>=8.4.0",

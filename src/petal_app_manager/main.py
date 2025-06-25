@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware  # Add this import
 from .proxies import cloud, localdb, redis, external
 from .plugins.loader import load_petals
 from .api import health, proxy_info
@@ -61,6 +62,15 @@ def build_app(
 
 
     app = FastAPI(title="PetalAppManager")
+
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:4200"],  # Your Angular app's origin
+        allow_credentials=True,
+        allow_methods=["*"],  # Allow all methods
+        allow_headers=["*"],  # Allow all headers
+    )
 
     # ---------- start proxies ----------
     proxies = {

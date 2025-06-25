@@ -434,7 +434,7 @@ class MavLinkExternalProxy(ExternalProxy):
         return entries
     
     # ------------------- exposing blocking parser methods --------- #
-    async def list_ulogs(self) -> List[ULogInfo]:
+    async def list_ulogs(self, base: str = "fs/microsd/log") -> List[ULogInfo]:
         """Return metadata for every *.ulg file on the vehicle."""
         msg_id = str(mavutil.mavlink.MAVLINK_MSG_ID_LOG_ENTRY)
         msg = self.build_req_msg_log_request(message_id=msg_id)
@@ -449,7 +449,7 @@ class MavLinkExternalProxy(ExternalProxy):
             self._log.warning("No log entries found or invalid format.")
             return []
 
-        raw = await self._loop.run_in_executor(self._exe, self._parser.list_ulogs, entries)
+        raw = await self._loop.run_in_executor(self._exe, self._parser.list_ulogs, entries, base)
         return [ULogInfo(**item) for item in raw]
 
     async def download_ulog(
