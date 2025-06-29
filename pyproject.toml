@@ -44,4 +44,5 @@ dev = [
     "-e file:///${PROJECT_ROOT}/../petal-flight-log/#egg=petal-flight-log",
     "-e file:///${PROJECT_ROOT}/../mavlink/pymavlink/#egg=leaf-pymavlink",
     "-e file:///${PROJECT_ROOT}/../petal-hello-world/#egg=petal-hello-world",
+    "-e file:///${PROJECT_ROOT}/../LeafSDK/#egg=LeafSDK",
 ]

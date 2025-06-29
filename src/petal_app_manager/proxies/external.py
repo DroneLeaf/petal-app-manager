@@ -221,6 +221,21 @@ class MavLinkExternalProxy(ExternalProxy):
         self._loop: asyncio.AbstractEventLoop | None = None
         self._exe = ThreadPoolExecutor(max_workers=1)
         
+
+    @property
+    def target_system(self) -> int:
+        """Return the target system ID of the MAVLink connection."""
+        if self.master:
+            return self.master.target_system
+        return 0
+    
+    @property
+    def target_component(self) -> int:
+        """Return the target component ID of the MAVLink connection."""
+        if self.master:
+            return self.master.target_component
+        return 0
+
     # ------------------------ life-cycle --------------------- #
     async def start(self):
         """Open the MAVLink connection then launch the worker thread."""

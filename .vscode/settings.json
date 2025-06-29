@@ -1,5 +1,6 @@
 {
     "peacock.remoteColor": "#f693ea",
+    "peacock.surpriseMeOnStartup": false,
     "python.testing.pytestArgs": [
         "tests"
     ],
