@@ -10,6 +10,9 @@ class Petal(ABC):
     name: str
     version: str
 
+    def __init__(self) -> None:
+        self._proxies: Mapping[str, BaseProxy] = {}
+
     def inject_proxies(self, proxies: Mapping[str, BaseProxy]) -> None:
         for name, proxy in proxies.items():
             if not isinstance(proxy, BaseProxy):          # no tuple needed
