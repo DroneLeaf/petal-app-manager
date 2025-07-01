@@ -4,6 +4,10 @@ from typing import Mapping
 from fastapi.templating import Jinja2Templates
 from petal_app_manager.proxies.base import BaseProxy
 
+import logging
+
+logger = logging.getLogger("PluginsLoader")
+
 class Petal(ABC):
     """
     Petal authors only inherit this; NO FastAPI import, no routers.
@@ -19,6 +23,14 @@ class Petal(ABC):
         """
         Called when the petal is started.
         """
+        logger.info(f"Starting petal {self.name} ({self.version})")
+        pass
+
+    def shutdown(self) -> None:
+        """
+        Called when the petal is stopped.
+        """
+        logger.info(f"Shutting down petal {self.name} ({self.version})")
         pass
 
     def inject_proxies(self, proxies: Mapping[str, BaseProxy]) -> None:

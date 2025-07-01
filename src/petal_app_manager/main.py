@@ -9,6 +9,8 @@ from pathlib import Path
 import os
 import dotenv
 
+from contextlib import asynccontextmanager
+
 # Load environment variables from .env file if it exists
 dotenv.load_dotenv(dotenv.find_dotenv())
 
@@ -88,7 +90,11 @@ def build_app(
     app.include_router(proxy_info.router, prefix="/debug")
 
     # ---------- dynamic plugins ----------
-    load_petals(app, proxies)
+    petals = load_petals(app, proxies)
+
+    for petal in petals:
+        # Register the petal's shutdown methods
+        app.add_event_handler("shutdown", petal.shutdown)
 
     return app
 

@@ -12,14 +12,13 @@ from ..plugins.base import Petal
 
 logger = logging.getLogger("PluginsLoader")
 
-def load_petals(app: FastAPI, proxies: List[BaseProxy]):
+def load_petals(app: FastAPI, proxies: List[BaseProxy]) -> List[Petal]:
+    petal_list = []
     for ep in md.entry_points(group="petal.plugins"):
         petal_cls    = ep.load()
         petal: Petal = petal_cls()
         petal.inject_proxies(proxies)
         petal.startup()
-
-        prefix = f"/petals/{petal.name}"
 
         # Mount static files for this plugin
         if getattr(petal, "static_dir", False):
@@ -85,3 +84,10 @@ def load_petals(app: FastAPI, proxies: List[BaseProxy]):
                 
         app.include_router(router)
         logger.info("Mounted petal '%s' (%s)", petal.name, petal.version)
+
+        petal_list.append(petal)
+
+    logger.info("Loaded %d petals", len(petal_list))
+    if not petal_list:
+        logger.warning("No petals loaded; ensure plugins are installed and configured correctly")
+    return petal_list
