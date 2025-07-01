@@ -1,6 +1,7 @@
 from abc import ABC
 from typing import Mapping
 
+from fastapi.templating import Jinja2Templates
 from petal_app_manager.proxies.base import BaseProxy
 
 class Petal(ABC):
@@ -25,3 +26,9 @@ class Petal(ABC):
             if not isinstance(proxy, BaseProxy):          # no tuple needed
                 raise TypeError(f"Invalid proxy for {name}: {type(proxy).__name__}")
         self._proxies = proxies
+
+    def inject_templates(self, templates: Mapping[str, Jinja2Templates]) -> None:
+        """
+        Inject Jinja2 templates into the petal.
+        """
+        self.templates = templates

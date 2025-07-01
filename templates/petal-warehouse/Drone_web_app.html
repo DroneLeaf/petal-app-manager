@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="droneWarehouseApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Warehouse Management System</title>
+    <link rel="icon" type="image/png" href="https://droneleaf.io/srv/htdocs/wp-content/uploads/2021/12/favicon16.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.3/angular.min.js"></script>
+    <style>
+    </style>
+
+    <link rel="stylesheet" href="{{ url_for('petal-warehouse_static', path='css/main.css') }}">
+
+</head>
+{% raw %}
+<body ng-controller="DroneController as drone">
+    <div class="container">
+        <div class="header">
+            <h2>
+                <img src="https://droneleaf.io/wp-content/uploads/2021/12/mainlg.png" alt="DroneLeaf Logo" style="height: 2.2em; vertical-align: middle; margin-right: 10px;">    
+                Warehouse Manager
+           
+            </h2>
+            <!-- DroneLeaf Unlimited Autonomy Logo and Tagline -->
+            <!-- <div style="margin: 16px 0;">
+                <img src="https://droneleaf.io/wp-content/uploads/2021/12/retina.png" alt="DroneLeaf Unlimited Autonomy" style="height: 48px; vertical-align: middle;">
+                <span style="font-size: 1.2em; font-weight: 600; color: #2e7d32; margin-left: 12px; vertical-align: middle;">
+
+                </span>
+            </div> -->
+
+            <!-- <div class="status-indicator" ng-class="drone.systemStatus">
+                <div class="status-dot" ng-class="drone.systemStatus"></div>
+                {{drone.getStatusText()}}
+             <img src="https://droneleaf.io/wp-content/uploads/2021/12/drone-1.png" alt="DroneLeaf heli Logo" style="height: 2.2em; vertical-align: middle; margin-right: 10px;">
+            </div> -->
+        </div>
+
+        <!-- <div class="server-config">
+            <h4>🌐 Server Configuration</h4>
+            <input type="text" class="server-input" ng-model="drone.serverUrl" placeholder="FastAPI Server URL (e.g., http://192.168.1.100:8000)">
+            <small style="color: #666;">Update this URL to connect to the FastAPI server on another machine</small>
+        </div> -->
+
+
+
+        <!-- Big square Voice Command button centered -->
+        <div class="voice-mic-btn-container">
+            <button
+                class="voice-mic-btn"
+                ng-class="{'recording': drone.isBrowserRecording}"
+                ng-disabled="drone.isProcessing || drone.isRecording"
+                ng-click="drone.toggleBrowserRecording()"
+                aria-label="Voice Command">
+                <span class="mic-outer"></span>
+                <span class="mic-pulse"></span>
+                <span class="mic-icon-green"></span>
+                <span class="mic-shadow-green"></span>
+            </button>
+        </div>
+
+        <!-- Status updates below the button -->
+        <div class="voice-status"
+            ng-class="{'show': drone.voiceStatus.show || drone.isProcessing, 'listening': drone.voiceStatus.type === 'listening', 'processing': drone.voiceStatus.type === 'processing'}"
+            style="margin-top:18px; min-height:2em;">
+            <!-- Show spinning logo only for "Analyzing Speech..." -->
+            <span ng-if="drone.voiceStatus.message === 'Analyzing Speech...'">
+{% endraw %}
+                <img src="{{ url_for('petal-warehouse_static', path='assets/logo.jpeg') }}" alt="Logo" class="spinning-logo" style="height:1.2em;vertical-align:middle;margin-right:6px;">
+                {% raw %}Analyzing Speech...
+            </span>
+            <!-- Show thinking animation for "Thinking..." status -->
+            <span ng-if="drone.voiceStatus.message === 'Thinking...'">
+                <span class="drone-bounce-loader" style="display:inline-flex;vertical-align:middle;">
+                    <img src="https://droneleaf.io/wp-content/uploads/2021/12/drone-1.png" alt="Drone" class="drone-bounce-img">
+                    <div class="bounce-dots">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </div>
+                </span>
+                <span style="margin-left:8px;">Thinking...</span>
+            </span>
+            <!-- Show message if not handled above -->
+            <span ng-if="drone.voiceStatus.message !== 'Thinking...' && drone.voiceStatus.message !== 'Analyzing Speech...'">
+                {{drone.voiceStatus.message}}
+            </span>
+        </div>
+
+        <!-- Collapsible System Response Window -->
+        <div class="collapsible-section">
+            <div class="collapsible-header" ng-click="drone.responseCollapsed = !drone.responseCollapsed">
+                <span class="toggle-icon">{{drone.responseCollapsed ? '+' : '-'}}</span>
+                <span class="collapsible-title">System Response</span>
+            </div>
+
+            <div class="collapsible-content" ng-show="!drone.responseCollapsed">
+                <div class="response-content">
+                    <div class="mission-details" ng-if="drone.lastResponse && drone.lastResponse.status === 'ok'">
+                        <div class="mission-success-icon">✅</div>
+                        <div class="mission-main">
+                            <div class="mission-row">
+                                <span class="mission-label">Transcribed:</span>
+                                <span class="mission-value">{{drone.lastResponse.transcribed_text}}</span>
+                            </div>
+                            <div class="mission-row">
+                                <span class="mission-label">Output:</span>
+                                <span class="mission-value">{{drone.lastResponse.response}}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div ng-if="drone.lastResponse && drone.lastResponse.status === 'error'">
+                        <strong>❌ Error:</strong> {{drone.lastResponse.message}}
+                        <div ng-if="drone.lastResponse.transcribed_text">
+                            <strong>Transcribed Text:</strong> {{drone.lastResponse.transcribed_text}}
+                        </div>
+                    </div>
+                    <div ng-if="!drone.lastResponse">
+                        Waiting for commands...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collapsible Transcription Window -->
+        <div class="collapsible-section">
+            <div class="collapsible-header" ng-click="drone.transcriptionCollapsed = !drone.transcriptionCollapsed">
+                <span class="toggle-icon">{{drone.transcriptionCollapsed ? '+' : '-'}}</span>
+                <span class="collapsible-title">Interpreted Command</span>
+                
+            </div>
+            <div class="collapsible-content" ng-show="!drone.transcriptionCollapsed">
+                <div class="transcription-content">
+                    {{drone.transcriptionWindowText}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Collapsible Command History -->
+        <div class="collapsible-section" ng-if="drone.commandHistory.length > 0">
+            <div class="collapsible-header" ng-click="drone.historyCollapsed = !drone.historyCollapsed">
+                <span class="toggle-icon">{{drone.historyCollapsed ? '+' : '-'}}</span>
+                <span class="collapsible-title">Commands History</span>
+            </div>
+            <div class="collapsible-content" ng-show="!drone.historyCollapsed">
+                <div class="history-item" ng-repeat="item in drone.commandHistory | orderBy:'-timestamp'">
+                    <span class="history-command">{{item.command}}</span>
+                    <span class="history-timestamp">{{item.timestamp | date:'short'}}</span>
+                </div>
+            </div>
+        </div>
+
+
+
+
+        <!-- Collapsible Example Commands -->
+        <div class="collapsible-section">
+            <div class="collapsible-header" ng-click="drone.examplesExpanded = !drone.examplesExpanded">
+                <span class="toggle-icon">{{drone.examplesExpanded ? '-' : '+'}}</span>
+                <span class="collapsible-title">Example Commands</span>
+            </div>
+            <div class="collapsible-content" ng-show="drone.examplesExpanded">
+                <div class="command-cards-row">
+                    <div class="command-card" ng-repeat="cmd in drone.exampleCommands">
+                        {{cmd}}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collapsible Text Command Window -->
+        <div class="collapsible-section">
+            <div class="collapsible-header" ng-click="drone.textCmdCollapsed = !drone.textCmdCollapsed">
+                <span class="toggle-icon">{{drone.textCmdCollapsed ? '+' : '-'}}</span>
+                <span class="collapsible-title">Command by Text Input</span>
+            </div>
+            <div class="collapsible-content" ng-show="!drone.textCmdCollapsed">
+                <textarea id="floatingCmdInput"
+                    ng-model="drone.floatingCmdText"
+                    ng-keydown="drone.handleFloatingCmdKey($event)"
+                    placeholder="Type your warehouse command and press Enter..."></textarea>
+                <small style="color:#888;">Press Enter to send</small>
+            </div>
+        </div>
+
+
+        
+    </div>
+
+    <div class="floating-status-indicator {{drone.systemStatus}}">
+        <span class="floating-status-dot {{drone.systemStatus}}"></span>
+        {{drone.getStatusText()}}
+    </div>
+
+        <!-- Add just before </body> -->
+    {% endraw %}
+    <script src="{{ url_for('petal-warehouse_static', path='js/warehouse.js') }}"></script>
+
+        <!-- Add this just before </body> -->
+    <footer style="
+        width: 100vw;
+        background: #ffffff00;
+        border-top: 1px solid #eee;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 0 6px 0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    ">
+        <div style="color:#888; font-size:1em;">
+            © 2025 DroneLeaf AI Solutions.
+        </div>
+    </footer>
+
+ 
+</body>
+</html>

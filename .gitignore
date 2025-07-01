@@ -164,3 +164,9 @@ cython_debug/
 # PX4 files
 *.ulg
 *.bag
+
+drone_mission_t.json
+mission_logs.json
+restrictions_db.json
+warehouse_db.json
+/tts_output

@@ -21,6 +21,13 @@
       },
       "console": "integratedTerminal",
       "justMyCode": false
+    },
+    {
+        "name": "Angular: Chrome",
+        "type": "pwa-chrome",
+        "request": "launch",
+        "url": "http://localhost:9000/petals/petal-warehouse/ui",
+        "webRoot": "${workspaceFolder}"
     }
   ]
 }
