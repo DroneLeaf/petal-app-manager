@@ -13,6 +13,13 @@ class Petal(ABC):
     def __init__(self) -> None:
         self._proxies: Mapping[str, BaseProxy] = {}
 
+    # define a startup method that can be overridden
+    def startup(self) -> None:
+        """
+        Called when the petal is started.
+        """
+        pass
+
     def inject_proxies(self, proxies: Mapping[str, BaseProxy]) -> None:
         for name, proxy in proxies.items():
             if not isinstance(proxy, BaseProxy):          # no tuple needed

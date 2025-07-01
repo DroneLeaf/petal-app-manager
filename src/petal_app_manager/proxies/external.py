@@ -239,7 +239,7 @@ class MavLinkExternalProxy(ExternalProxy):
     # ------------------------ life-cycle --------------------- #
     async def start(self):
         """Open the MAVLink connection then launch the worker thread."""
-        self.master = mavutil.mavlink_connection(self.endpoint, baud=self.baud)
+        self.master = mavutil.mavlink_connection(self.endpoint, baud=self.baud, dialect="all")
         self.connected = False
         
         # Try to get a heartbeat but don't block indefinitely

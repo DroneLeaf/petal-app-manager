@@ -13,7 +13,8 @@ def load_petals(app: FastAPI, proxies: List[BaseProxy]):
         petal_cls    = ep.load()
         petal: Petal = petal_cls()
         petal.inject_proxies(proxies)
-        
+        petal.startup()
+
         router = APIRouter(
             prefix=f"/petals/{petal.name}",
             tags=[petal.name]
