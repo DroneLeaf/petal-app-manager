@@ -18,12 +18,12 @@ Petal App Manager serves as a backbone for developing modular applications. It:
     ```bash
     sudo add-apt-repository ppa:deadsnakes/ppa --yes
     sudo apt update; apt-get update;
-    sudo apt-get install python3.11 -y
-    sudo apt-get install python3.11-dev
+    sudo apt-get install python3.10 -y
+    sudo apt-get install python3.10-dev
     ```
 
 > [!NOTE]
-> You can change `python3.11` to whatever version you like `>=3.10`
+> You can change `python3.10` to whatever version you like `>=3.10`
 
 - Redis server (for caching and message passing)
 
@@ -71,17 +71,16 @@ uvicorn petal_app_manager.main:app --port 9000
 
 > [!TIP]
 > If you would like to run the server with logging to a file enabled:
-> To a default location:
-> ```bash
-> PETAL_LOG_TO_FILE=true uvicorn petal_app_manager.main:app --port 9000
-> ```
-> Specify custom log file path
-> ```bash
-> PETAL_LOG_TO_FILE=true PETAL_LOG_FILE_PATH=./app.log uvicorn petal_app_manager.main:app --port 9000
-> ```
-> Set custom log level
-> ```bash
-> PETAL_LOG_LEVEL=ERROR PETAL_LOG_TO_FILE=true PETAL_LOG_FILE_PATH=./app.log uvicorn petal_app_manager.main:app --port 9000
+> create a `.env` file and place it in the project root directory
+> Below is a list of some other useful parameters
+> ```ini
+> PETAL_LOG_LEVEL=INFO
+> PETAL_LOG_TO_FILE=true
+> PETAL_LOG_FILE_PATH=./app.log
+> MAVLINK_ENDPOINT=udp:127.0.0.1:14551
+> MAVLINK_BAUD=115200
+> MAVLINK_MAXLEN=200
+> MAVLINK_POLLING_FREQUENCY=200.0
 > ```
 
 ### Development Installation (recommended for developers)
