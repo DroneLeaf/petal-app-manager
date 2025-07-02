@@ -105,7 +105,7 @@ class LocalDBProxy(BaseProxy):
         try:
             # Determine architecture
             arch = platform.machine().lower()
-            is_arm = "arm" in arch
+            is_arm = "aarch64" in arch
             
             # Build path to executable
             utils_dir = Path(__file__).parent.parent / "utils"
