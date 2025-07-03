@@ -64,12 +64,11 @@ def build_app(
 
 
     app = FastAPI(title="PetalAppManager")
-
-    # Add CORS middleware
+    # Add CORS middleware to allow all origins
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:4200"],  # Your Angular app's origin
-        allow_credentials=True,
+        allow_origins=["*"],  # Allow all origins
+        allow_credentials=False,  # Cannot use credentials with wildcard origin
         allow_methods=["*"],  # Allow all methods
         allow_headers=["*"],  # Allow all headers
     )
