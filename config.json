@@ -1,0 +1,7 @@
+{
+    "allowed_origins": [
+        "http://localhost:9000",
+        "http://localhost:4200",
+        "http://localhost:80"
+    ]
+}

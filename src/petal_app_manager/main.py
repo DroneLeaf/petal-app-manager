@@ -9,6 +9,8 @@ from pathlib import Path
 import os
 import dotenv
 
+import json
+
 from contextlib import asynccontextmanager
 
 # Load environment variables from .env file if it exists
@@ -61,15 +63,18 @@ def build_app(
     
     logger = setup_logging(log_level=log_level, log_file=log_file)
     logger.info("Starting Petal App Manager")
+    
+    with open (os.path.join(Path(__file__).parent.parent.parent, "config.json"), "r") as f:
+        config = json.load(f)
 
+    allowed_origins = config.get("allowed_origins", ["*"])  # Default to allow all origins if not specified
 
     app = FastAPI(title="PetalAppManager")
-
-    # Add CORS middleware
+    # Add CORS middleware to allow all origins
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:4200"],  # Your Angular app's origin
-        allow_credentials=True,
+        allow_origins=allowed_origins,  # Allow origins from the JSON file
+        allow_credentials=False,  # Cannot use credentials with wildcard origin
         allow_methods=["*"],  # Allow all methods
         allow_headers=["*"],  # Allow all headers
     )
