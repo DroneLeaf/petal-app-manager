@@ -83,8 +83,7 @@ def build_app(
     proxies = {
         "ext_mavlink": external.MavLinkExternalProxy(endpoint=os.environ.get("MAVLINK_ENDPOINT", "udp:127.0.0.1:14551"),
                                                      baud=int(os.environ.get("MAVLINK_BAUD", 115200)),
-                                                     maxlen=int(os.environ.get("MAVLINK_MAXLEN", 200)),
-                                                     polling_frequency=float(os.environ.get("MAVLINK_POLLING_FREQUENCY", 200.0))),
+                                                     maxlen=int(os.environ.get("MAVLINK_MAXLEN", 200))),
         # "cloud"  : cloud.CloudProxy(),
         "redis"  : redis.RedisProxy(),
         "db"     : localdb.LocalDBProxy(),

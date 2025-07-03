@@ -1,6 +1,6 @@
 [project]
 name = "petal-app-manager"
-version = "0.1.6"
+version = "0.1.7"
 description = "A FastAPI interface for loading, managing and running Droneleaf Petal applications"
 authors = [
     {name = "Khalil Al Handawi", email = "khalil.alhandawi@mail.mcgill.ca"},

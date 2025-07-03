@@ -211,13 +211,11 @@ class MavLinkExternalProxy(ExternalProxy):
         self,
         endpoint: str = "udp:127.0.0.1:14551",
         baud: int = 115200,
-        maxlen: int = 200,
-        polling_frequency: float = 200
+        maxlen: int = 200
     ):
         super().__init__(maxlen=maxlen)
         self.endpoint = endpoint
         self.baud = baud
-        self.frequency = polling_frequency
         self.master: mavutil.mavfile | None = None
         self._log = logging.getLogger("MavLinkParser")
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -305,7 +303,6 @@ class MavLinkExternalProxy(ExternalProxy):
             out.append(("mav", msg))
             out.append((str(msg.get_msgId()), msg))
             out.append((msg.get_type(), msg))
-            time.sleep(1 / self.frequency)  # avoid busy-waiting
         return out
 
     def _io_write_once(self, batches):
