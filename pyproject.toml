@@ -35,7 +35,7 @@ cicd = [
 prod = [
     "leaf-pymavlink>=0.1.4",
     "petal-flight-log @ git+https://github.com/DroneLeaf/petal-flight-log.git@v0.1.1",
-    "petal-warehouse @ git+https://github.com/DroneLeaf/petal-warehouse.git@v0.1.0",
+    "petal-warehouse @ git+https://github.com/DroneLeaf/petal-warehouse.git@v0.1.1",
     "petal-leafsdk @ git+https://github.com/DroneLeaf/petal-leafsdk.git@v0.1.1",
 ]
 dev = [
