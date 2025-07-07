@@ -40,7 +40,14 @@ from concurrent.futures import ThreadPoolExecutor
 from .base import BaseProxy
 from pymavlink import mavutil, mavftp
 from pymavlink.mavftp_op import FTP_OP
+import os
 # import rospy   # ← uncomment in ROS-enabled environments
+
+import dotenv
+
+dotenv.load_dotenv()
+
+MAVLINK_WORKER_SLEEP_MS = os.getenv("MAVLINK_WORKER_SLEEP_MS")  # 10 ms default
 
 # --------------------------------------------------------------------------- #
 #  Public dataclasses returned to petals / REST                               #
@@ -185,13 +192,24 @@ class ExternalProxy(BaseProxy):
                 for cb in self._handlers.get(key, []):
                     try:
                         cb(msg)
+                        self._log.debug(
+                            "[ExternalProxy] handler %s called for key '%s': %s",
+                            cb, key, msg
+                        )
                     except Exception as exc:          # never kill the loop
                         self._log.error(
                             "[ExternalProxy] handler %s raised: %s",
                             cb, exc
                         )
 
-            time.sleep(0.01)   # 10 ms - prevents 100 % CPU spin
+            if MAVLINK_WORKER_SLEEP_MS is not None or MAVLINK_WORKER_SLEEP_MS != 'None':
+                # sleep to avoid busy-waiting; can be set to 0.0 for tight loops
+                # or None to disable sleeping (not recommended)
+                if float(MAVLINK_WORKER_SLEEP_MS) > 0:
+                    # sleep for a short time to avoid busy-waiting
+                    # (e.g. 0.01 seconds = 10 ms)
+                    MAVLINK_WORKER_SLEEP_SECONDS = float(MAVLINK_WORKER_SLEEP_MS) / 1000.0
+                    time.sleep(float(MAVLINK_WORKER_SLEEP_SECONDS))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -313,6 +331,7 @@ class MavLinkExternalProxy(ExternalProxy):
             for msg in msgs:
                 try:
                     self.master.mav.send(msg)
+                    self._log.debug("Sent MAVLink message %s: %s", key, msg)
                 except Exception as exc:
                     self._log.error(
                         "Failed to send MAVLink message %s: %s",
