@@ -48,6 +48,7 @@ import dotenv
 dotenv.load_dotenv()
 
 MAVLINK_WORKER_SLEEP_MS = os.getenv("MAVLINK_WORKER_SLEEP_MS")  # 10 ms default
+MAVLINK_HEARTBEAT_SEND_FREQUENCY = os.getenv("MAVLINK_HEARTBEAT_SEND_FREQUENCY", "5.0")  # 5 Hz default
 
 # --------------------------------------------------------------------------- #
 #  Public dataclasses returned to petals / REST                               #
@@ -202,14 +203,21 @@ class ExternalProxy(BaseProxy):
                             cb, exc
                         )
 
-            if MAVLINK_WORKER_SLEEP_MS is not None or MAVLINK_WORKER_SLEEP_MS != 'None':
+            if MAVLINK_WORKER_SLEEP_MS is not None and MAVLINK_WORKER_SLEEP_MS != 'None':
                 # sleep to avoid busy-waiting; can be set to 0.0 for tight loops
-                # or None to disable sleeping (not recommended)
-                if float(MAVLINK_WORKER_SLEEP_MS) > 0:
-                    # sleep for a short time to avoid busy-waiting
-                    # (e.g. 0.01 seconds = 10 ms)
-                    MAVLINK_WORKER_SLEEP_SECONDS = float(MAVLINK_WORKER_SLEEP_MS) / 1000.0
-                    time.sleep(float(MAVLINK_WORKER_SLEEP_SECONDS))
+                # check if MAVLINK_WORKER_SLEEP_MS is a valid float
+                try:
+                    sleep_time = float(MAVLINK_WORKER_SLEEP_MS)
+                    if sleep_time < 0:
+                        self._log.error("MAVLINK_WORKER_SLEEP_MS must be non-negative")
+                        raise ValueError("MAVLINK_WORKER_SLEEP_MS must be non-negative")
+                    
+                except ValueError as exc:
+                    self._log.error(f"Invalid MAVLINK_WORKER_SLEEP_MS: {exc}")
+                    continue  # skip sleep if invalid
+
+                sleep_time /= 1000.0 # convert ms to seconds
+                time.sleep(sleep_time)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -292,6 +300,41 @@ class MavLinkExternalProxy(ExternalProxy):
             0
         )
 
+        # send heartbeat at 5 Hz
+        if MAVLINK_HEARTBEAT_SEND_FREQUENCY is not None:
+            # check that string is a valid float
+            try:
+                frequency = float(MAVLINK_HEARTBEAT_SEND_FREQUENCY)
+                if frequency <= 0:
+                    raise ValueError("Heartbeat frequency must be positive")
+            except ValueError as exc:
+                self._log.error(f"Invalid MAVLINK_HEARTBEAT_SEND_FREQUENCY: {exc}")
+                frequency = 5.0
+            asyncio.create_task(self._send_heartbeat_periodically(frequency=frequency))
+
+    async def _send_heartbeat_periodically(self, frequency: float = 5.0):
+        """Periodically send a MAVLink heartbeat message."""
+        while self._running.is_set():
+            try:
+                await self.send_heartbeat()
+            except RuntimeError as exc:
+                self._log.error(f"Failed to send heartbeat: {exc}")
+            await asyncio.sleep(1.0 / frequency)
+
+    async def send_heartbeat(self):
+        """Send a MAVLink heartbeat message."""
+        if not self.master:
+            raise RuntimeError("MAVLink master not initialized")
+        msg = self.master.mav.heartbeat_encode(
+            mavutil.mavlink.MAV_TYPE_GCS,  # GCS type
+            mavutil.mavlink.MAV_AUTOPILOT_INVALID,  # Autopilot type
+            0,  # Base mode
+            0,  # Custom mode
+            mavutil.mavlink.MAV_STATE_ACTIVE  # System state
+        )
+        self.send("mav", msg)
+        self._log.debug("Sent MAVLink heartbeat")
+
     async def _attempt_reconnect(self):
         """Background task to periodically try to get a heartbeat if not connected"""
         while not self.connected and self._running.is_set():
@@ -310,6 +353,14 @@ class MavLinkExternalProxy(ExternalProxy):
         await super().stop()
         if self.master:
             self.master.close()
+
+        # stop heartbeat task if running
+        if hasattr(self, "_heartbeat_task") and self._heartbeat_task:
+            self._heartbeat_task.cancel()
+            try:
+                await self._heartbeat_task
+            except asyncio.CancelledError:
+                pass
 
     # ------------------- I/O primitives --------------------- #
     def _io_read_once(self) -> List[Tuple[str, Any]]:

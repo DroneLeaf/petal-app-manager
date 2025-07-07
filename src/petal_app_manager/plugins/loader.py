@@ -10,9 +10,7 @@ from ..proxies.base import BaseProxy
 from typing import List
 from ..plugins.base import Petal
 
-logger = logging.getLogger("PluginsLoader")
-
-def load_petals(app: FastAPI, proxies: List[BaseProxy]) -> List[Petal]:
+def load_petals(app: FastAPI, proxies: List[BaseProxy], logger: logging.Logger) -> List[Petal]:
     petal_list = []
     for ep in md.entry_points(group="petal.plugins"):
         petal_cls    = ep.load()

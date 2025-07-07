@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware  # Add this import
 from .proxies import cloud, localdb, redis, external
 from .plugins.loader import load_petals
 from .api import health, proxy_info
+import logging
 
 from .logger import setup_logging
 from pathlib import Path
@@ -19,7 +20,6 @@ dotenv.load_dotenv(dotenv.find_dotenv())
 def build_app(
     log_level="INFO", 
     log_to_file=False, 
-    log_file_path=None
 ) -> FastAPI:
     """
     Builds the FastAPI application with necessary configurations and proxies.
@@ -53,15 +53,20 @@ def build_app(
     """
 
     # Set up logging
-    log_file = None
-    if log_to_file:
-        if log_file_path:
-            log_file = Path(log_file_path)
-        else:
-            # Default log location
-            log_file = Path(os.path.expanduser("~/.petal-app-manager/logs/app.log"))
-    
-    logger = setup_logging(log_level=log_level, log_file=log_file)
+    logger = setup_logging(
+        log_level=log_level,
+        app_prefixes=(
+            # main app + sub-modules
+            "localdbproxy",
+            "mavlinkparser",        # also covers mavlinkparser.blockingparser
+            "redisproxy",
+            "pluginsloader",
+            # external “petal_*” plug-ins and friends
+            "petal_",               # petal_flight_log, petal_hello_world, …
+            "leafsdk",              # leaf-SDK core
+        ),
+        log_to_file=log_to_file,
+    )
     logger.info("Starting Petal App Manager")
     
     with open (os.path.join(Path(__file__).parent.parent.parent, "config.json"), "r") as f:
@@ -97,7 +102,9 @@ def build_app(
     app.include_router(proxy_info.router, prefix="/debug")
 
     # ---------- dynamic plugins ----------
-    petals = load_petals(app, proxies)
+    # Set up the logger for the plugins loader
+    loader_logger = logging.getLogger("pluginsloader")
+    petals = load_petals(app, proxies, logger=loader_logger)
 
     for petal in petals:
         # Register the petal's shutdown methods
@@ -108,10 +115,8 @@ def build_app(
 # Allow configuration through environment variables
 log_level = os.environ.get("PETAL_LOG_LEVEL", "INFO")
 log_to_file = os.environ.get("PETAL_LOG_TO_FILE", "").lower() in ("true", "1", "yes")
-log_file_path = os.environ.get("PETAL_LOG_FILE_PATH", None)
 
 app = build_app(
     log_level=log_level, 
     log_to_file=log_to_file, 
-    log_file_path=log_file_path
 )

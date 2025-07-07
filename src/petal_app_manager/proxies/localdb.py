@@ -292,6 +292,43 @@ class LocalDBProxy(BaseProxy):
             lambda: self._remote_file_request(body, path, 'POST')
         )
     
+    async def set_item(
+        self,
+        table_name: str,
+        filter_key: str,
+        filter_value: str,
+        data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Set or update an item in DynamoDB.
+        
+        Args:
+            table_name: The DynamoDB table name
+            filter_key: Name of the key to filter on (usually 'id')
+            filter_value: Value of the key to update
+            data: The complete item data to update or insert
+            
+        Returns:
+            Response from the set operation
+        """
+        if not self._machine_id:
+            return {"error": "Machine ID not available"}
+        
+        body = {
+            "onBoardId": self._machine_id,
+            "table_name": table_name,
+            "filter_key": filter_key,
+            "filter_value": filter_value,
+            "data": data
+        }
+        
+        path = '/drone/onBoard/config/setData'
+        
+        return await self._loop.run_in_executor(
+            self._exe, 
+            lambda: self._remote_file_request(body, path, 'POST')
+        )
+
     async def delete_item(
         self,
         table_name: str,

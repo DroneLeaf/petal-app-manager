@@ -1,45 +1,109 @@
-import logging
-import sys
 from pathlib import Path
-from typing import Optional
+import logging, sys
 
 def setup_logging(
+    *,
     log_level: str = "INFO",
-    log_file: Optional[Path] = None,
-    log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    base_dir: Path | str = ".",
+    app_prefixes: tuple[str, ...] = (),
+    log_format: str = "%(asctime)s — %(name)s — %(levelname)s — %(message)s",
+    log_to_file: bool = False
 ):
     """
-    Configure unified logging for the application.
-    
-    Args:
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_file: Optional file path to write logs to
-        log_format: Format string for log messages
+    Configure logging so that *only* loggers whose names start with one of
+    `app_prefixes` are allowed through.  Everything else is muted.
+
+    Parameters
+    ----------
+    app_prefixes : tuple[str, ...]
+        Accept-list of logger-name prefixes.  Add more if you need to.
     """
-    # Create root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(getattr(logging, log_level))
+    base_dir = Path(base_dir)
+    base_dir.mkdir(parents=True, exist_ok=True)
+
+    # ------------------------------------------------------------------ 1️⃣
+    #   A tiny filter that keeps only records from the approved prefixes
+    # ------------------------------------------------------------------
+    class _PrefixFilter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            if record.name == "root":
+                return True
+            name_lower = record.name.lower()
+            return any(name_lower.startswith(prefix) for prefix in app_prefixes)
+
+    filt = _PrefixFilter()
+    fmt  = logging.Formatter(log_format)
+
+    # ------------------------------------------------------------------ 2️⃣
+    #   Root logger → console + shared app.log, both with the filter
+    # ------------------------------------------------------------------
+    root = logging.getLogger()
+    root.setLevel(getattr(logging, log_level))
+
+    for h in root.handlers[:]:
+        root.removeHandler(h)
+
+    console = logging.StreamHandler(sys.stdout)
+    console.setFormatter(fmt)
+    console.addFilter(filt)
+    root.addHandler(console)
+
+    shared = logging.FileHandler(base_dir / "app.log")
+    shared.setFormatter(fmt)
+    shared.addFilter(filt)
+    root.addHandler(shared)
+
+    # ------------------------------------------------------------------ 3️⃣
+    #   Custom logger class that attaches an extra file handler *only*
+    #   if the logger name begins with an approved prefix
+    # ------------------------------------------------------------------
+    class _PerLogger(logging.Logger):
+        def __init__(self, name: str, level: int = logging.NOTSET):
+            super().__init__(name, level)
+            
+            # Check if name starts with any of the prefixes
+            name_lower = name.lower()
+            matches_prefix = name == "root" or any(name_lower.startswith(prefix) for prefix in app_prefixes)
+            
+            if not matches_prefix:
+                return                              # not one of ours → skip
+            if any(getattr(h, "_per_logger", False) for h in self.handlers):
+                return                              # already added
+            
+            if log_to_file:
+                file_path = base_dir / f"app-{name_lower}.log"
+                fh = logging.FileHandler(file_path)
+                fh.setFormatter(fmt)
+                fh.addFilter(filt)                     # keep same filter
+                fh._per_logger = True
+                self.addHandler(fh)
+
+    # Must be called *before* any new loggers are created
+    logging.setLoggerClass(_PerLogger)
     
-    # Remove existing handlers to avoid duplication
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
+    # ------------------------------------------------------------------ 4️⃣
+    #   Apply file handlers to existing loggers that match our prefixes
+    # ------------------------------------------------------------------
+    for name, logger in logging.Logger.manager.loggerDict.items():
+        # Skip non-logger objects and loggers that don't match our prefixes
+        if not isinstance(logger, logging.Logger):
+            continue
+            
+        if not name.lower().startswith(app_prefixes) and name != "root":
+            continue
+            
+        # Skip if this logger already has our special handler
+        if any(getattr(h, "_per_logger", False) for h in logger.handlers):
+            continue
+            
+        # Add our file handler to this logger
+        if log_to_file:
+            file_path = base_dir / f"app-{name.lower()}.log"
+            fh = logging.FileHandler(file_path)
+            fh.setFormatter(fmt)
+            fh.addFilter(filt)
+            fh._per_logger = True
+            logger.addHandler(fh)
     
-    # Create formatter
-    formatter = logging.Formatter(log_format)
-    
-    # Configure console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    root_logger.addHandler(console_handler)
-    
-    # Configure file handler if log_file is provided
-    if log_file:
-        log_file.parent.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(formatter)
-        root_logger.addHandler(file_handler)
-    
-    # Suppress overly verbose logs from libraries
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-    
-    return root_logger
+    # Return the root logger just in case
+    return root

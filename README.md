@@ -76,11 +76,12 @@ uvicorn petal_app_manager.main:app --port 9000
 > ```ini
 > PETAL_LOG_LEVEL=INFO
 > PETAL_LOG_TO_FILE=true
-> PETAL_LOG_FILE_PATH=./app.log
 > MAVLINK_ENDPOINT=udp:127.0.0.1:14551
 > MAVLINK_BAUD=115200
 > MAVLINK_MAXLEN=200
 > MAVLINK_POLLING_FREQUENCY=200.0
+> MAVLINK_WORKER_SLEEP_MS=None
+> MAVLINK_HEARTBEAT_SEND_FREQUENCY=5.0
 > ```
 
 ### Development Installation (recommended for developers)
