@@ -42,18 +42,24 @@ class LoggingExamplePetal(Petal):
             return {"status": "already_running"}
         
         try:
-            # Create log channels
+            # Create log channels - timestamp is automatically included as first column (as integer ms)
             self.log_channels = {
-                "sine": open_channel("sine_value", base_dir="example_logs"),
+                "sine": open_channel(
+                    "sine_value", 
+                    base_dir="example_logs",
+                    use_ms=True  # Millisecond precision (default)
+                ),
                 "position": open_channel(
                     ["pos_x", "pos_y", "pos_z"], 
                     base_dir="example_logs",
-                    file_name="position_data"
+                    file_name="position_data",
+                    use_ms=True  # Millisecond precision (default)
                 ),
                 "attitude": open_channel(
                     ["roll", "pitch", "yaw"], 
                     base_dir="example_logs",
-                    file_name="attitude_data"
+                    file_name="attitude_data",
+                    use_ms=True  # Millisecond precision (default)
                 )
             }
             

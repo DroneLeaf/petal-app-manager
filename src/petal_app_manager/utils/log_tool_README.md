@@ -43,13 +43,12 @@ ch2.close()
 ### Advanced Options
 
 ```python
-# Custom time format, buffer size, and no auto-timestamp
+# Custom timestamp precision and buffer size
 channel = open_channel(
     "sensor_value",
     base_dir="sensor_logs",
     file_name="temperature",
-    time_column=True,
-    time_format="%H:%M:%S.%f",  # Only time, no date
+    use_ms=False,  # Use seconds precision instead of milliseconds
     buffer_size=1000,  # Flush to disk every 1000 records
 )
 
@@ -73,8 +72,7 @@ Creates and returns a new logging channel.
 - `headers` (str or list of str): Column name(s) for the data. For multi-dimensional data, provide a list of headers.
 - `base_dir` (str or Path, optional): Directory where log files will be stored. Default: "logs"
 - `file_name` (str, optional): Name of the CSV file. If not provided, it will be generated from the headers.
-- `time_column` (bool, optional): Whether to include a timestamp column. Default: True
-- `time_format` (str, optional): Format for timestamp strings. Default: "%Y-%m-%d %H:%M:%S.%f"
+- `use_ms` (bool, optional): Whether to use milliseconds precision for timestamps (True) or seconds (False). Default: True
 - `buffer_size` (int, optional): Number of records to buffer before writing to disk. Default: 100
 - `append` (bool, optional): If True, append to an existing file rather than creating a new one. Default: False
 

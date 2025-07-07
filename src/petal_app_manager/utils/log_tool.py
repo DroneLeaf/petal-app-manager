@@ -61,8 +61,7 @@ class LogChannel:
         headers: Union[str, List[str]], 
         base_dir: Union[str, Path] = "logs",
         file_name: Optional[str] = None,
-        time_column: bool = True,
-        time_format: str = "%Y-%m-%d %H:%M:%S.%f",
+        use_ms: bool = True,
         buffer_size: int = 100,
         append: bool = False
     ):
@@ -77,10 +76,8 @@ class LogChannel:
             Directory where log files will be stored, by default "logs"
         file_name : Optional[str], optional
             Name of the CSV file. If not provided, it will be generated from the headers.
-        time_column : bool, optional
-            Whether to include a timestamp column, by default True
-        time_format : str, optional
-            Format for timestamp strings, by default "%Y-%m-%d %H:%M:%S.%f"
+        use_ms : bool, optional
+            Whether to use milliseconds precision for timestamps (True) or seconds (False), by default True
         buffer_size : int, optional
             Number of records to buffer before writing to disk, by default 100
         append : bool, optional
@@ -98,8 +95,7 @@ class LogChannel:
         # Convert single header to list for consistent handling
         self.headers = [headers] if isinstance(headers, str) else headers
         self.is_scalar = isinstance(headers, str)
-        self.time_column = time_column
-        self.time_format = time_format
+        self.use_ms = use_ms
         self.buffer_size = buffer_size
         
         # Create directory
@@ -114,13 +110,12 @@ class LogChannel:
                 file_name = f"{self.headers[0]}_etc"
         
         # Add timestamp to filename to ensure uniqueness
+        # We still use a readable date format for filenames
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         self.file_path = self.base_dir / f"{file_name}_{timestamp}.csv"
         
-        # Set up headers for CSV
-        csv_headers = []
-        if time_column:
-            csv_headers.append("timestamp")
+        # Set up headers for CSV - always include timestamp as first column
+        csv_headers = ["timestamp"]
         csv_headers.extend(self.headers)
         
         # Initialize buffer and file
@@ -178,11 +173,15 @@ class LogChannel:
                 raise ValueError(f"Expected {len(self.headers)} values but got {len(value)}")
             data = value
             
-        # Add timestamp if requested
-        row = []
-        if self.time_column:
-            timestamp = datetime.datetime.now().strftime(self.time_format)
-            row.append(timestamp)
+        # Always add timestamp as the first column (Unix epoch time)
+        if self.use_ms:
+            # Millisecond precision (int)
+            timestamp = int(time.time() * 1000)
+        else:
+            # Second precision (int)
+            timestamp = int(time.time())
+            
+        row = [timestamp]
         row.extend(data)
         
         # Add to buffer
