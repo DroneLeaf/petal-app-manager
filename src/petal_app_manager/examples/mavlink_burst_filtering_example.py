@@ -39,10 +39,10 @@ async def main():
         def attitude_handler(msg):
             logger.info(f"Received ATTITUDE: roll={msg.roll:.2f}, pitch={msg.pitch:.2f}, yaw={msg.yaw:.2f}")
         
-        proxy.register_filtered_handler(
+        proxy.register_handler(
             "ATTITUDE", 
             attitude_handler, 
-            duplicate_filter_seconds=0.5
+            duplicate_filter_interval=0.5
         )
         
         # Example 2: Register a normal handler (no filtering) for comparison
@@ -61,7 +61,7 @@ async def main():
             )
             
             logger.info("Sending burst of 5 heartbeat messages with 1-second intervals")
-            proxy.send_burst(heartbeat_msg, count=5, interval=1.0)
+            proxy.send("mav", heartbeat_msg, burst_count=5, burst_interval=1.0)
             
             # Example 4: Send a burst of parameter requests (immediate burst)
             param_req_msg = proxy.master.mav.param_request_list_encode(
@@ -70,7 +70,7 @@ async def main():
             )
             
             logger.info("Sending immediate burst of 3 parameter request messages")
-            proxy.send_burst(param_req_msg, count=3, interval=None)
+            proxy.send("mav", param_req_msg, burst_count=3)
         
         # Example 5: Using the base send method with burst parameters
         if proxy.master:

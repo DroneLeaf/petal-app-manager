@@ -1,27 +1,24 @@
 # MAVLink Proxy Burst Sending and Duplicate Filtering
 
-This document describes the new burst sending and duplicate message filtering features added to the MAVLink External Proxy.
+This document describes the new burst sending and duplicate message filtering features added to the MAVLink External Proxy. **All changes are backwards compatible** - existing code will continue to work without modification.
 
 ## Features Added
 
 ### 1. Burst Sending
 
-You can now send multiple copies of a message with optional intervals between them.
+You can now send multiple copies of a message with optional intervals between them using the existing `send()` method with new optional parameters.
 
 #### Usage Examples
 
 ```python
-# Send a single message (original behavior)
+# Send a single message (original behavior - unchanged)
 proxy.send("mav", heartbeat_msg)
 
-# Send 5 copies immediately
+# Send 5 copies immediately (new feature)
 proxy.send("mav", heartbeat_msg, burst_count=5)
 
-# Send 3 copies with 0.5 second intervals
+# Send 3 copies with 0.5 second intervals (new feature)
 proxy.send("mav", heartbeat_msg, burst_count=3, burst_interval=0.5)
-
-# Convenience method for MAVLink messages
-proxy.send_burst(heartbeat_msg, count=5, interval=1.0)
 ```
 
 #### Parameters
@@ -31,22 +28,16 @@ proxy.send_burst(heartbeat_msg, count=5, interval=1.0)
 
 ### 2. Duplicate Message Filtering
 
-You can now register handlers that filter out duplicate messages within a specified time window.
+You can now register handlers that filter out duplicate messages within a specified time window using the existing `register_handler()` method with a new optional parameter.
 
 #### Usage Examples
 
 ```python
-# Regular handler (no filtering)
+# Regular handler (original behavior - unchanged)
 proxy.register_handler("ATTITUDE", attitude_handler)
 
-# Handler with duplicate filtering (filters duplicates within 0.5 seconds)
+# Handler with duplicate filtering (new feature)
 proxy.register_handler("ATTITUDE", attitude_handler, duplicate_filter_interval=0.5)
-
-# Convenience method for MAVLink message types
-proxy.register_filtered_handler("ATTITUDE", attitude_handler, duplicate_filter_seconds=0.5)
-
-# Convenience method for MAVLink message IDs
-proxy.register_filtered_handler_by_id(30, attitude_handler, duplicate_filter_seconds=0.5)
 ```
 
 #### Parameters
@@ -91,7 +82,7 @@ proxy.register_filtered_handler_by_id(30, attitude_handler, duplicate_filter_sec
 ```python
 # Send important commands multiple times to ensure delivery
 emergency_cmd = mavlink.command_long_encode(...)
-proxy.send_burst(emergency_cmd, count=3, interval=0.1)
+proxy.send("mav", emergency_cmd, burst_count=3, burst_interval=0.1)
 ```
 
 ### 2. High-Frequency Data Filtering
@@ -101,10 +92,10 @@ proxy.send_burst(emergency_cmd, count=3, interval=0.1)
 def gps_handler(msg):
     process_gps_update(msg)
 
-proxy.register_filtered_handler(
+proxy.register_handler(
     "GLOBAL_POSITION_INT", 
     gps_handler, 
-    duplicate_filter_seconds=1.0
+    duplicate_filter_interval=1.0
 )
 ```
 
@@ -112,26 +103,42 @@ proxy.register_filtered_handler(
 
 ```python
 # Send periodic heartbeats but filter received ones to avoid spam
-proxy.register_filtered_handler(
+proxy.register_handler(
     "HEARTBEAT", 
     heartbeat_received, 
-    duplicate_filter_seconds=2.0
+    duplicate_filter_interval=2.0
 )
-
-# Send our own heartbeats every 5 seconds
-heartbeat = proxy.master.mav.heartbeat_encode(...)
-proxy.send_burst(heartbeat, count=1, interval=5.0)  # This would need to be in a loop
 ```
 
 ## Backwards Compatibility
 
-All existing code will continue to work without modification:
+**100% backwards compatible** - all existing code will continue to work without modification:
 
 - `proxy.send(key, msg)` works exactly as before
 - `proxy.register_handler(key, handler)` works exactly as before
-- Only new optional parameters have been added
+- Only new optional parameters have been added to existing methods
+- No breaking changes to any existing functionality
 
 ## Testing
 
-See `examples/test_burst_filtering.py` for unit tests demonstrating the functionality.
-See `examples/mavlink_burst_filtering_example.py` for a complete usage example.
+The burst sending and duplicate filtering functionality has been integrated into the existing test suite in `tests/test_external_proxy.py`. The tests include:
+
+- Backwards compatibility verification
+- Burst sending (immediate and timed)
+- Duplicate message filtering
+- Handler configuration cleanup
+- Integration with MAVLink message patterns
+
+## Migration Guide
+
+**No migration required!** Your existing code will work unchanged. To use new features, simply add the optional parameters:
+
+```python
+# Before (still works)
+proxy.send("mav", msg)
+proxy.register_handler("ATTITUDE", handler)
+
+# After (new features available)
+proxy.send("mav", msg, burst_count=3, burst_interval=0.1)
+proxy.register_handler("ATTITUDE", handler, duplicate_filter_interval=0.5)
+```

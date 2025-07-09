@@ -644,59 +644,6 @@ class MavLinkExternalProxy(ExternalProxy):
         )
         return local_path if result else None
 
-    # ------------------- convenience methods for burst/filtering --------- #
-    def send_burst(self, msg: mavutil.mavlink.MAVLink_message, 
-                   count: int, interval: Optional[float] = None) -> None:
-        """
-        Send a MAVLink message multiple times in a burst.
-        
-        Parameters
-        ----------
-        msg : mavutil.mavlink.MAVLink_message
-            The MAVLink message to send.
-        count : int
-            Number of times to send the message.
-        interval : Optional[float]
-            Seconds to wait between each message. If None, sends all immediately.
-        """
-        self.send("mav", msg, burst_count=count, burst_interval=interval)
-    
-    def register_filtered_handler(self, message_type: str, 
-                                  handler: Callable[[mavutil.mavlink.MAVLink_message], None],
-                                  duplicate_filter_seconds: float = 1.0) -> None:
-        """
-        Register a handler for MAVLink messages with duplicate filtering.
-        
-        Parameters
-        ----------
-        message_type : str
-            The MAVLink message type to listen for (e.g., "ATTITUDE", "GLOBAL_POSITION_INT").
-        handler : Callable
-            The handler function to call for each unique message.
-        duplicate_filter_seconds : float
-            Time window in seconds to filter duplicate messages.
-        """
-        self.register_handler(message_type, handler, 
-                            duplicate_filter_interval=duplicate_filter_seconds)
-    
-    def register_filtered_handler_by_id(self, message_id: int,
-                                       handler: Callable[[mavutil.mavlink.MAVLink_message], None],
-                                       duplicate_filter_seconds: float = 1.0) -> None:
-        """
-        Register a handler for MAVLink messages by ID with duplicate filtering.
-        
-        Parameters
-        ----------
-        message_id : int
-            The numeric MAVLink message ID to listen for.
-        handler : Callable
-            The handler function to call for each unique message.
-        duplicate_filter_seconds : float
-            Time window in seconds to filter duplicate messages.
-        """
-        self.register_handler(str(message_id), handler,
-                            duplicate_filter_interval=duplicate_filter_seconds)
-
 class _BlockingParser:
     """
     Thin wrapper around pymavlink / MAVFTP - **runs in a dedicated thread**.
