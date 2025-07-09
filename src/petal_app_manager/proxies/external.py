@@ -100,16 +100,34 @@ class ExternalProxy(BaseProxy):
         self._handlers: Dict[str, List[Callable[[Any], None]]] = (
             defaultdict(list)
         )
+        self._handler_configs: Dict[str, Dict[Callable[[Any], None], Dict[str, Any]]] = (
+            defaultdict(dict)
+        )
+        self._last_message_times: Dict[str, Dict[str, float]] = defaultdict(dict)
         self._running = threading.Event()
         self._thread: threading.Thread | None = None
 
-    def register_handler(self, key: str, fn: Callable[[Any], None]) -> None:
+    def register_handler(self, key: str, fn: Callable[[Any], None], 
+                        duplicate_filter_interval: Optional[float] = None) -> None:
         """
         Attach *fn* so it fires for **every** message appended to ``_recv[key]``.
 
         The callback executes in the proxy thread; never block for long.
+        
+        Parameters
+        ----------
+        key : str
+            The key to register the handler for.
+        fn : Callable[[Any], None]
+            The handler function to call for each message.
+        duplicate_filter_interval : Optional[float]
+            If specified, duplicate messages received within this interval (in seconds)
+            will be filtered out and the handler will not be called. None disables filtering.
         """
         self._handlers[key].append(fn)
+        self._handler_configs[key][fn] = {
+            'duplicate_filter_interval': duplicate_filter_interval
+        }
 
     def unregister_handler(self, key: str, fn: Callable[[Any], None]) -> None:
         """
@@ -132,15 +150,55 @@ class ExternalProxy(BaseProxy):
             )
             return  # fn was not in the list; ignore
 
+        # Clean up handler config
+        if key in self._handler_configs and fn in self._handler_configs[key]:
+            del self._handler_configs[key][fn]
+
         if not callbacks:              # list now empty → delete key
             del self._handlers[key]
+            if key in self._handler_configs:
+                del self._handler_configs[key]
 
-    def send(self, key: str, msg: Any) -> None:
+    def send(self, key: str, msg: Any, burst_count: Optional[int] = None, 
+             burst_interval: Optional[float] = None) -> None:
         """
         Enqueue *msg* for transmission.  The newest message is kept if the
         buffer is already full.
+        
+        Parameters
+        ----------
+        key : str
+            The key to send the message on.
+        msg : Any
+            The message to send.
+        burst_count : Optional[int]
+            If specified, send the message this many times in a burst.
+        burst_interval : Optional[float]
+            If burst_count is specified, wait this many seconds between each message.
+            If None, all messages are sent immediately.
         """
-        self._send.setdefault(key, deque(maxlen=self._maxlen)).append(msg)
+        if burst_count is None or burst_count <= 1:
+            # Single message send
+            self._send.setdefault(key, deque(maxlen=self._maxlen)).append(msg)
+        else:
+            # Burst send
+            if burst_interval is None or burst_interval <= 0:
+                # Send all messages immediately
+                send_queue = self._send.setdefault(key, deque(maxlen=self._maxlen))
+                for _ in range(burst_count):
+                    send_queue.append(msg)
+            else:
+                # Schedule burst with intervals using a background task
+                import asyncio
+                asyncio.create_task(self._send_burst(key, msg, burst_count, burst_interval))
+
+    async def _send_burst(self, key: str, msg: Any, count: int, interval: float) -> None:
+        """Send a burst of messages with specified interval."""
+        send_queue = self._send.setdefault(key, deque(maxlen=self._maxlen))
+        for i in range(count):
+            send_queue.append(msg)
+            if i < count - 1:  # Don't sleep after the last message
+                await asyncio.sleep(interval)
 
     # ───────────────────────────────────────────── FastAPI life-cycle hooks ──
     async def start(self) -> None:
@@ -189,14 +247,41 @@ class ExternalProxy(BaseProxy):
             for key, msg in self._io_read_once():
                 dq = self._recv.setdefault(key, deque(maxlen=self._maxlen))
                 dq.append(msg)
-                # broadcast
+                # broadcast with duplicate filtering
+                current_time = time.time()
                 for cb in self._handlers.get(key, []):
                     try:
-                        cb(msg)
-                        self._log.debug(
-                            "[ExternalProxy] handler %s called for key '%s': %s",
-                            cb, key, msg
-                        )
+                        # Check if duplicate filtering is enabled for this handler
+                        handler_config = self._handler_configs.get(key, {}).get(cb, {})
+                        filter_interval = handler_config.get('duplicate_filter_interval')
+                        
+                        should_call_handler = True
+                        if filter_interval is not None:
+                            # Convert message to string for comparison
+                            msg_str = str(msg)
+                            handler_key = f"{key}_{id(cb)}"
+                            
+                            # Check if we've seen this exact message recently for this handler
+                            if handler_key in self._last_message_times:
+                                last_msg_str, last_time = self._last_message_times[handler_key]
+                                if (msg_str == last_msg_str and 
+                                    current_time - last_time < filter_interval):
+                                    should_call_handler = False
+                                    self._log.debug(
+                                        "[ExternalProxy] Filtered duplicate message for handler %s on key '%s'",
+                                        cb, key
+                                    )
+                            
+                            # Update last message time for this handler
+                            if should_call_handler:
+                                self._last_message_times[handler_key] = (msg_str, current_time)
+                        
+                        if should_call_handler:
+                            cb(msg)
+                            self._log.debug(
+                                "[ExternalProxy] handler %s called for key '%s': %s",
+                                cb, key, msg
+                            )
                     except Exception as exc:          # never kill the loop
                         self._log.error(
                             "[ExternalProxy] handler %s raised: %s",
@@ -558,6 +643,59 @@ class MavLinkExternalProxy(ExternalProxy):
             cancel_event
         )
         return local_path if result else None
+
+    # ------------------- convenience methods for burst/filtering --------- #
+    def send_burst(self, msg: mavutil.mavlink.MAVLink_message, 
+                   count: int, interval: Optional[float] = None) -> None:
+        """
+        Send a MAVLink message multiple times in a burst.
+        
+        Parameters
+        ----------
+        msg : mavutil.mavlink.MAVLink_message
+            The MAVLink message to send.
+        count : int
+            Number of times to send the message.
+        interval : Optional[float]
+            Seconds to wait between each message. If None, sends all immediately.
+        """
+        self.send("mav", msg, burst_count=count, burst_interval=interval)
+    
+    def register_filtered_handler(self, message_type: str, 
+                                  handler: Callable[[mavutil.mavlink.MAVLink_message], None],
+                                  duplicate_filter_seconds: float = 1.0) -> None:
+        """
+        Register a handler for MAVLink messages with duplicate filtering.
+        
+        Parameters
+        ----------
+        message_type : str
+            The MAVLink message type to listen for (e.g., "ATTITUDE", "GLOBAL_POSITION_INT").
+        handler : Callable
+            The handler function to call for each unique message.
+        duplicate_filter_seconds : float
+            Time window in seconds to filter duplicate messages.
+        """
+        self.register_handler(message_type, handler, 
+                            duplicate_filter_interval=duplicate_filter_seconds)
+    
+    def register_filtered_handler_by_id(self, message_id: int,
+                                       handler: Callable[[mavutil.mavlink.MAVLink_message], None],
+                                       duplicate_filter_seconds: float = 1.0) -> None:
+        """
+        Register a handler for MAVLink messages by ID with duplicate filtering.
+        
+        Parameters
+        ----------
+        message_id : int
+            The numeric MAVLink message ID to listen for.
+        handler : Callable
+            The handler function to call for each unique message.
+        duplicate_filter_seconds : float
+            Time window in seconds to filter duplicate messages.
+        """
+        self.register_handler(str(message_id), handler,
+                            duplicate_filter_interval=duplicate_filter_seconds)
 
 class _BlockingParser:
     """
