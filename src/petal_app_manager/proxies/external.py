@@ -190,7 +190,11 @@ class ExternalProxy(BaseProxy):
             else:
                 # Schedule burst with intervals using a background task
                 import asyncio
-                asyncio.create_task(self._send_burst(key, msg, burst_count, burst_interval))
+                asyncio.run_coroutine_threadsafe(
+                    self._send_burst(key, msg, burst_count, burst_interval),
+                    self._loop
+                )
+                # asyncio.create_task(self._send_burst(key, msg, burst_count, burst_interval))
 
     async def _send_burst(self, key: str, msg: Any, count: int, interval: float) -> None:
         """Send a burst of messages with specified interval."""
@@ -322,7 +326,7 @@ class MavLinkExternalProxy(ExternalProxy):
         self,
         endpoint: str = "udp:127.0.0.1:14551",
         baud: int = 115200,
-        maxlen: int = 200
+        maxlen: int = 200,
     ):
         super().__init__(maxlen=maxlen)
         self.endpoint = endpoint
