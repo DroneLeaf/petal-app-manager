@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import threading
 import time
+import socket
+import errno
 from abc import abstractmethod
 from collections import defaultdict, deque
 from typing import (
@@ -194,10 +196,12 @@ class ExternalProxy(BaseProxy):
             else:
                 # Schedule burst with intervals using a background task
                 if self._loop is not None:
-                    asyncio.run_coroutine_threadsafe(
+                    # Use run_coroutine_threadsafe to ensure proper scheduling
+                    future = asyncio.run_coroutine_threadsafe(
                         self._send_burst(key, msg, burst_count, burst_interval),
                         self._loop
                     )
+                    # Don't wait for completion here to avoid blocking the caller
                 else:
                     # If no loop is available, fall back to immediate send
                     self._log.warning("No event loop available for burst with interval, sending immediately")
@@ -208,6 +212,8 @@ class ExternalProxy(BaseProxy):
     async def _send_burst(self, key: str, msg: Any, count: int, interval: float) -> None:
         """Send a burst of messages with specified interval."""
         send_queue = self._send.setdefault(key, deque(maxlen=self._maxlen))
+        
+        # Send messages with proper intervals
         for i in range(count):
             send_queue.append(msg)
             if i < count - 1:  # Don't sleep after the last message
@@ -229,7 +235,7 @@ class ExternalProxy(BaseProxy):
 
     # ─────────────────────────────────────────────── subclass responsibilities ─
     @abstractmethod
-    def _io_read_once(self) -> List[Tuple[str, Any]]:
+    def _io_read_once(self, timeout: int=0) -> List[Tuple[str, Any]]:
         """
         Retrieve **zero or more** `(key, message)` tuples from the device /
         middleware *without blocking*.
@@ -248,18 +254,19 @@ class ExternalProxy(BaseProxy):
     # ─────────────────────────────────────────── internal worker main-loop ──
     def _run(self) -> None:
         """Worker thread body - drains send queues, polls recv, fires handlers."""
-
+        
+        # Initialize sleep time for the worker loop
+        sleep_time = 0.010  # Default 10ms
         try:
-            sleep_time = int(MAVLINK_WORKER_SLEEP_MS)
-            if sleep_time < 0:
-                self._log.error("MAVLINK_WORKER_SLEEP_MS must be non-negative")
-                raise ValueError("MAVLINK_WORKER_SLEEP_MS must be non-negative")
-            
-            sleep_time /= 1000.0 # convert ms to seconds
-            
-        except ValueError as exc:
-            self._log.error(f"Invalid MAVLINK_WORKER_SLEEP_MS: {exc}")
-
+            if MAVLINK_WORKER_SLEEP_MS is not None:
+                sleep_time_ms = int(MAVLINK_WORKER_SLEEP_MS)
+                if sleep_time_ms < 0:
+                    self._log.error("MAVLINK_WORKER_SLEEP_MS must be non-negative")
+                    sleep_time_ms = 10
+                sleep_time = sleep_time_ms / 1000.0  # convert ms to seconds
+        except (ValueError, TypeError) as exc:
+            self._log.error(f"Invalid MAVLINK_WORKER_SLEEP_MS: {exc}, using default 10ms")
+            sleep_time = 0.010
 
         while self._running.is_set():
             # 1 - DRIVE OUTBOUND
@@ -314,7 +321,6 @@ class ExternalProxy(BaseProxy):
                             "[ExternalProxy] handler %s raised: %s",
                             cb, exc
                         )
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 class MavLinkExternalProxy(ExternalProxy):
@@ -394,7 +400,10 @@ class MavLinkExternalProxy(ExternalProxy):
         """Establish MAVLink connection and wait for heartbeat."""
         try:
             if self.master:
-                self.master.close()
+                try:
+                    self.master.close()
+                except:
+                    pass  # Ignore errors when closing old connection
             
             self.master = mavutil.mavlink_connection(
                 self.endpoint, 
@@ -405,26 +414,39 @@ class MavLinkExternalProxy(ExternalProxy):
             )
             
             # Try to get a heartbeat with timeout
-            if self.master.wait_heartbeat(timeout=5):
-                self.connected = True
-                self._last_heartbeat_time = time.time()
-                self._log.info("MAVLink connection established - Heartbeat from sys %s, comp %s",
-                            self.master.target_system, self.master.target_component)
-                
-                # Initialize parser after successful connection
-                if not hasattr(self, '_parser') or self._parser is None:
-                    await self._init_parser()
-                
-                # Register heartbeat handler to track connection health
-                self.register_handler(str(mavlink_dialect.MAVLINK_MSG_ID_HEARTBEAT), self._on_heartbeat_received)
-                
-            else:
+            try:
+                if self.master.wait_heartbeat(timeout=5):
+                    self.connected = True
+                    self._last_heartbeat_time = time.time()
+                    self._log.info("MAVLink connection established - Heartbeat from sys %s, comp %s",
+                                self.master.target_system, self.master.target_component)
+                    
+                    # Initialize parser after successful connection
+                    if not hasattr(self, '_parser') or self._parser is None:
+                        await self._init_parser()
+                    
+                    # Register heartbeat handler to track connection health
+                    self.register_handler(str(mavlink_dialect.MAVLINK_MSG_ID_HEARTBEAT), self._on_heartbeat_received)
+                    
+                else:
+                    self.connected = False
+                    self._log.warning("No heartbeat received from MAVLink endpoint %s", self.endpoint)
+            except (OSError, socket.error) as e:
                 self.connected = False
-                self._log.warning("No heartbeat received from MAVLink endpoint %s", self.endpoint)
+                self._log.warning(f"Socket error during heartbeat wait: {e}")
+            except Exception as e:
+                self.connected = False
+                self._log.warning(f"Error waiting for heartbeat: {e}")
                 
         except Exception as e:
             self.connected = False
             self._log.error(f"Error establishing MAVLink connection: {str(e)}")
+            if self.master:
+                try:
+                    self.master.close()
+                except:
+                    pass
+                self.master = None
 
     def _on_heartbeat_received(self, msg):
         """Handler for incoming heartbeat messages to track connection health."""
@@ -530,15 +552,27 @@ class MavLinkExternalProxy(ExternalProxy):
         if not self.master or not self.connected:
             return []
 
-        out: list[tuple[str, Any]] = []
-        # Block up to 20 ms; returns sooner if a frame arrives
-        while True:
-            msg = self.master.recv_match(blocking=True, timeout=timeout)
-            if msg is None:
-                break
-            out.append(("mav", msg))
-            out.append((str(msg.get_msgId()), msg))
-            out.append((msg.get_type(), msg))
+        out: List[Tuple[str, Any]] = []
+        try:
+            while True:
+                msg = self.master.recv_match(blocking=True, timeout=timeout)
+                if msg is None:
+                    break
+                out.append(("mav", msg))
+                out.append((str(msg.get_msgId()), msg))
+                out.append((msg.get_type(), msg))
+
+        except (OSError, socket.error) as e:
+            # Handle connection errors gracefully
+            if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED]:
+                self._log.debug(f"MAVLink connection lost during read: {e}")
+                # Don't mark as disconnected here, let the heartbeat monitor handle it
+            else:
+                self._log.error(f"Unexpected error reading MAVLink messages: {e}")
+        except Exception as e:
+            self._log.error(f"Error reading MAVLink messages: {e}")
+            # Don't mark as disconnected here, let the heartbeat monitor handle it
+        
         return out
 
     def _io_write_once(self, batches):
@@ -551,6 +585,13 @@ class MavLinkExternalProxy(ExternalProxy):
                 try:
                     self.master.mav.send(msg)
                     self._log.debug("Sent MAVLink message %s: %s", key, msg)
+                except (OSError, socket.error) as e:
+                    if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
+                        self._log.debug(f"MAVLink connection lost during write: {e}")
+                        # Don't mark as disconnected here, let the heartbeat monitor handle it
+                        break  # Stop trying to send more messages
+                    else:
+                        self._log.error(f"Unexpected error sending MAVLink message {key}: {e}")
                 except Exception as exc:
                     self._log.error(
                         "Failed to send MAVLink message %s: %s",

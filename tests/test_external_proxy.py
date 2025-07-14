@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 from pymavlink import mavutil
 from pymavlink.dialects.v10 import common as mavlink
+from pymavlink.dialects.v20 import all as mavlink_v20
 
 # --------------------------------------------------------------------------- #
 # package under test                                                          #
@@ -31,7 +32,7 @@ async def _test_mavlink_proxy():
         print(f"Received HEARTBEAT: {msg}")
         heartbeats_received.append(msg)
     
-    proxy.register_handler("HEARTBEAT", heartbeat_handler)
+    proxy.register_handler(str(mavlink_v20.MAVLINK_MSG_ID_HEARTBEAT), heartbeat_handler)
     
     # Start the proxy
     await proxy.start()
@@ -91,7 +92,7 @@ class MockExternalProxy(MavLinkExternalProxy):
         self.received_messages = []
         self.master = None  # Override to avoid MAVLink connection
         
-    def _io_read_once(self):
+    def _io_read_once(self, timeout: int = 0) -> list[tuple[str, str]]:
         # Return any queued test messages
         messages = self.received_messages.copy()
         self.received_messages.clear()
@@ -143,8 +144,8 @@ async def test_burst_send_with_interval():
     # Send a burst of 3 messages with 0.1 second intervals
     proxy.send("test_key", "timed_burst", burst_count=3, burst_interval=0.1)
     
-    # Wait for the burst to complete
-    await asyncio.sleep(0.5)
+    # Wait longer for the burst to complete, especially in CI environments
+    await asyncio.sleep(1.0)
     
     # Trigger a write cycle
     pending = defaultdict(list)

@@ -457,9 +457,18 @@ class RedisProxy(BaseProxy):
         """Initialize communication infrastructure."""
         try:
             # Set application status as online
-            await self._client.hset(self._status_hash, "status", "online")
-            await self._client.hset(self._status_hash, "last_seen", str(time.time()))
-            await self._client.hset(self._status_hash, "app_id", self.app_id)
+            await self._loop.run_in_executor(
+                self._exe,
+                lambda: self._client.hset(self._status_hash, "status", "online")
+            )
+            await self._loop.run_in_executor(
+                self._exe,
+                lambda: self._client.hset(self._status_hash, "last_seen", str(time.time()))
+            )
+            await self._loop.run_in_executor(
+                self._exe,
+                lambda: self._client.hset(self._status_hash, "app_id", self.app_id)
+            )
             
             self.log.info("Communication infrastructure initialized")
         except Exception as e:
@@ -633,7 +642,10 @@ class RedisProxy(BaseProxy):
         # Update status
         if self._client:
             try:
-                await self._client.hset(self._status_hash, "status", "offline")
+                await self._loop.run_in_executor(
+                    self._exe,
+                    lambda: self._client.hset(self._status_hash, "status", "offline")
+                )
             except Exception as e:
                 self.log.error(f"Error updating status: {e}")
         
