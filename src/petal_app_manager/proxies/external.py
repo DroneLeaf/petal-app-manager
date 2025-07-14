@@ -40,6 +40,8 @@ from concurrent.futures import ThreadPoolExecutor
 from .base import BaseProxy
 from pymavlink import mavutil, mavftp
 from pymavlink.mavftp_op import FTP_OP
+from pymavlink.dialects.v20 import all as mavlink_dialect
+
 import os
 # import rospy   # ← uncomment in ROS-enabled environments
 
@@ -47,7 +49,7 @@ import dotenv
 
 dotenv.load_dotenv()
 
-MAVLINK_WORKER_SLEEP_MS = os.getenv("MAVLINK_WORKER_SLEEP_MS")  # 10 ms default
+MAVLINK_WORKER_SLEEP_MS = os.getenv("MAVLINK_WORKER_SLEEP_MS", 0)
 MAVLINK_HEARTBEAT_SEND_FREQUENCY = os.getenv("MAVLINK_HEARTBEAT_SEND_FREQUENCY", "5.0")  # 5 Hz default
 
 # --------------------------------------------------------------------------- #
@@ -106,6 +108,8 @@ class ExternalProxy(BaseProxy):
         self._last_message_times: Dict[str, Dict[str, float]] = defaultdict(dict)
         self._running = threading.Event()
         self._thread: threading.Thread | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._log = logging.getLogger(self.__class__.__name__)
 
     def register_handler(self, key: str, fn: Callable[[Any], None], 
                         duplicate_filter_interval: Optional[float] = None) -> None:
@@ -189,12 +193,17 @@ class ExternalProxy(BaseProxy):
                     send_queue.append(msg)
             else:
                 # Schedule burst with intervals using a background task
-                import asyncio
-                asyncio.run_coroutine_threadsafe(
-                    self._send_burst(key, msg, burst_count, burst_interval),
-                    self._loop
-                )
-                # asyncio.create_task(self._send_burst(key, msg, burst_count, burst_interval))
+                if self._loop is not None:
+                    asyncio.run_coroutine_threadsafe(
+                        self._send_burst(key, msg, burst_count, burst_interval),
+                        self._loop
+                    )
+                else:
+                    # If no loop is available, fall back to immediate send
+                    self._log.warning("No event loop available for burst with interval, sending immediately")
+                    send_queue = self._send.setdefault(key, deque(maxlen=self._maxlen))
+                    for _ in range(burst_count):
+                        send_queue.append(msg)
 
     async def _send_burst(self, key: str, msg: Any, count: int, interval: float) -> None:
         """Send a burst of messages with specified interval."""
@@ -207,6 +216,7 @@ class ExternalProxy(BaseProxy):
     # ───────────────────────────────────────────── FastAPI life-cycle hooks ──
     async def start(self) -> None:
         """Create the worker thread and begin polling/writing."""
+        self._loop = asyncio.get_running_loop()
         self._running.set()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -238,6 +248,19 @@ class ExternalProxy(BaseProxy):
     # ─────────────────────────────────────────── internal worker main-loop ──
     def _run(self) -> None:
         """Worker thread body - drains send queues, polls recv, fires handlers."""
+
+        try:
+            sleep_time = int(MAVLINK_WORKER_SLEEP_MS)
+            if sleep_time < 0:
+                self._log.error("MAVLINK_WORKER_SLEEP_MS must be non-negative")
+                raise ValueError("MAVLINK_WORKER_SLEEP_MS must be non-negative")
+            
+            sleep_time /= 1000.0 # convert ms to seconds
+            
+        except ValueError as exc:
+            self._log.error(f"Invalid MAVLINK_WORKER_SLEEP_MS: {exc}")
+
+
         while self._running.is_set():
             # 1 - DRIVE OUTBOUND
             pending: Dict[str, List[Any]] = defaultdict(list)
@@ -248,7 +271,7 @@ class ExternalProxy(BaseProxy):
                 self._io_write_once(pending)
 
             # 2 - POLL INBOUND
-            for key, msg in self._io_read_once():
+            for key, msg in self._io_read_once(timeout=sleep_time):
                 dq = self._recv.setdefault(key, deque(maxlen=self._maxlen))
                 dq.append(msg)
                 # broadcast with duplicate filtering
@@ -292,22 +315,6 @@ class ExternalProxy(BaseProxy):
                             cb, exc
                         )
 
-            if MAVLINK_WORKER_SLEEP_MS is not None and MAVLINK_WORKER_SLEEP_MS != 'None':
-                # sleep to avoid busy-waiting; can be set to 0.0 for tight loops
-                # check if MAVLINK_WORKER_SLEEP_MS is a valid float
-                try:
-                    sleep_time = float(MAVLINK_WORKER_SLEEP_MS)
-                    if sleep_time < 0:
-                        self._log.error("MAVLINK_WORKER_SLEEP_MS must be non-negative")
-                        raise ValueError("MAVLINK_WORKER_SLEEP_MS must be non-negative")
-                    
-                except ValueError as exc:
-                    self._log.error(f"Invalid MAVLINK_WORKER_SLEEP_MS: {exc}")
-                    continue  # skip sleep if invalid
-
-                sleep_time /= 1000.0 # convert ms to seconds
-                time.sleep(sleep_time)
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 class MavLinkExternalProxy(ExternalProxy):
@@ -335,6 +342,13 @@ class MavLinkExternalProxy(ExternalProxy):
         self._log = logging.getLogger("MavLinkParser")
         self._loop: asyncio.AbstractEventLoop | None = None
         self._exe = ThreadPoolExecutor(max_workers=1)
+        self.connected = False
+        self._last_heartbeat_time = 0.0
+        self._connection_check_interval = 5.0  # Check connection every 5 seconds
+        self._heartbeat_timeout = 10.0  # Consider disconnected if no heartbeat for 10s
+        self._reconnect_interval = 2.0  # Wait 2s between reconnection attempts
+        self._heartbeat_task = None
+        self._connection_monitor_task = None
         
 
     @property
@@ -354,44 +368,19 @@ class MavLinkExternalProxy(ExternalProxy):
     # ------------------------ life-cycle --------------------- #
     async def start(self):
         """Open the MAVLink connection then launch the worker thread."""
-        self.master = mavutil.mavlink_connection(self.endpoint, baud=self.baud, dialect="all",source_system=2, source_component=140) # MAV_COMP_ID_USER1–USER4 140–143 	Reserved for custom/user apps
-        self.connected = False
+        self._loop = asyncio.get_running_loop()
         
-        # Try to get a heartbeat but don't block indefinitely
-        try:
-            # Attempt to get heartbeat once with timeout
-            if self.master.wait_heartbeat(timeout=5):
-                self.connected = True
-                self._log.info("Heartbeat from sys %s, comp %s",
-                            self.master.target_system, self.master.target_component)
-            else:
-                self._log.warning(
-                    "No heartbeat from MAVLink endpoint %s at %d baud - continuing anyway",
-                    self.endpoint, self.baud
-                )
-        except Exception as e:
-            self._log.error(f"Error establishing MAVLink connection: {str(e)} - continuing anyway")
-        
-        # Start the worker thread regardless of connection status
+        # Start the worker thread first
         await super().start()
         
-        # Start a background task to attempt reconnection if needed
-        if not self.connected:
-            asyncio.create_task(self._attempt_reconnect())
+        # Attempt initial connection
+        await self._establish_connection()
         
-        self._loop = asyncio.get_running_loop()
-        self._parser:_BlockingParser = await self._loop.run_in_executor(
-            self._exe, 
-            _BlockingParser, 
-            self._log,
-            self.master,
-            self,
-            0
-        )
-
-        # send heartbeat at 5 Hz
+        # Start connection monitoring and heartbeat tasks
+        self._connection_monitor_task = asyncio.create_task(self._monitor_connection())
+        
+        # send heartbeat at configured frequency
         if MAVLINK_HEARTBEAT_SEND_FREQUENCY is not None:
-            # check that string is a valid float
             try:
                 frequency = float(MAVLINK_HEARTBEAT_SEND_FREQUENCY)
                 if frequency <= 0:
@@ -399,21 +388,106 @@ class MavLinkExternalProxy(ExternalProxy):
             except ValueError as exc:
                 self._log.error(f"Invalid MAVLINK_HEARTBEAT_SEND_FREQUENCY: {exc}")
                 frequency = 5.0
-            asyncio.create_task(self._send_heartbeat_periodically(frequency=frequency))
+            self._heartbeat_task = asyncio.create_task(self._send_heartbeat_periodically(frequency=frequency))
+
+    async def _establish_connection(self):
+        """Establish MAVLink connection and wait for heartbeat."""
+        try:
+            if self.master:
+                self.master.close()
+            
+            self.master = mavutil.mavlink_connection(
+                self.endpoint, 
+                baud=self.baud, 
+                dialect="all",
+                source_system=2, 
+                source_component=140  # MAV_COMP_ID_USER1–USER4 140–143
+            )
+            
+            # Try to get a heartbeat with timeout
+            if self.master.wait_heartbeat(timeout=5):
+                self.connected = True
+                self._last_heartbeat_time = time.time()
+                self._log.info("MAVLink connection established - Heartbeat from sys %s, comp %s",
+                            self.master.target_system, self.master.target_component)
+                
+                # Initialize parser after successful connection
+                if not hasattr(self, '_parser') or self._parser is None:
+                    await self._init_parser()
+                
+                # Register heartbeat handler to track connection health
+                self.register_handler(str(mavlink_dialect.MAVLINK_MSG_ID_HEARTBEAT), self._on_heartbeat_received)
+                
+            else:
+                self.connected = False
+                self._log.warning("No heartbeat received from MAVLink endpoint %s", self.endpoint)
+                
+        except Exception as e:
+            self.connected = False
+            self._log.error(f"Error establishing MAVLink connection: {str(e)}")
+
+    def _on_heartbeat_received(self, msg):
+        """Handler for incoming heartbeat messages to track connection health."""
+        self._last_heartbeat_time = time.time()
+        if not self.connected:
+            self.connected = True
+            self._log.info("MAVLink connection re-established")
+
+    async def _monitor_connection(self):
+        """Monitor connection health and trigger reconnection if needed."""
+        while self._running.is_set():
+            try:
+                current_time = time.time()
+                
+                # Check if we haven't received a heartbeat recently
+                if (self.connected and 
+                    current_time - self._last_heartbeat_time > self._heartbeat_timeout):
+                    self._log.warning("No heartbeat received for %.1fs - connection lost", 
+                                    current_time - self._last_heartbeat_time)
+                    self.connected = False
+                
+                # Attempt reconnection if not connected
+                if not self.connected and self._running.is_set():
+                    self._log.info("Attempting to reconnect to MAVLink...")
+                    await self._establish_connection()
+                    
+                    if not self.connected:
+                        await asyncio.sleep(self._reconnect_interval)
+                
+                # Check connection health periodically
+                await asyncio.sleep(self._connection_check_interval)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self._log.error(f"Error in connection monitor: {str(e)}")
+                await asyncio.sleep(self._reconnect_interval)
 
     async def _send_heartbeat_periodically(self, frequency: float = 5.0):
         """Periodically send a MAVLink heartbeat message."""
+        interval = 1.0 / frequency
+        
         while self._running.is_set():
             try:
-                await self.send_heartbeat()
-            except RuntimeError as exc:
+                if self.connected and self.master:
+                    await self.send_heartbeat()
+                else:
+                    self._log.debug("Skipping heartbeat send - not connected")
+                    
+            except Exception as exc:
                 self._log.error(f"Failed to send heartbeat: {exc}")
-            await asyncio.sleep(1.0 / frequency)
+                # Don't mark as disconnected just for heartbeat send failure
+                
+            await asyncio.sleep(interval)
 
     async def send_heartbeat(self):
         """Send a MAVLink heartbeat message."""
         if not self.master:
             raise RuntimeError("MAVLink master not initialized")
+            
+        if not self.connected:
+            raise RuntimeError("MAVLink not connected")
+            
         msg = self.master.mav.heartbeat_encode(
             mavutil.mavlink.MAV_TYPE_GCS,  # GCS type
             mavutil.mavlink.MAV_AUTOPILOT_INVALID,  # Autopilot type
@@ -424,40 +498,44 @@ class MavLinkExternalProxy(ExternalProxy):
         self.send("mav", msg)
         self._log.debug("Sent MAVLink heartbeat")
 
-    async def _attempt_reconnect(self):
-        """Background task to periodically try to get a heartbeat if not connected"""
-        while not self.connected and self._running.is_set():
-            try:
-                if self.master.wait_heartbeat(timeout=2):
-                    self.connected = True
-                    self._log.info("Heartbeat established from sys %s, comp %s",
-                                self.master.target_system, self.master.target_component)
-                    break
-            except Exception:
-                pass
-            await asyncio.sleep(10)  # Try again every 10 seconds
-
     async def stop(self):
         """Stop the worker and close the link."""
-        await super().stop()
-        if self.master:
-            self.master.close()
+        # Cancel monitoring tasks
+        if self._connection_monitor_task:
+            self._connection_monitor_task.cancel()
+            try:
+                await self._connection_monitor_task
+            except asyncio.CancelledError:
+                pass
 
-        # stop heartbeat task if running
-        if hasattr(self, "_heartbeat_task") and self._heartbeat_task:
+        if self._heartbeat_task:
             self._heartbeat_task.cancel()
             try:
                 await self._heartbeat_task
             except asyncio.CancelledError:
                 pass
 
+        # Stop the worker thread
+        await super().stop()
+        
+        # Close MAVLink connection
+        if self.master:
+            self.master.close()
+            self.master = None
+        
+        self.connected = False
+
     # ------------------- I/O primitives --------------------- #
-    def _io_read_once(self) -> List[Tuple[str, Any]]:
-        """Non-blocking read of all waiting MAVLink messages."""
-        if not self.master:
+    def _io_read_once(self, timeout: float = 0.0) -> List[Tuple[str, Any]]:
+        if not self.master or not self.connected:
             return []
-        out: List[Tuple[str, Any]] = []
-        while (msg := self.master.recv_match(blocking=False)):
+
+        out: list[tuple[str, Any]] = []
+        # Block up to 20 ms; returns sooner if a frame arrives
+        while True:
+            msg = self.master.recv_match(blocking=True, timeout=timeout)
+            if msg is None:
+                break
             out.append(("mav", msg))
             out.append((str(msg.get_msgId()), msg))
             out.append((msg.get_type(), msg))
@@ -465,8 +543,9 @@ class MavLinkExternalProxy(ExternalProxy):
 
     def _io_write_once(self, batches):
         """Send queued MAVLink messages."""
-        if not self.master:
+        if not self.master or not self.connected:
             return
+            
         for key, msgs in batches.items():
             for msg in msgs:
                 try:
@@ -477,136 +556,23 @@ class MavLinkExternalProxy(ExternalProxy):
                         "Failed to send MAVLink message %s: %s",
                         key, exc
                     )
+                    # Don't mark as disconnected here, let the heartbeat monitor handle it
 
-    # ------------------- helpers exposed to petals --------- #
-    def build_req_msg_long(self, message_id: int) -> mavutil.mavlink.MAVLink_command_long_message:
-        """
-        Build a MAVLink command to request a specific message type.
-
-        Parameters
-        ----------
-        message_id : int
-            The numeric ID of the MAVLink message to request.
-
-        Returns
-        -------
-        mavutil.mavlink.MAVLink_command_long_message
-            The MAVLink command message to request the specified message.
-        """
-                                
-        cmd = self.master.mav.command_long_encode(
-            self.master.target_system,
-            self.master.target_component,
-            mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE, 
-            0,                # confirmation
-            float(message_id), # param1: Message ID to be streamed
-            0, 
-            0, 
-            0, 
-            0, 
-            0, 
-            0
-        )
-        return cmd
-
-    def build_req_msg_log_request(self, message_id: int) -> mavutil.mavlink.MAVLink_log_request_list_message:
-        """
-        Build a MAVLink command to request a specific log message.
-
-        Parameters
-        ----------
-        message_id : int
-            The numeric ID of the log message to request.
-
-        Returns
-        -------
-        mavutil.mavlink.MAVLink_log_request_list_message
-            The MAVLink command message to request the specified log.
-        """
-
-        cmd = self.master.mav.log_request_list_encode(
-            self.master.target_system,
-            self.master.target_component,
-            0,                     # start id
-            0xFFFF                 # end id
+    async def _init_parser(self):
+        """Initialize the blocking parser."""
+        def create_parser():
+            return _BlockingParser(
+                self._log,
+                self.master,
+                self,
+                0
+            )
+        
+        self._parser = await self._loop.run_in_executor(
+            self._exe, 
+            create_parser
         )
 
-        return cmd
-
-    async def send_and_wait(
-        self,
-        *,
-        match_key: str,
-        request_msg: mavutil.mavlink.MAVLink_message,
-        collector: Callable[[mavutil.mavlink.MAVLink_message], bool],
-        timeout: float = 3.0,
-    ) -> None:
-        """
-        Transmit *request_msg*, register a handler on *match_key* and keep feeding
-        incoming packets to *collector* until it returns **True** or *timeout* expires.
-
-        Parameters
-        ----------
-        match_key :
-            The key used when the proxy dispatches inbound messages
-            (numeric ID as string, e.g. `"147"`).
-        request_msg :
-            Encoded MAVLink message to send – COMMAND_LONG, LOG_REQUEST_LIST, …
-        collector :
-            Callback that receives each matching packet.  Must return **True**
-            once the desired condition is satisfied; returning **False** keeps
-            waiting.
-        timeout :
-            Maximum seconds to block.
-        """
-
-        # always transmit on “mav” so the proxy’s writer thread sees it
-        self.send("mav", request_msg)
-
-        done = threading.Event()
-
-        def _handler(pkt):
-            try:
-                if collector(pkt):        # True => finished
-                    done.set()
-            except Exception as exc:
-                print(f"[collector] raised: {exc}")
-
-        self.register_handler(match_key, _handler)
-
-        if not done.wait(timeout):
-            self.unregister_handler(match_key, _handler)
-            raise TimeoutError(f"No reply/condition for message id {match_key} in {timeout}s")
-
-        self.unregister_handler(match_key, _handler)
-
-    async def get_log_entries(
-        self,
-        *,
-        msg_id: str,
-        request_msg: mavutil.mavlink.MAVLink_message,
-        timeout: float = 8.0,
-    ) -> Dict[int, Dict[str, int]]:
-        """
-        Send LOG_REQUEST_LIST and gather all LOG_ENTRY packets.
-        """
-        entries: Dict[int, Dict[str, int]] = {}
-        expected_total = {"val": None}
-
-        def _collector(pkt) -> bool:
-            if expected_total["val"] is None:
-                expected_total["val"] = pkt.num_logs
-            entries[pkt.id] = {"size": pkt.size, "utc": pkt.time_utc}
-            return len(entries) == expected_total["val"]
-
-        await self.send_and_wait(
-            match_key=msg_id,
-            request_msg=request_msg,
-            collector=_collector,
-            timeout=timeout,
-        )
-        return entries
-    
     # ------------------- exposing blocking parser methods --------- #
     async def list_ulogs(self, base: str = "fs/microsd/log") -> List[ULogInfo]:
         """Return metadata for every *.ulg file on the vehicle."""
@@ -647,6 +613,182 @@ class MavLinkExternalProxy(ExternalProxy):
             cancel_event
         )
         return local_path if result else None
+
+    # ------------------- helpers exposed to petals --------- #
+    def build_req_msg_long(self, message_id: int) -> mavutil.mavlink.MAVLink_command_long_message:
+        """
+        Build a MAVLink command to request a specific message type.
+
+        Parameters
+        ----------
+        message_id : int
+            The numeric ID of the MAVLink message to request.
+
+        Returns
+        -------
+        mavutil.mavlink.MAVLink_command_long_message
+            The MAVLink command message to request the specified message.
+        
+        Raises
+        ------
+        RuntimeError
+            If MAVLink connection is not established.
+        """
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+                                
+        cmd = self.master.mav.command_long_encode(
+            self.master.target_system,
+            self.master.target_component,
+            mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE, 
+            0,                # confirmation
+            float(message_id), # param1: Message ID to be streamed
+            0, 
+            0, 
+            0, 
+            0, 
+            0, 
+            0
+        )
+        return cmd
+
+    def build_req_msg_log_request(self, message_id: int) -> mavutil.mavlink.MAVLink_log_request_list_message:
+        """
+        Build a MAVLink command to request a specific log message.
+
+        Parameters
+        ----------
+        message_id : int
+            The numeric ID of the log message to request.
+
+        Returns
+        -------
+        mavutil.mavlink.MAVLink_log_request_list_message
+            The MAVLink command message to request the specified log.
+        
+        Raises
+        ------
+        RuntimeError
+            If MAVLink connection is not established.
+        """
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        cmd = self.master.mav.log_request_list_encode(
+            self.master.target_system,
+            self.master.target_component,
+            0,                     # start id
+            0xFFFF                 # end id
+        )
+
+        return cmd
+
+    async def send_and_wait(
+        self,
+        *,
+        match_key: str,
+        request_msg: mavutil.mavlink.MAVLink_message,
+        collector: Callable[[mavutil.mavlink.MAVLink_message], bool],
+        timeout: float = 3.0,
+    ) -> None:
+        """
+        Transmit *request_msg*, register a handler on *match_key* and keep feeding
+        incoming packets to *collector* until it returns **True** or *timeout* expires.
+
+        Parameters
+        ----------
+        match_key :
+            The key used when the proxy dispatches inbound messages
+            (numeric ID as string, e.g. `"147"`).
+        request_msg :
+            Encoded MAVLink message to send – COMMAND_LONG, LOG_REQUEST_LIST, …
+        collector :
+            Callback that receives each matching packet.  Must return **True**
+            once the desired condition is satisfied; returning **False** keeps
+            waiting.
+        timeout :
+            Maximum seconds to block.
+        
+        Raises
+        ------
+        RuntimeError
+            If MAVLink connection is not established.
+        TimeoutError
+            If no matching response is received within the timeout.
+        """
+        if not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        # always transmit on "mav" so the proxy's writer thread sees it
+        self.send("mav", request_msg)
+
+        done = threading.Event()
+
+        def _handler(pkt):
+            try:
+                if collector(pkt):        # True => finished
+                    done.set()
+            except Exception as exc:
+                self._log.error(f"[collector] raised: {exc}")
+
+        self.register_handler(match_key, _handler)
+
+        if not done.wait(timeout):
+            self.unregister_handler(match_key, _handler)
+            raise TimeoutError(f"No reply/condition for message id {match_key} in {timeout}s")
+
+        self.unregister_handler(match_key, _handler)
+
+    async def get_log_entries(
+        self,
+        *,
+        msg_id: str,
+        request_msg: mavutil.mavlink.MAVLink_message,
+        timeout: float = 8.0,
+    ) -> Dict[int, Dict[str, int]]:
+        """
+        Send LOG_REQUEST_LIST and gather all LOG_ENTRY packets.
+        """
+        entries: Dict[int, Dict[str, int]] = {}
+        expected_total = {"val": None}
+
+        def _collector(pkt) -> bool:
+            if expected_total["val"] is None:
+                expected_total["val"] = pkt.num_logs
+            entries[pkt.id] = {"size": pkt.size, "utc": pkt.time_utc}
+            return len(entries) == expected_total["val"]
+
+        await self.send_and_wait(
+            match_key=msg_id,
+            request_msg=request_msg,
+            collector=_collector,
+            timeout=timeout,
+        )
+        return entries
+        
+
+# --------------------------------------------------------------------------- #
+#  helper functions                                                           #
+# --------------------------------------------------------------------------- #
+
+def _match_ls_to_entries(
+    ls_list: List[Tuple[str, int]],
+    entry_dict: Dict[int, Dict[str, int]],
+    threshold_size: int = 4096,
+) -> Dict[str, Tuple[int, int]]:
+    files  = sorted([(n, s) for n, s in ls_list], key=lambda x: x[1], reverse=True)
+    entries = sorted(entry_dict.items())
+    if len(files) != len(entries):
+        raise ValueError("ls and entry counts differ; can't match safely")
+    mapping = {}
+    for log_id, info in entries:
+        for i, (name, sz) in enumerate(files):
+            if abs(sz - info['size']) <= threshold_size:
+                files.pop(i)
+                mapping[log_id] = (name, sz, info['utc'])
+                break
+    return mapping
+
 
 class _BlockingParser:
     """
@@ -865,6 +1007,7 @@ class _BlockingParser:
             self.__init__(self.master.address, self.master.baud, self.ftp.ftp_settings.debug)
         raise RuntimeError(f"ls('{path}') failed {retries}×")
 
+
 # ──────────────────────────────────────────────────────────────────────────────
 class ROS1ExternalProxy(ExternalProxy):
     """
@@ -879,8 +1022,8 @@ class ROS1ExternalProxy(ExternalProxy):
     def __init__(self, node_name: str = "petal_ros_proxy", maxlen: int = 200):
         super().__init__(maxlen=maxlen)
         self.node_name = node_name
-        self._pub_cache = {}        # type: Dict[str, "rospy.Publisher"]
-        self._srv_client_cache = {} # type: Dict[str, "rospy.ServiceProxy"]
+        self._pub_cache = {}        # type: Dict[str, Any]  # rospy.Publisher
+        self._srv_client_cache = {} # type: Dict[str, Any]  # rospy.ServiceProxy
         self._log = logging.getLogger("ROS1ExternalProxy")
 
     # ------------------------ life-cycle --------------------- #
@@ -951,25 +1094,3 @@ class ROS1ExternalProxy(ExternalProxy):
             self._enqueue_recv(f"svc_server/{srv_name}", req)
             return handler(req)
         # rospy.Service(srv_name, srv_class, _wrapper)
-
-# --------------------------------------------------------------------------- #
-#  helper functions                                                           #
-# --------------------------------------------------------------------------- #
-
-def _match_ls_to_entries(
-    ls_list: List[Tuple[str, int]],
-    entry_dict: Dict[int, Dict[str, int]],
-    threshold_size: int = 4096,
-) -> Dict[str, Tuple[int, int]]:
-    files  = sorted([(n, s) for n, s in ls_list], key=lambda x: x[1], reverse=True)
-    entries = sorted(entry_dict.items())
-    if len(files) != len(entries):
-        raise ValueError("ls and entry counts differ; can't match safely")
-    mapping = {}
-    for log_id, info in entries:
-        for i, (name, sz) in enumerate(files):
-            if abs(sz - info['size']) <= threshold_size:
-                files.pop(i)
-                mapping[log_id] = (name, sz, info['utc'])
-                break
-    return mapping
