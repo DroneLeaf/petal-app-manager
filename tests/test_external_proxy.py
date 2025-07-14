@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio, sys, time
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from pymavlink import mavutil
@@ -107,6 +108,17 @@ class MockExternalProxy(MavLinkExternalProxy):
         """Simulate receiving a message."""
         self.received_messages.append((key, msg))
 
+    async def wait_for_burst_completion(self) -> None:
+        """
+        Wait for all pending burst tasks to complete.
+        
+        This method is useful in testing scenarios where you need to ensure
+        that all burst messages have been queued before proceeding with
+        assertions. It waits for all background burst tasks to finish.
+        """
+        if hasattr(self, '_burst_tasks') and self._burst_tasks:
+            await asyncio.gather(*list(self._burst_tasks), return_exceptions=True)
+    
 
 def test_burst_send_immediate():
     """Test burst sending without intervals (backwards compatible)."""
@@ -144,8 +156,8 @@ async def test_burst_send_with_interval():
     # Send a burst of 3 messages with 0.1 second intervals
     proxy.send("test_key", "timed_burst", burst_count=3, burst_interval=0.1)
     
-    # Wait longer for the burst to complete, especially in CI environments
-    await asyncio.sleep(1.0)
+    # Wait for the burst to complete (proper way to wait for async tasks)
+    await proxy.wait_for_burst_completion()
     
     # Trigger a write cycle
     pending = defaultdict(list)
@@ -160,7 +172,7 @@ async def test_burst_send_with_interval():
     
     # Check that it took at least 0.2 seconds (2 intervals)
     elapsed = time.time() - start_time
-    assert elapsed >= 0.2
+    assert elapsed >= 0.2, f"Expected at least 0.2s, got {elapsed:.3f}s"
     
     await proxy.stop()
 
@@ -317,5 +329,106 @@ async def test_backwards_compatibility():
     assert proxy.sent_messages["test_key"][0] == "test_message"
     assert len(received_messages) == 1
     assert received_messages[0] == "received_message"
+    
+    await proxy.stop()
+
+
+@pytest.mark.asyncio
+async def test_burst_timing_precision():
+    """Test that burst intervals are properly timed."""
+    
+    class TimingMockProxy(MockExternalProxy):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.message_timestamps = []
+            
+        async def _send_burst(self, key: str, msg: Any, count: int, interval: float) -> None:
+            """Override to track timing."""
+            send_queue = self._send.setdefault(key, deque(maxlen=self._maxlen))
+            
+            # Send messages with proper intervals and track timing
+            for i in range(count):
+                self.message_timestamps.append(time.time())
+                send_queue.append(msg)
+                self._log.debug(f"Burst message {i+1}/{count} queued for key '{key}'")
+                if i < count - 1:  # Don't sleep after the last message
+                    await asyncio.sleep(interval)
+    
+    proxy = TimingMockProxy()
+    
+    # Start the proxy
+    await proxy.start()
+    
+    start_time = time.time()
+    
+    # Send a burst of 3 messages with 0.05 second intervals (faster for testing)
+    proxy.send("test_key", "timed_burst", burst_count=3, burst_interval=0.05)
+    
+    # Wait for the burst to complete properly
+    await proxy.wait_for_burst_completion()
+    
+    # Verify we got the expected number of messages
+    assert len(proxy.message_timestamps) == 3, f"Expected 3 messages, got {len(proxy.message_timestamps)}"
+    
+    # Check that the intervals are approximately correct
+    if len(proxy.message_timestamps) >= 2:
+        interval1 = proxy.message_timestamps[1] - proxy.message_timestamps[0]
+        interval2 = proxy.message_timestamps[2] - proxy.message_timestamps[1]
+        
+        # Allow some tolerance for timing (±20ms)
+        assert abs(interval1 - 0.05) < 0.02, f"First interval: {interval1:.3f}s, expected ~0.05s"
+        assert abs(interval2 - 0.05) < 0.02, f"Second interval: {interval2:.3f}s, expected ~0.05s"
+    
+    await proxy.stop()
+
+
+@pytest.mark.asyncio
+async def test_burst_interval_real_world_scenario():
+    """Test burst sending in a real-world scenario with MAVLink heartbeats."""
+    proxy = MockExternalProxy()
+    
+    # Track all sent messages with timestamps
+    sent_messages_with_time = []
+    
+    # Override _io_write_once to track when messages are actually sent
+    original_io_write_once = proxy._io_write_once
+    def timed_io_write_once(batches):
+        timestamp = time.time()
+        for key, msgs in batches.items():
+            for msg in msgs:
+                sent_messages_with_time.append((timestamp, key, msg))
+        return original_io_write_once(batches)
+    
+    proxy._io_write_once = timed_io_write_once
+    
+    # Start the proxy
+    await proxy.start()
+    
+    # Clear any existing messages that might be in the queue
+    proxy.sent_messages.clear()
+    sent_messages_with_time.clear()
+    
+    # Send a heartbeat burst every 0.2 seconds (5 Hz) on a test key
+    start_time = time.time()
+    proxy.send("test_heartbeat", "HEARTBEAT_MSG", burst_count=5, burst_interval=0.2)
+    
+    # Wait for all messages to be queued properly
+    await proxy.wait_for_burst_completion()
+    
+    # Manually trigger a write cycle to simulate the worker thread
+    pending = defaultdict(list)
+    for key, dq in proxy._send.items():
+        while dq:
+            pending[key].append(dq.popleft())
+    proxy._io_write_once(pending)
+    
+    # Verify all 5 messages were sent on our test key
+    test_messages = [msg for _, key, msg in sent_messages_with_time if key == "test_heartbeat"]
+    assert len(test_messages) == 5, f"Expected 5 heartbeat messages, got {len(test_messages)}"
+    assert all(msg == "HEARTBEAT_MSG" for msg in test_messages), "All messages should be HEARTBEAT_MSG"
+    
+    # Verify the total time was at least 0.8 seconds (4 intervals * 0.2s)
+    total_time = time.time() - start_time
+    assert total_time >= 0.8, f"Expected at least 0.8s total time, got {total_time:.3f}s"
     
     await proxy.stop()

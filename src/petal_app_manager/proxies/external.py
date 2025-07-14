@@ -196,12 +196,15 @@ class ExternalProxy(BaseProxy):
             else:
                 # Schedule burst with intervals using a background task
                 if self._loop is not None:
-                    # Use run_coroutine_threadsafe to ensure proper scheduling
-                    future = asyncio.run_coroutine_threadsafe(
-                        self._send_burst(key, msg, burst_count, burst_interval),
-                        self._loop
+                    # Create a task for the burst - this ensures proper async scheduling
+                    task = asyncio.create_task(
+                        self._send_burst(key, msg, burst_count, burst_interval)
                     )
-                    # Don't wait for completion here to avoid blocking the caller
+                    # Store the task reference to prevent garbage collection
+                    if not hasattr(self, '_burst_tasks'):
+                        self._burst_tasks = set()
+                    self._burst_tasks.add(task)
+                    task.add_done_callback(self._burst_tasks.discard)
                 else:
                     # If no loop is available, fall back to immediate send
                     self._log.warning("No event loop available for burst with interval, sending immediately")
@@ -216,6 +219,7 @@ class ExternalProxy(BaseProxy):
         # Send messages with proper intervals
         for i in range(count):
             send_queue.append(msg)
+            self._log.debug(f"Burst message {i+1}/{count} queued for key '{key}'")
             if i < count - 1:  # Don't sleep after the last message
                 await asyncio.sleep(interval)
 
@@ -223,6 +227,7 @@ class ExternalProxy(BaseProxy):
     async def start(self) -> None:
         """Create the worker thread and begin polling/writing."""
         self._loop = asyncio.get_running_loop()
+        self._burst_tasks = set()  # Initialize burst tasks tracking
         self._running.set()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -230,6 +235,17 @@ class ExternalProxy(BaseProxy):
     async def stop(self) -> None:
         """Ask the worker to exit and join it (best-effort, 5 s timeout)."""
         self._running.clear()
+        
+        # Cancel any pending burst tasks
+        if hasattr(self, '_burst_tasks'):
+            for task in self._burst_tasks.copy():
+                if not task.done():
+                    task.cancel()
+            # Wait for tasks to complete cancellation
+            if self._burst_tasks:
+                await asyncio.gather(*self._burst_tasks, return_exceptions=True)
+                self._burst_tasks.clear()
+        
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=5)
 
