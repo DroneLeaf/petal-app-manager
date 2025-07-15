@@ -1,7 +1,7 @@
 [project]
 name = "petal-app-manager"
 version = "0.1.16"
-description = "A FastAPI interface for loading, managing and running Droneleaf Petal applications"
+description = "A FastAPI interface for loading, managing and running DroneLeaf Petal applications"
 authors = [
     {name = "Khalil Al Handawi", email = "khalil.alhandawi@mail.mcgill.ca"},
 ]
@@ -37,6 +37,7 @@ prod = [
     "petal-flight-log @ git+https://github.com/DroneLeaf/petal-flight-log.git@v0.1.2",
     "petal-warehouse @ git+https://github.com/DroneLeaf/petal-warehouse.git@v0.1.2",
     "petal-leafsdk @ git+https://github.com/DroneLeaf/petal-leafsdk.git@v0.1.5",
+    "petal-qgc-mission-server @ git+https://github.com/DroneLeaf/petal-qgc-mission-server.git@v0.1.0",
 ]
 dev = [
     "pytest>=8.4.0",
@@ -48,5 +49,6 @@ dev = [
     "-e file:///${PROJECT_ROOT}/../petal-hello-world/#egg=petal-hello-world",
     "-e file:///${PROJECT_ROOT}/../petal-leafsdk/#egg=petal-leafsdk",
     "-e file:///${PROJECT_ROOT}/../petal-warehouse/#egg=petal-warehouse",
+    "-e file:///${PROJECT_ROOT}/../petal-qgc-mission-server/#egg=petal-qgc-mission-server",
     "-e file:///${PROJECT_ROOT}/../LeafSDK/#egg=LeafSDK",
 ]
