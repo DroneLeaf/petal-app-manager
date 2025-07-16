@@ -98,6 +98,8 @@ def build_app(
         app.add_event_handler("shutdown", p.stop)
 
     # ---------- core routers ----------
+    # Configure health check with proxy instances
+    health.set_proxies(proxies)
     app.include_router(health.router)
     app.include_router(proxy_info.router, prefix="/debug")
 
