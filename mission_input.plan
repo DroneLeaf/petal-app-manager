@@ -1,0 +1,130 @@
+{
+  "fileType": "Plan",
+  "groundStation": "px4-mission-server",
+  "version": 1,
+  "mission": {
+    "items": [
+      {
+        "mavpackettype": "MISSION_ITEM_INT",
+        "target_system": 1,
+        "target_component": 1,
+        "seq": 0,
+        "frame": 3,
+        "command": 22,
+        "current": 1,
+        "autocontinue": 1,
+        "param1": 0.0,
+        "param2": 0.0,
+        "param3": 0.0,
+        "param4": NaN,
+        "x": 474005645,
+        "y": 85391286,
+        "z": 50.0
+      },
+      {
+        "mavpackettype": "MISSION_ITEM_INT",
+        "target_system": 1,
+        "target_component": 1,
+        "seq": 1,
+        "frame": 3,
+        "command": 16,
+        "current": 0,
+        "autocontinue": 1,
+        "param1": 0.0,
+        "param2": 0.0,
+        "param3": 0.0,
+        "param4": NaN,
+        "x": 474039592,
+        "y": 85495731,
+        "z": 50.0
+      },
+      {
+        "mavpackettype": "MISSION_ITEM_INT",
+        "target_system": 1,
+        "target_component": 1,
+        "seq": 2,
+        "frame": 3,
+        "command": 16,
+        "current": 0,
+        "autocontinue": 1,
+        "param1": 0.0,
+        "param2": 0.0,
+        "param3": 0.0,
+        "param4": NaN,
+        "x": 473975547,
+        "y": 85555709,
+        "z": 50.0
+      },
+      {
+        "mavpackettype": "MISSION_ITEM_INT",
+        "target_system": 1,
+        "target_component": 1,
+        "seq": 3,
+        "frame": 3,
+        "command": 16,
+        "current": 0,
+        "autocontinue": 1,
+        "param1": 0.0,
+        "param2": 0.0,
+        "param3": 0.0,
+        "param4": NaN,
+        "x": 473951046,
+        "y": 85362331,
+        "z": 50.0
+      },
+      {
+        "mavpackettype": "MISSION_ITEM_INT",
+        "target_system": 1,
+        "target_component": 1,
+        "seq": 4,
+        "frame": 3,
+        "command": 16,
+        "current": 0,
+        "autocontinue": 1,
+        "param1": 0.0,
+        "param2": 0.0,
+        "param3": 0.0,
+        "param4": NaN,
+        "x": 473995496,
+        "y": 85250131,
+        "z": 50.0
+      },
+      {
+        "mavpackettype": "MISSION_ITEM_INT",
+        "target_system": 1,
+        "target_component": 1,
+        "seq": 5,
+        "frame": 2,
+        "command": 20,
+        "current": 0,
+        "autocontinue": 1,
+        "param1": 0.0,
+        "param2": 0.0,
+        "param3": 0.0,
+        "param4": 0.0,
+        "x": 0,
+        "y": 0,
+        "z": 0.0
+      }
+    ],
+    "vehicleType": 2,
+    "cruiseSpeed": 0,
+    "hoverSpeed": 0,
+    "plannedHomePosition": [
+      0,
+      0,
+      0
+    ],
+    "firmwareType": 12
+  },
+  "geoFence": {
+    "version": 2,
+    "polygons": [],
+    "circles": [],
+    "inclusionZones": []
+  },
+  "rallyPoints": {
+    "version": 2,
+    "points": []
+  }
+}

@@ -550,13 +550,22 @@ class MavLinkExternalProxy(ExternalProxy):
         if not self.connected:
             raise RuntimeError("MAVLink not connected")
             
-        msg = self.master.mav.heartbeat_encode(
-            mavutil.mavlink.MAV_TYPE_GCS,  # GCS type
-            mavutil.mavlink.MAV_AUTOPILOT_INVALID,  # Autopilot type
-            0,  # Base mode
-            0,  # Custom mode
-            mavutil.mavlink.MAV_STATE_ACTIVE  # System state
-        )
+        # msg = self.master.mav.heartbeat_encode(
+        #     mavutil.mavlink.MAV_TYPE_ONBOARD_CONTROLLER,  # GCS type
+        #     mavutil.mavlink.MAV_AUTOPILOT_GENERIC,  # Autopilot type
+        #     0,  # Base mode
+        #     0,  # Custom mode
+        #     mavutil.mavlink.MAV_STATE_ACTIVE  # System state
+        # )
+        base = mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED
+        self.armed = False
+        self.main  = 1
+        self.sub   = 0
+        if self.armed: base |= mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED
+        cust = (self.sub << 16) | self.main
+        msg = self.master.mav.heartbeat_encode(mavutil.mavlink.MAV_TYPE_QUADROTOR,
+                                mavutil.mavlink.MAV_AUTOPILOT_PX4,
+                                base, cust, mavutil.mavlink.MAV_STATE_ACTIVE)
         self.send("mav", msg)
         self._log.debug("Sent MAVLink heartbeat")
 
