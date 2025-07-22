@@ -93,6 +93,14 @@ class MockExternalProxy(MavLinkExternalProxy):
         self.received_messages = []
         self.master = None  # Override to avoid MAVLink connection
         
+    async def start(self):
+        """Override start to avoid MAVLink connection tasks."""
+        # Only start the base ExternalProxy, not the MAVLink-specific parts
+        from petal_app_manager.proxies.external import ExternalProxy
+        await ExternalProxy.start(self)
+        # Mark as connected for testing purposes
+        self.connected = True
+        
     def _io_read_once(self, timeout: int = 0) -> list[tuple[str, str]]:
         # Return any queued test messages
         messages = self.received_messages.copy()

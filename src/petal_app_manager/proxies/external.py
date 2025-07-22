@@ -507,35 +507,38 @@ class MavLinkExternalProxy(ExternalProxy):
 
     async def _monitor_connection(self):
         """Monitor connection health and trigger reconnection if needed."""
-        # pause heartbeat task if _mav_lock is held
-        if not self._mav_lock.locked():
-            while self._running.is_set():
-                try:
-                    current_time = time.time()
-                    
-                    # Check if we haven't received a heartbeat recently
-                    if (self.connected and 
-                        current_time - self._last_heartbeat_time > self._heartbeat_timeout):
-                        self._log.warning("No heartbeat received for %.1fs - connection lost", 
-                                        current_time - self._last_heartbeat_time)
-                        self.connected = False
-                    
-                    # Attempt reconnection if not connected
-                    if not self.connected and self._running.is_set():
-                        self._log.info("Attempting to reconnect to MAVLink...")
-                        await self._establish_connection()
-                        
-                        if not self.connected:
-                            await asyncio.sleep(self._reconnect_interval)
-                    
-                    # Check connection health periodically
+        while self._running.is_set():
+            try:
+                # Skip monitoring if _mav_lock is held (FTP operation in progress)
+                if self._mav_lock.locked():
                     await asyncio.sleep(self._connection_check_interval)
+                    continue
+                
+                current_time = time.time()
+                
+                # Check if we haven't received a heartbeat recently
+                if (self.connected and 
+                    current_time - self._last_heartbeat_time > self._heartbeat_timeout):
+                    self._log.warning("No heartbeat received for %.1fs - connection lost", 
+                                    current_time - self._last_heartbeat_time)
+                    self.connected = False
+                
+                # Attempt reconnection if not connected
+                if not self.connected and self._running.is_set():
+                    self._log.info("Attempting to reconnect to MAVLink...")
+                    await self._establish_connection()
                     
-                except asyncio.CancelledError:
-                    break
-                except Exception as e:
-                    self._log.error(f"Error in connection monitor: {str(e)}")
-                    await asyncio.sleep(self._reconnect_interval)
+                    if not self.connected:
+                        await asyncio.sleep(self._reconnect_interval)
+                
+                # Check connection health periodically
+                await asyncio.sleep(self._connection_check_interval)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self._log.error(f"Error in connection monitor: {str(e)}")
+                await asyncio.sleep(self._reconnect_interval)
 
     def _schedule_reconnect(self) -> None:
         """Called from the FTP thread when it detects a dead FD."""
@@ -548,9 +551,11 @@ class MavLinkExternalProxy(ExternalProxy):
         async def _task():
             try:
                 await self._establish_connection()
-            finally:
-                # force a fresh BlockingParser next time
+            except Exception:
+                # force a fresh BlockingParser next time only on failure
                 self._parser = None
+                raise
+            finally:
                 self._reconnect_pending = False
         asyncio.run_coroutine_threadsafe(_task(), self._loop)
 

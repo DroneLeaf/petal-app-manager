@@ -64,7 +64,7 @@ class MockMavlink:
     def wait_heartbeat(self, timeout=5):
         return True
 
-    def recv_match(self, blocking=False, type=None):
+    def recv_match(self, blocking=False, type=None, timeout=None):
         if type == "LOG_ENTRY":
             if self._log_counter < 2:
                 self._log_counter += 1
@@ -222,6 +222,21 @@ async def build_proxy(px4_time_msg=None):
     with p_pkg, p_mod1, p_mod2, p_mod3:
         proxy = MavLinkExternalProxy(endpoint="udp:dummy:14550")
         await proxy.start()
+        
+        # Force connection establishment for testing
+        # Since the new logic uses _schedule_reconnect(), we need to wait for it
+        # and ensure the connection gets established with our mocks
+        await asyncio.sleep(0.1)  # Allow background tasks to run
+        
+        # Manually set connected status and initialize parser if needed
+        if not proxy.connected:
+            proxy.connected = True
+            
+        # Even if connected, the parser might still be None due to timing issues
+        # with the async _schedule_reconnect() task, so ensure it's initialized
+        if not hasattr(proxy, '_parser') or proxy._parser is None:
+            await proxy._init_parser()
+        
         return proxy
 
 # --------------------------------------------------------------------------- #
@@ -300,30 +315,25 @@ async def test_init():
 
 @pytest.mark.asyncio
 async def test_list_ulogs():
-    # Setup with patched get_log_entries to avoid timeout
-    p_pkg, p_mod1, p_mod2, p_mod3 = _patch_pymavlink()
-    with p_pkg, p_mod1, p_mod2, p_mod3:
-        proxy = MavLinkExternalProxy(endpoint="udp:dummy:14550")
+    # Use build_proxy to set up a properly connected proxy
+    proxy = await build_proxy()
+    
+    # Patch the get_log_entries method to return mock data directly
+    async def mock_get_log_entries(**kwargs):
+        return {
+            1: {"size": 1024, "utc": 1612345678},
+            2: {"size": 2048, "utc": 1612345679}
+        }
+    
+    # Apply the patch
+    with patch.object(proxy, 'get_log_entries', mock_get_log_entries):
+        ulogs = await proxy.list_ulogs()
         
-        # Patch the get_log_entries method to return mock data directly
-        async def mock_get_log_entries(**kwargs):
-            return {
-                1: {"size": 1024, "utc": 1612345678},
-                2: {"size": 2048, "utc": 1612345679}
-            }
-        
-        # Apply the patch
-        with patch.object(proxy, 'get_log_entries', mock_get_log_entries):
-            await proxy.start()
-            ulogs = await proxy.list_ulogs()
-            
-            # Check results
-            assert isinstance(ulogs[0], ULogInfo)
-            assert len(ulogs) == 2
-            paths = {u.remote_path for u in ulogs}
-            assert "fs/microsd/log/2023-01-01/log1.ulg" in paths
-            
-            await proxy.stop()
+        # Check results
+        assert isinstance(ulogs[0], ULogInfo)
+        assert len(ulogs) == 2
+        paths = {u.remote_path for u in ulogs}
+        assert "fs/microsd/log/2023-01-01/log1.ulg" in paths
 
 @pytest.mark.asyncio
 async def test_ls():
