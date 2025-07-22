@@ -395,6 +395,8 @@ class MavLinkExternalProxy(ExternalProxy):
         self._reconnect_interval = 2.0  # Wait 2s between reconnection attempts
         self._heartbeat_task = None
         self._connection_monitor_task = None
+        self._reconnect_pending = False
+        self._mav_lock = threading.Lock()
         
 
     @property
@@ -420,7 +422,7 @@ class MavLinkExternalProxy(ExternalProxy):
         await super().start()
         
         # Attempt initial connection
-        await self._establish_connection()
+        self._schedule_reconnect()
         
         # Initialize parser if connection was successful
         if self.connected and self.master:
@@ -477,6 +479,14 @@ class MavLinkExternalProxy(ExternalProxy):
             except Exception as e:
                 self.connected = False
                 self._log.warning(f"Error waiting for heartbeat: {e}")
+
+            # kill the old parser safely
+            if hasattr(self, "_parser") and self._parser:
+                try:
+                    self._parser.close()
+                except Exception:
+                    self._log.warning("Error closing old parser, will recreate it")
+            self._parser = None            # forces lazy re-creation
                 
         except Exception as e:
             self.connected = False
@@ -497,33 +507,52 @@ class MavLinkExternalProxy(ExternalProxy):
 
     async def _monitor_connection(self):
         """Monitor connection health and trigger reconnection if needed."""
-        while self._running.is_set():
-            try:
-                current_time = time.time()
-                
-                # Check if we haven't received a heartbeat recently
-                if (self.connected and 
-                    current_time - self._last_heartbeat_time > self._heartbeat_timeout):
-                    self._log.warning("No heartbeat received for %.1fs - connection lost", 
-                                    current_time - self._last_heartbeat_time)
-                    self.connected = False
-                
-                # Attempt reconnection if not connected
-                if not self.connected and self._running.is_set():
-                    self._log.info("Attempting to reconnect to MAVLink...")
-                    await self._establish_connection()
+        # pause heartbeat task if _mav_lock is held
+        if not self._mav_lock.locked():
+            while self._running.is_set():
+                try:
+                    current_time = time.time()
                     
-                    if not self.connected:
-                        await asyncio.sleep(self._reconnect_interval)
-                
-                # Check connection health periodically
-                await asyncio.sleep(self._connection_check_interval)
-                
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                self._log.error(f"Error in connection monitor: {str(e)}")
-                await asyncio.sleep(self._reconnect_interval)
+                    # Check if we haven't received a heartbeat recently
+                    if (self.connected and 
+                        current_time - self._last_heartbeat_time > self._heartbeat_timeout):
+                        self._log.warning("No heartbeat received for %.1fs - connection lost", 
+                                        current_time - self._last_heartbeat_time)
+                        self.connected = False
+                    
+                    # Attempt reconnection if not connected
+                    if not self.connected and self._running.is_set():
+                        self._log.info("Attempting to reconnect to MAVLink...")
+                        await self._establish_connection()
+                        
+                        if not self.connected:
+                            await asyncio.sleep(self._reconnect_interval)
+                    
+                    # Check connection health periodically
+                    await asyncio.sleep(self._connection_check_interval)
+                    
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    self._log.error(f"Error in connection monitor: {str(e)}")
+                    await asyncio.sleep(self._reconnect_interval)
+
+    def _schedule_reconnect(self) -> None:
+        """Called from the FTP thread when it detects a dead FD."""
+        if not self._running.is_set():
+            return
+        # avoid stampeding: only schedule once
+        if getattr(self, "_reconnect_pending", False):
+            return
+        self._reconnect_pending = True
+        async def _task():
+            try:
+                await self._establish_connection()
+            finally:
+                # force a fresh BlockingParser next time
+                self._parser = None
+                self._reconnect_pending = False
+        asyncio.run_coroutine_threadsafe(_task(), self._loop)
 
     async def _send_heartbeat_periodically(self, frequency: float = 5.0):
         """Periodically send a MAVLink heartbeat message."""
@@ -594,13 +623,14 @@ class MavLinkExternalProxy(ExternalProxy):
 
         out: List[Tuple[str, Any]] = []
         try:
-            while True:
-                msg = self.master.recv_match(blocking=True, timeout=timeout)
-                if msg is None:
-                    break
-                out.append(("mav", msg))
-                out.append((str(msg.get_msgId()), msg))
-                out.append((msg.get_type(), msg))
+            with self._mav_lock:
+                while True:
+                    msg = self.master.recv_match(blocking=True, timeout=timeout)
+                    if msg is None:
+                        break
+                    out.append(("mav", msg))
+                    out.append((str(msg.get_msgId()), msg))
+                    out.append((msg.get_type(), msg))
 
         except (OSError, socket.error) as e:
             # Handle connection errors gracefully
@@ -622,22 +652,23 @@ class MavLinkExternalProxy(ExternalProxy):
             
         for key, msgs in batches.items():
             for msg in msgs:
-                try:
-                    self.master.mav.send(msg)
-                    self._log.debug("Sent MAVLink message %s: %s", key, msg)
-                except (OSError, socket.error) as e:
-                    if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
-                        self._log.debug(f"MAVLink connection lost during write: {e}")
+                with self._mav_lock:
+                    try:
+                        self.master.mav.send(msg)
+                        self._log.debug("Sent MAVLink message %s: %s", key, msg)
+                    except (OSError, socket.error) as e:
+                        if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
+                            self._log.debug(f"MAVLink connection lost during write: {e}")
+                            # Don't mark as disconnected here, let the heartbeat monitor handle it
+                            break  # Stop trying to send more messages
+                        else:
+                            self._log.error(f"Unexpected error sending MAVLink message {key}: {e}")
+                    except Exception as exc:
+                        self._log.error(
+                            "Failed to send MAVLink message %s: %s",
+                            key, exc
+                        )
                         # Don't mark as disconnected here, let the heartbeat monitor handle it
-                        break  # Stop trying to send more messages
-                    else:
-                        self._log.error(f"Unexpected error sending MAVLink message {key}: {e}")
-                except Exception as exc:
-                    self._log.error(
-                        "Failed to send MAVLink message %s: %s",
-                        key, exc
-                    )
-                    # Don't mark as disconnected here, let the heartbeat monitor handle it
 
     async def _init_parser(self):
         """Initialize the blocking parser."""
@@ -994,58 +1025,69 @@ class _BlockingParser:
                             raise RuntimeError(f"Failed to reconnect after {max_retries} attempts") from conn_e
                         continue
                 
-                ret = self.ftp.cmd_get(
-                    [remote_path, str(local_path.absolute())],
-                    progress_callback=lambda x: _progress_cb(x)
-                )
-                if ret.return_code != 0:
-                    raise RuntimeError(f"OpenFileRO failed: {ret.return_code}")
+                with self.proxy._mav_lock:
 
-                # Check for cancellation before processing reply
-                if cancel_event and cancel_event.is_set():
-                    self._reset_ftp_state()
-                    if local_path.exists():
-                        local_path.unlink()
-                    return None
+                    ret = self.ftp.cmd_get(
+                        [remote_path, str(local_path.absolute())],
+                        progress_callback=lambda x: _progress_cb(x)
+                    )
+                    if ret.return_code != 0:
+                        raise RuntimeError(f"OpenFileRO failed: {ret.return_code}")
 
-                # Process the reply with a try-except to handle potential issues
-                try:
-                    self.ftp.process_ftp_reply(ret.operation_name, timeout=0)
-                except DownloadCancelledException:
-                    # Handle cancellation gracefully
-                    self._log.info("Download cancelled by user")
-                    self._reset_ftp_state()
-                    if local_path.exists():
-                        local_path.unlink()
-                    return None
-                except Exception as e:
-                    self._log.error(f"Error processing FTP reply: {str(e)}")
-                    self._reset_ftp_state()
-                    raise
+                    # Check for cancellation before processing reply
+                    if cancel_event and cancel_event.is_set():
+                        self._reset_ftp_state()
+                        if local_path.exists():
+                            local_path.unlink()
+                        return None
 
-                if not local_path.exists():
-                    # handle temp-file move failure
-                    tmp = Path(self.ftp.temp_filename)
-                    if tmp.exists():
-                        shutil.move(tmp, local_path)
-                        self._log.warning("Temp file recovered to %s", local_path)
+                    # Process the reply with a try-except to handle potential issues
+                    try:
+                        self.ftp.process_ftp_reply(ret.operation_name, timeout=0)
+                    except DownloadCancelledException:
+                        # Handle cancellation gracefully
+                        self._log.info("Download cancelled by user")
+                        self._reset_ftp_state()
+                        if local_path.exists():
+                            local_path.unlink()
+                        return None
+                    except (OSError, socket.error) as e:
+                        self._log.error(f"FTP error during download: {str(e)}")
+                    except Exception as e:
+                        self._log.error(f"Error processing FTP reply: {str(e)}")
+                        self._reset_ftp_state()
+                        raise
+                    
 
-                self._log.info("Saved %s (%.1f KiB)",
-                            local_path.name, local_path.stat().st_size / 1024)
-                return str(local_path)
+                    if not local_path.exists():
+                        # handle temp-file move failure
+                        tmp = Path(self.ftp.temp_filename)
+                        if tmp.exists():
+                            shutil.move(tmp, local_path)
+                            self._log.warning("Temp file recovered to %s", local_path)
+
+                    if not local_path.exists():
+                        self._log.error("Failed to recover temp file to %s", local_path)
+                        return None
+
+                    self._log.info("Saved %s (%.1f KiB)",
+                                local_path.name, local_path.stat().st_size / 1024)
+                    return str(local_path)
                 
             except DownloadCancelledException:
                 # Handle cancellation gracefully at the outer level too
                 self._log.info("Download cancelled by user")
-                self._reset_ftp_state()
+                with self.proxy._mav_lock:
+                    self._reset_ftp_state()
                 if local_path.exists():
                     local_path.unlink()
                 return None
             except (OSError, socket.error) as e:
                 # Handle connection errors (including "Bad file descriptor")
                 self._log.error(f"Download error (attempt {attempt + 1}/{max_retries}): {str(e)}")
-                self._reset_ftp_state()
-                
+                with self.proxy._mav_lock:
+                    self._reset_ftp_state()
+
                 # Clean up partial file
                 if local_path.exists():
                     local_path.unlink()
@@ -1063,8 +1105,9 @@ class _BlockingParser:
             except Exception as e:
                 self._log.error(f"Download error: {str(e)}")
                 # Always reset FTP state on error
-                self._reset_ftp_state()
-                
+                with self.proxy._mav_lock:
+                    self._reset_ftp_state()
+
                 # Clean up partial file
                 if local_path.exists():
                     local_path.unlink()
@@ -1082,7 +1125,7 @@ class _BlockingParser:
             self.ftp.process_ftp_reply("TerminateSession")
         except Exception as e:
             self._log.warning(f"Error terminating session: {e}")
-        
+    
         try:
             # Then reset all sessions for good measure
             op = mavftp.OP_ResetSessions
@@ -1137,9 +1180,10 @@ class _BlockingParser:
                     self._log.warning(f"Connection lost, skipping ls for {path}")
                     return []
                 
-                ack = self.ftp.cmd_list([path])
-                if ack.return_code == 0:
-                    return list(set((e.name, e.size_b, e.is_dir) for e in self.ftp.list_result))
+                with self.proxy._mav_lock:
+                    ack = self.ftp.cmd_list([path])
+                    if ack.return_code == 0:
+                        return list(set((e.name, e.size_b, e.is_dir) for e in self.ftp.list_result))
             except (OSError, socket.error) as e:
                 # Handle connection errors gracefully
                 if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
@@ -1164,12 +1208,11 @@ class _BlockingParser:
             
             # If we reach here, the operation failed but we can retry
             time.sleep(delay)
-            # soft reconnect attempt
-            try:
-                self.__init__(self.master.address, self.master.baud, self.ftp.ftp_settings.debug)
-            except Exception as e:
-                self._log.warning(f"Failed to reinitialize during retry: {e}")
-                
+            # tell the outer proxy to reconnect instead
+            awaitable = getattr(self.proxy, "_schedule_reconnect", None)
+            if callable(awaitable):
+                awaitable()
+
         raise RuntimeError(f"ls('{path}') failed {retries}×")
 
 
