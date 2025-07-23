@@ -424,10 +424,6 @@ class MavLinkExternalProxy(ExternalProxy):
         # Attempt initial connection
         self._schedule_reconnect()
         
-        # Initialize parser if connection was successful
-        if self.connected and self.master:
-            await self._init_parser()
-        
         # Start connection monitoring and heartbeat tasks
         self._connection_monitor_task = asyncio.create_task(self._monitor_connection())
         
@@ -479,14 +475,6 @@ class MavLinkExternalProxy(ExternalProxy):
             except Exception as e:
                 self.connected = False
                 self._log.warning(f"Error waiting for heartbeat: {e}")
-
-            # kill the old parser safely
-            if hasattr(self, "_parser") and self._parser:
-                try:
-                    self._parser.close()
-                except Exception:
-                    self._log.warning("Error closing old parser, will recreate it")
-            self._parser = None            # forces lazy re-creation
                 
         except Exception as e:
             self.connected = False
@@ -675,76 +663,6 @@ class MavLinkExternalProxy(ExternalProxy):
                         )
                         # Don't mark as disconnected here, let the heartbeat monitor handle it
 
-    async def _init_parser(self):
-        """Initialize the blocking parser."""
-        def create_parser():
-            return _BlockingParser(
-                self._log,
-                self.master,
-                self,
-                0
-            )
-        
-        self._parser = await self._loop.run_in_executor(
-            self._exe, 
-            create_parser
-        )
-
-    # ------------------- exposing blocking parser methods --------- #
-    async def list_ulogs(self, base: str = "fs/microsd/log") -> List[ULogInfo]:
-        """Return metadata for every *.ulg file on the vehicle."""
-        if not self.connected or not self.master:
-            raise RuntimeError("MAVLink connection not established")
-
-        # Initialize parser if not already done (e.g., after reconnection)
-        if not hasattr(self, '_parser') or self._parser is None:
-            await self._init_parser()
-
-        msg_id = str(mavutil.mavlink.MAVLINK_MSG_ID_LOG_ENTRY)
-        msg = self.build_req_msg_log_request(message_id=msg_id)
-
-        entries = await self.get_log_entries(
-            msg_id=msg_id,
-            request_msg=msg,
-            timeout=5.0
-        )
-
-        if not entries or not isinstance(entries, dict):
-            self._log.warning("No log entries found or invalid format.")
-            return []
-
-        raw = await self._loop.run_in_executor(self._exe, self._parser.list_ulogs, entries, base)
-        return [ULogInfo(**item) for item in raw]
-
-    async def download_ulog(
-        self,
-        remote_path: str,
-        local_path: Path,
-        on_progress: ProgressCB | None = None,
-        cancel_event: threading.Event | None = None,
-    ) -> Path:
-        """
-        Fetch *remote_path* from the vehicle into *local_path*.
-
-        Returns the Path actually written on success or None if cancelled.
-        """
-        if not self.connected or not self.master:
-            raise RuntimeError("MAVLink connection not established")
-
-        # Initialize parser if not already done (e.g., after reconnection)
-        if not hasattr(self, '_parser') or self._parser is None:
-            await self._init_parser()
-
-        result = await self._loop.run_in_executor(
-            self._exe, 
-            self._parser.download_ulog, 
-            remote_path, 
-            local_path, 
-            on_progress,
-            cancel_event
-        )
-        return local_path if result else None
-
     # ------------------- helpers exposed to petals --------- #
     def build_req_msg_long(self, message_id: int) -> mavutil.mavlink.MAVLink_command_long_message:
         """
@@ -897,6 +815,126 @@ class MavLinkExternalProxy(ExternalProxy):
         )
         return entries
         
+class MavLinkFTPProxy(BaseProxy):
+    """
+    Threaded MAVLink FTP driver using :pymod:`pymavlink`.
+    """
+
+    def __init__(
+        self,
+        mavlink_proxy: MavLinkExternalProxy,
+    ):
+        self._log = logging.getLogger("MavLinkParser")
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._exe = ThreadPoolExecutor(max_workers=1)
+        self.mavlink_proxy: MavLinkExternalProxy = mavlink_proxy
+        self._mav_lock = threading.Lock()
+
+    # ------------------------ life-cycle --------------------- #
+    async def start(self):
+        """Open the MAVLink connection then launch the worker thread."""
+        self._loop = asyncio.get_running_loop()
+        
+        # Start the worker thread first
+        await super().start()
+
+        # Initialize parser if connection was successful
+        if self.mavlink_proxy.master:
+            await self._init_parser()
+
+
+    async def stop(self):
+        """Stop the worker and close the link."""
+        # Stop the worker thread
+        await super().stop()
+        
+
+        
+    # ------------------- I/O primitives --------------------- #
+    async def _init_parser(self):
+        """Initialize the blocking parser."""
+        def create_parser():
+            return _BlockingParser(
+                self._log,
+                self.mavlink_proxy.master,
+                self.mavlink_proxy,
+                0
+            )
+        
+        self._parser = await self._loop.run_in_executor(
+            self._exe, 
+            create_parser
+        )
+
+    # ------------------- exposing blocking parser methods --------- #
+    async def list_ulogs(self, base: str = "fs/microsd/log") -> List[ULogInfo]:
+        """Return metadata for every *.ulg file on the vehicle."""
+        # Check connection and attempt to establish if needed
+        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+            raise RuntimeError("MAVLink FTP connection could not be established")
+
+        # Initialize parser if not already done (e.g., after reconnection)
+        if not hasattr(self, '_parser') or self._parser is None:
+            await self._init_parser()
+
+        # Try to get log entries from the vehicle, but handle timeout gracefully
+        entries = {}
+        try:
+            msg_id = str(mavutil.mavlink.MAVLINK_MSG_ID_LOG_ENTRY)
+            msg = self.mavlink_proxy.build_req_msg_log_request(message_id=msg_id)
+
+            entries = await self.mavlink_proxy.get_log_entries(
+                msg_id=msg_id,
+                request_msg=msg,
+                timeout=5.0
+            )
+        except (TimeoutError, RuntimeError) as e:
+            self._log.warning(f"Failed to get log entries from vehicle: {e}")
+            self._log.info("Attempting to list files directly via FTP without log entries...")
+            entries = {}
+
+        # Attempt to list files via FTP
+        try:
+            raw = await self._loop.run_in_executor(self._exe, self._parser.list_ulogs, entries, base)
+            return [ULogInfo(**item) for item in raw]
+        except Exception as e:
+            self._log.warning(f"Failed to list files via FTP: {e}")
+            return []
+
+    async def download_ulog(
+        self,
+        remote_path: str,
+        local_path: Path,
+        on_progress: ProgressCB | None = None,
+        cancel_event: threading.Event | None = None,
+    ) -> Path:
+        """
+        Fetch *remote_path* from the vehicle into *local_path*.
+
+        Returns the Path actually written on success or None if cancelled.
+        """
+        # Check connection and attempt to establish if needed
+        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+            self._log.warning("FTP connection not established, attempting to connect...")
+            await self._establish_connection()
+            
+        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+            raise RuntimeError("MAVLink FTP connection could not be established")
+
+        # Initialize parser if not already done (e.g., after reconnection)
+        if not hasattr(self, '_parser') or self._parser is None:
+            await self._init_parser()
+
+        result = await self._loop.run_in_executor(
+            self._exe, 
+            self._parser.download_ulog, 
+            remote_path, 
+            local_path, 
+            on_progress,
+            cancel_event
+        )
+        return local_path if result else None
+        
 
 # --------------------------------------------------------------------------- #
 #  helper functions                                                           #
@@ -939,6 +977,8 @@ class _BlockingParser:
         ):
         self._log = logger.getChild("BlockingParser")
         self.master = master
+        self.proxy = mavlink_proxy
+        
         self.ftp = mavftp.MAVFTP(
             self.master, self.master.target_system, self.master.target_component
         )
@@ -947,7 +987,6 @@ class _BlockingParser:
         self.ftp.ftp_settings.burst_read_size  = 239
         self.ftp.burst_size                    = 239
 
-        self.proxy = mavlink_proxy
 
     @property
     def system_id(self):          # convenience for log message in proxy.start()
@@ -969,17 +1008,32 @@ class _BlockingParser:
         if not ulog_files:
             return []
 
-        mapping = _match_ls_to_entries(ulog_files, entries)
-        # sort the mapping by utc descending
-        mapping = sorted(
-            mapping.values(),
-            key=lambda x: [2],  # sort by utc
-            reverse=True
-        )
-        result  = []
-        for i, (name, size, utc) in enumerate(mapping):
+        # If we have log entries from the vehicle, try to match them with files
+        if entries:
+            try:
+                mapping = _match_ls_to_entries(ulog_files, entries)
+                # sort the mapping by utc descending
+                mapping = sorted(
+                    mapping.values(),
+                    key=lambda x: x[2],  # sort by utc (index 2)
+                    reverse=True
+                )
+                result = []
+                for i, (name, size, utc) in enumerate(mapping):
+                    result.append(
+                        dict(index=i, remote_path=name, size_bytes=size, utc=utc)
+                    )
+                return result
+            except ValueError as e:
+                self._log.warning(f"Failed to match files with log entries: {e}")
+                # Fall through to basic file listing
+        
+        # If no entries or matching failed, return basic file info without UTC timestamps
+        self._log.info("Returning basic file listing without log entry metadata")
+        result = []
+        for i, (name, size) in enumerate(ulog_files):
             result.append(
-                dict(index=i, remote_path=name, size_bytes=size, utc=utc)
+                dict(index=i, remote_path=name, size_bytes=size, utc=0)  # UTC=0 when unknown
             )
         return result
 
@@ -1181,7 +1235,7 @@ class _BlockingParser:
         for n in range(1, retries + 1):
             try:
                 # Check if connection is still valid before attempting operation
-                if not self.proxy.connected or not self.master:
+                if not self.master:
                     self._log.warning(f"Connection lost, skipping ls for {path}")
                     return []
                 
@@ -1189,34 +1243,47 @@ class _BlockingParser:
                     ack = self.ftp.cmd_list([path])
                     if ack.return_code == 0:
                         return list(set((e.name, e.size_b, e.is_dir) for e in self.ftp.list_result))
+                    else:
+                        # FTP command failed - check if it's a retryable error
+                        if ack.return_code == 1:
+                            # Error code 1 typically means "file/directory not found" or "permission denied"
+                            # This is not a connection issue, so don't retry
+                            self._log.warning(f"FTP ls failed: path '{path}' not found or not accessible (return code {ack.return_code})")
+                            return []  # Return empty list instead of raising error
+                        else:
+                            # Other error codes might be retryable
+                            self._log.warning(f"FTP ls command failed with return code {ack.return_code} (attempt {n}/{retries})")
+                            if n >= retries:
+                                raise RuntimeError(f"ls('{path}') failed after {retries} attempts: FTP return code {ack.return_code}")
+                        
             except (OSError, socket.error) as e:
                 # Handle connection errors gracefully
                 if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
                     self._log.warning(f"Connection lost during ls operation (attempt {n}/{retries}): {e}")
                     # Mark proxy as disconnected so it can reconnect
                     self.proxy.connected = False
-                    if n < retries:
-                        time.sleep(delay)
-                        continue
-                    else:
+                    # Schedule reconnect and wait for connection
+                    awaitable = getattr(self.proxy, "_schedule_reconnect", None)
+                    if callable(awaitable):
+                        awaitable()
+                    for _ in range(10):
+                        if self.proxy.connected and self.master:
+                            break
+                        time.sleep(0.5)
+                    if n >= retries:
                         raise RuntimeError(f"ls('{path}') failed after {retries} attempts due to connection loss")
                 else:
                     self._log.error(f"Unexpected socket error during ls: {e}")
                     raise
             except Exception as e:
                 self._log.error(f"Error during ls operation (attempt {n}/{retries}): {e}")
-                if n < retries:
-                    time.sleep(delay)
-                    continue
-                else:
+                if n >= retries:
                     raise RuntimeError(f"ls('{path}') failed after {retries} attempts: {e}")
             
             # If we reach here, the operation failed but we can retry
-            time.sleep(delay)
-            # tell the outer proxy to reconnect instead
-            awaitable = getattr(self.proxy, "_schedule_reconnect", None)
-            if callable(awaitable):
-                awaitable()
+            if n < retries:
+                time.sleep(delay)
+                # tell the outer proxy to reconnect instead (already handled above)
 
         raise RuntimeError(f"ls('{path}') failed {retries}×")
 

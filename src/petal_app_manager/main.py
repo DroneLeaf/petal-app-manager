@@ -93,6 +93,9 @@ def build_app(
         "redis"  : redis.RedisProxy(),
         "db"     : localdb.LocalDBProxy(),
     }
+
+    proxies["ftp_mavlink"] = external.MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
+
     for p in proxies.values():
         app.add_event_handler("startup", p.start)
         app.add_event_handler("shutdown", p.stop)
