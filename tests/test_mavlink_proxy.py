@@ -12,9 +12,9 @@ import pytest
 # --------------------------------------------------------------------------- #
 from petal_app_manager.proxies.external import (
     MavLinkExternalProxy,
+    MavLinkFTPProxy,
     _match_ls_to_entries,
     ULogInfo,
-    _BlockingParser
 )
 
 # --------------------------------------------------------------------------- #
@@ -217,7 +217,7 @@ def _patch_pymavlink(px4_time_msg=None):
     return p_pkg, p_mod1, p_mod2, p_mod3
 
 
-async def build_proxy(px4_time_msg=None):
+async def build_proxy(px4_time_msg=None) -> MavLinkExternalProxy:
     p_pkg, p_mod1, p_mod2, p_mod3 = _patch_pymavlink(px4_time_msg)
     with p_pkg, p_mod1, p_mod2, p_mod3:
         proxy = MavLinkExternalProxy(endpoint="udp:dummy:14550")
@@ -238,6 +238,31 @@ async def build_proxy(px4_time_msg=None):
             await proxy._init_parser()
         
         return proxy
+
+async def build_ftp_proxy(px4_time_msg=None) -> MavLinkFTPProxy:
+    p_pkg, p_mod1, p_mod2, p_mod3 = _patch_pymavlink(px4_time_msg)
+    with p_pkg, p_mod1, p_mod2, p_mod3:
+        proxy = MavLinkExternalProxy(endpoint="udp:dummy:14550")
+
+        ftp_proxy = MavLinkFTPProxy(mavlink_proxy=proxy)
+        await proxy.start()
+        await ftp_proxy.start()
+        
+        # Force connection establishment for testing
+        # Since the new logic uses _schedule_reconnect(), we need to wait for it
+        # and ensure the connection gets established with our mocks
+        await asyncio.sleep(0.1)  # Allow background tasks to run
+        
+        # Manually set connected status and initialize parser if needed
+        if not proxy.connected:
+            proxy.connected = True
+            
+        # Even if connected, the parser might still be None due to timing issues
+        # with the async _schedule_reconnect() task, so ensure it's initialized
+        if not hasattr(ftp_proxy, '_parser') or ftp_proxy._parser is None:
+            await ftp_proxy._init_parser()
+        
+        return ftp_proxy
 
 # --------------------------------------------------------------------------- #
 #  Pytest fixtures                                                            #
@@ -307,7 +332,7 @@ def test_match_ls_to_entries_size_tolerance():
 @pytest.mark.asyncio
 async def test_init():
     """Ensure proxy starts and has an FTP handle."""
-    proxy = await build_proxy()
+    proxy = await build_ftp_proxy()
     # The parser is now initialized in start()
     assert proxy._parser is not None
     assert proxy._parser.ftp is not None
@@ -316,7 +341,7 @@ async def test_init():
 @pytest.mark.asyncio
 async def test_list_ulogs():
     # Use build_proxy to set up a properly connected proxy
-    proxy = await build_proxy()
+    proxy = await build_ftp_proxy()
     
     # Patch the get_log_entries method to return mock data directly
     async def mock_get_log_entries(**kwargs):
@@ -326,7 +351,7 @@ async def test_list_ulogs():
         }
     
     # Apply the patch
-    with patch.object(proxy, 'get_log_entries', mock_get_log_entries):
+    with patch.object(proxy.mavlink_proxy, 'get_log_entries', mock_get_log_entries):
         ulogs = await proxy.list_ulogs()
         
         # Check results
@@ -338,7 +363,7 @@ async def test_list_ulogs():
 @pytest.mark.asyncio
 async def test_ls():
     """Test directory listing through mock."""
-    proxy = await build_proxy()
+    proxy = await build_ftp_proxy()
     
     # Access through mock BlockingParser's _ls method
     dir_list = proxy._parser._ls("fs/microsd/log")
@@ -361,7 +386,7 @@ async def test_download(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     main_loop = asyncio.get_event_loop()
     monkeypatch.setattr(asyncio, "get_event_loop", lambda: main_loop)
 
-    proxy = await build_proxy()
+    proxy = await build_ftp_proxy()
     remote = "fs/microsd/log/2023-01-01/log1.ulg"
     local = tmp_path / "log1.ulg"
 
@@ -394,8 +419,10 @@ async def test_download_logs_hardware_integration(hardware_cleanup):
     try:
         print("Creating MavLinkExternalProxy...")
         proxy = MavLinkExternalProxy(endpoint="udp:127.0.0.1:14551")
+        ftp_proxy = MavLinkFTPProxy(mavlink_proxy=proxy)
         print("Starting proxy...")
         await proxy.start()
+        await ftp_proxy.start()
         print("Proxy started successfully")
         
         # Wait a bit for connection to stabilize
@@ -442,7 +469,7 @@ async def test_download_logs_hardware_integration(hardware_cleanup):
             
         print("Listing ULogs on vehicle...")
         try:
-            ulogs = await proxy.list_ulogs("/fs/microsd/log")
+            ulogs = await ftp_proxy.list_ulogs("/fs/microsd/log")
             print(f"Found {len(ulogs)} ULog files")
         except Exception as e:
             print(f"Error listing ULogs: {type(e).__name__}: {e}")
@@ -472,7 +499,7 @@ async def test_download_logs_hardware_integration(hardware_cleanup):
             
         print("Starting download...")
         try:
-            await proxy.download_ulog(remote, local, on_progress=on_progress, cancel_event=cancel_event)
+            await ftp_proxy.download_ulog(remote, local, on_progress=on_progress, cancel_event=cancel_event)
             print("Download completed!")
         except Exception as e:
             print(f"Error during download: {type(e).__name__}: {e}")
@@ -521,6 +548,12 @@ async def test_download_logs_hardware_integration(hardware_cleanup):
                 print("Proxy stopped successfully")
             except Exception as e:
                 print(f"Error stopping proxy: {e}")
+        if ftp_proxy:
+            try:
+                await ftp_proxy.stop()
+                print("FTP Proxy stopped successfully")
+            except Exception as e:
+                print(f"Error stopping FTP proxy: {e}")
         print("Cleanup completed.")
         
         # Add a small delay to ensure resources are fully released
