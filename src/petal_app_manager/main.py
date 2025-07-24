@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware  # Add this import
 from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy
 
 from .plugins.loader import load_petals
-from .api import health, proxy_info
+from .api import health, proxy_info, cloud_api
+from . import api
 import logging
 
 from .logger import setup_logging
@@ -56,6 +57,8 @@ def build_app(
         log_level=log_level,
         app_prefixes=(
             # main app + sub-modules
+            "petalappmanager",
+            "petalappmanagerapi",
             "localdbproxy",
             "mavlinkexternalproxy",
             "mavlinkftpproxy",        # also covers mavlinkftpproxy.blockingparser
@@ -124,11 +127,19 @@ def build_app(
         app.add_event_handler("startup", p.start)
         app.add_event_handler("shutdown", p.stop)
 
+    api.set_proxies(proxies)
+    api_logger = logging.getLogger("PetalAppManagerAPI")
+
     # ---------- core routers ----------
-    # Configure health check with proxy instances
-    health.set_proxies(proxies)
+    # Set the logger for health check endpoints
+    health._set_logger(api_logger)  # Set the logger for health check endpoints
     app.include_router(health.router)
+    # Configure health check with proxy instances
+    proxy_info._set_logger(api_logger)  # Set the logger for proxy info endpoints
     app.include_router(proxy_info.router, prefix="/debug")
+    # Configure cloud API with proxy instances
+    cloud_api._set_logger(api_logger)  # Set the logger for cloud API endpoints
+    app.include_router(cloud_api.router, prefix="/cloud")
 
     # ---------- dynamic plugins ----------
     # Set up the logger for the plugins loader
