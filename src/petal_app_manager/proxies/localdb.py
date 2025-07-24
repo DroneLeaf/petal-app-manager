@@ -21,6 +21,7 @@ import logging
 import platform
 import subprocess
 from pathlib import Path
+import os
 
 from .base import BaseProxy
 
@@ -31,12 +32,20 @@ class LocalDBProxy(BaseProxy):
     
     def __init__(
         self,
-        host: str = "localhost",
-        port: int = 3000,
+        get_data_url: str,
+        scan_data_url: str,
+        update_data_url: str,
+        set_data_url: str,
+        host: str,
+        port: int,
         debug: bool = False,
     ):
         self.host = host
         self.port = port
+        self.get_data_url = get_data_url
+        self.scan_data_url = scan_data_url
+        self.update_data_url = update_data_url
+        self.set_data_url = set_data_url
         self.debug = debug
         
         self._loop = None
@@ -216,7 +225,7 @@ class LocalDBProxy(BaseProxy):
             "partition_value": partition_value
         }
         
-        path = '/drone/onBoard/config/getData'
+        path = self.get_data_url
         
         result = await self._loop.run_in_executor(
             self._exe, 
@@ -257,9 +266,9 @@ class LocalDBProxy(BaseProxy):
         
         if filters:
             body["scanFilter"] = filters
-        
-        path = '/drone/onBoard/config/scanData'
-        
+
+        path = self.scan_data_url
+
         result = await self._loop.run_in_executor(
             self._exe, 
             lambda: self._remote_file_request(body, path, 'POST')
@@ -310,9 +319,9 @@ class LocalDBProxy(BaseProxy):
             "filter_value": filter_value,
             "data": data
         }
-        
-        path = '/drone/onBoard/config/updateData'
-        
+
+        path = self.update_data_url
+
         return await self._loop.run_in_executor(
             self._exe, 
             lambda: self._remote_file_request(body, path, 'POST')
@@ -347,9 +356,9 @@ class LocalDBProxy(BaseProxy):
             "filter_value": filter_value,
             "data": data
         }
-        
-        path = '/drone/onBoard/config/setData'
-        
+
+        path = self.set_data_url
+
         return await self._loop.run_in_executor(
             self._exe, 
             lambda: self._remote_file_request(body, path, 'POST')
@@ -382,9 +391,9 @@ class LocalDBProxy(BaseProxy):
             "partition_key": filter_key,
             "partition_value": filter_value
         }
-        
-        path = '/drone/onBoard/config/getData'
-        
+
+        path = self.get_data_url
+
         existing_item_result = await self._loop.run_in_executor(
             self._exe, 
             lambda: self._remote_file_request(body, path, 'POST')

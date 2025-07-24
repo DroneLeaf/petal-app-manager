@@ -90,7 +90,7 @@ class ExternalProxy(BaseProxy):
     """
 
     # ──────────────────────────────────────────────────────── public helpers ──
-    def __init__(self, maxlen: int = 10) -> None:
+    def __init__(self, maxlen: int) -> None:
         """
         Parameters
         ----------
@@ -377,15 +377,15 @@ class MavLinkExternalProxy(ExternalProxy):
 
     def __init__(
         self,
-        endpoint: str = "udp:127.0.0.1:14551",
-        baud: int = 115200,
-        maxlen: int = 200,
+        endpoint: str,
+        baud: int,
+        maxlen: int,
     ):
         super().__init__(maxlen=maxlen)
         self.endpoint = endpoint
         self.baud = baud
         self.master: mavutil.mavfile | None = None
-        self._log = logging.getLogger("MavLinkParser")
+        self._log = logging.getLogger("MavLinkExternalProxy")
         self._loop: asyncio.AbstractEventLoop | None = None
         self._exe = ThreadPoolExecutor(max_workers=1)
         self.connected = False
@@ -824,7 +824,7 @@ class MavLinkFTPProxy(BaseProxy):
         self,
         mavlink_proxy: MavLinkExternalProxy,
     ):
-        self._log = logging.getLogger("MavLinkParser")
+        self._log = logging.getLogger("MavLinkFTPProxy")
         self._loop: asyncio.AbstractEventLoop | None = None
         self._exe = ThreadPoolExecutor(max_workers=1)
         self.mavlink_proxy: MavLinkExternalProxy = mavlink_proxy

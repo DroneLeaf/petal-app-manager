@@ -10,6 +10,8 @@ async def list_proxies():
         "proxies": [
             "ext_mavlink",
             "redis",
-            "db"
+            "db",
+            "ftp_mavlink",
+            "cloud"
         ]
     }
