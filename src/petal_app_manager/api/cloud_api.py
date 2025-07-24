@@ -289,3 +289,56 @@ async def update_item(request: UpdateItemRequest) -> Dict[str, Any]:
             detail=f"Unexpected error updating cloud item: {str(e)}",
             headers={"source": "update_item"}
         )
+    
+@router.delete(
+    "/delete-item",
+    summary="Delete an item from cloud database",
+    description="Deletes a specific item from the cloud database.",
+)
+async def delete_item(request: GetItemRequest) -> Dict[str, Any]:
+    """Delete an item from the cloud database."""
+    proxies = get_proxies()
+    logger = get_logger()
+
+    local_db_proxy: LocalDBProxy = proxies["db"]
+    cloud_proxy: CloudDBProxy = proxies["cloud"]
+
+    if not request.table_name or not request.key_name or not request.key_value:
+        logger.error("Table name, key name, and key value are required")
+        raise HTTPException(
+            status_code=400,
+            detail="Table name, key name, and key value are required",
+            headers={"source": "delete_item"}
+        )
+
+    try:
+        result = await cloud_proxy.delete_item(
+            table_name=request.table_name,
+            filter_key=request.key_name,
+            filter_value=request.key_value,
+            machine_id=local_db_proxy.machine_id
+        )
+
+        if "error" in result:
+            logger.error(f"Failed to delete item from cloud: {result['error']}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to delete item from cloud: {result['error']}",
+                headers={"source": "delete_item"}
+            )
+
+        logger.info(
+            f"Successfully deleted item {request.key_value} from cloud table {request.table_name}"
+        )
+
+        return {"success": True, "message": "Item deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error deleting cloud item: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected error deleting cloud item: {str(e)}",
+            headers={"source": "delete_item"}
+        )
