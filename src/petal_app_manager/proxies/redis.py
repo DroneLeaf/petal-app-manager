@@ -92,6 +92,7 @@ class RedisProxy(BaseProxy):
         db: int = 0,
         password: Optional[str] = None,
         debug: bool = False,
+        unix_socket_path: Optional[str] = None,
         app_id: str = "petal-app-manager",
     ):
         self.host = host
@@ -99,6 +100,7 @@ class RedisProxy(BaseProxy):
         self.db = db
         self.password = password
         self.debug = debug
+        self.unix_socket_path = unix_socket_path
         self.app_id = app_id
         
         self._client = None
@@ -145,7 +147,8 @@ class RedisProxy(BaseProxy):
                 port=self.port,
                 db=self.db,
                 password=self.password,
-                decode_responses=True
+                decode_responses=True,
+                unix_socket_path=self.unix_socket_path if self.unix_socket_path else None
             )
         )
         

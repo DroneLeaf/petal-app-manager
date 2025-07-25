@@ -100,6 +100,7 @@ def build_app(
             port=Config.REDIS_PORT,
             db=Config.REDIS_DB,
             password=Config.REDIS_PASSWORD,
+            unix_socket_path=Config.REDIS_UNIX_SOCKET_PATH,
         ),
         "db" : LocalDBProxy(
             host=Config.LOCAL_DB_HOST,

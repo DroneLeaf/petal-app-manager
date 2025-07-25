@@ -27,6 +27,7 @@ class Config:
     REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
     REDIS_DB = int(os.environ.get('REDIS_DB', 0))
     REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', None)
+    REDIS_UNIX_SOCKET_PATH = os.environ.get('REDIS_UNIX_SOCKET_PATH', None)
     # URLs for data operations
     GET_DATA_URL = os.environ.get('GET_DATA_URL', '/drone/onBoard/config/getData')
     SCAN_DATA_URL = os.environ.get('SCAN_DATA_URL', '/drone/onBoard/config/scanData')
