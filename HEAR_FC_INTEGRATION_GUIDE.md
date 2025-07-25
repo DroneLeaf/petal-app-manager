@@ -1,57 +1,50 @@
 # HEAR_FC Communication Integration Guide
 
-This document provides guidance for integrating the HEAR_FC C++ application with the petal-app-manager's Redis-based two-way communication system.
+This document provides guidance for integrating the HEAR_FC C++ application with the petal-app-manager using Redis pub/sub for real-time communication.
 
 ## Overview
 
-The communication system uses Redis as a message broker with the following components:
+The communication system uses Redis pub/sub channels for simple, real-time message exchange:
 
-1. **Message Queues**: Reliable message delivery using Redis sorted sets (priority queues)
-2. **Pub/Sub**: Real-time notifications for new messages
-3. **Status Tracking**: Application status and message acknowledgments
-4. **JSON Protocol**: Structured message format for interoperability
+1. **Pub/Sub Channels**: Direct message publishing and subscription
+2. **JSON Messages**: Structured message format for interoperability  
+3. **Key-Value Storage**: Optional data persistence using Redis keys
+4. **Unix Socket Support**: High-performance local communication
 
-## Redis Data Structures
-
-### Message Queues
-- **Inbox Queue**: `queue:{app_id}:inbox` - Sorted set with priority-based ordering
-- **Outbox Queue**: `queue:{app_id}:outbox` - For debugging and monitoring
-
-### Status Tracking
-- **Application Status**: `status:{app_id}` - Hash with status information
-- **Message Metadata**: `message:{message_id}` - Hash with message processing status
+## Redis Communication Pattern
 
 ### Pub/Sub Channels
-- **Application Channel**: `channel:{app_id}` - Direct notifications to specific app
-- **Broadcast Channel**: `channel:broadcast` - System-wide notifications
+- **HEAR_FC Commands**: `hear_fc_commands` - Commands sent to HEAR_FC
+- **HEAR_FC Telemetry**: `hear_fc_telemetry` - Telemetry data from HEAR_FC
+- **HEAR_FC Status**: `hear_fc_status` - Status updates from HEAR_FC
+- **HEAR_FC Responses**: `hear_fc_responses` - Command responses from HEAR_FC
+
+### Key-Value Storage (Optional)
+- **Configuration**: `hear_fc:config` - HEAR_FC configuration data
+- **Latest Status**: `hear_fc:latest_status` - Most recent status for persistence
+- **Latest Telemetry**: `hear_fc:latest_telemetry` - Most recent telemetry data
 
 ## Message Format
 
-All messages use JSON format with the following structure:
+All messages use simple JSON format:
 
 ```json
 {
-  "id": "unique-message-id",
-  "sender": "sending-app-id",
-  "recipient": "receiving-app-id", 
-  "message_type": "command|telemetry|status|alert|etc",
-  "payload": {
+  "timestamp": 1234567890.123,
+  "message_type": "command|telemetry|status|response",
+  "data": {
     "command": "takeoff",
     "parameters": {"altitude": 20},
     "other_data": "..."
-  },
-  "priority": 1-4,
-  "timestamp": 1234567890.123,
-  "reply_to": "original-message-id",
-  "timeout": 30
+  }
 }
 ```
 
-## Priority Levels
-- `1`: LOW
-- `2`: NORMAL  
-- `3`: HIGH
-- `4`: CRITICAL
+## Message Types
+- **command**: Commands sent to HEAR_FC (takeoff, land, goto, etc.)
+- **telemetry**: Real-time flight data from HEAR_FC
+- **status**: System status updates from HEAR_FC  
+- **response**: Command execution results from HEAR_FC
 
 ## C++ Implementation Guide
 
@@ -83,71 +76,120 @@ public:
     HearFCCommunicator(const std::string& app_id = "HEAR_FC") 
         : app_id(app_id), is_listening(false) {
         
-        // Connect to Redis
-        redis_ctx = redisConnect("127.0.0.1", 6379);
-        pubsub_ctx = redisConnect("127.0.0.1", 6379);
+        // Connect to Redis (try Unix socket first, fallback to TCP)
+        redis_ctx = redisConnectUnix("/tmp/redis.sock");
+        if (redis_ctx->err) {
+            redisFree(redis_ctx);
+            redis_ctx = redisConnect("127.0.0.1", 6379);
+        }
+        
+        pubsub_ctx = redisConnectUnix("/tmp/redis.sock");
+        if (pubsub_ctx->err) {
+            redisFree(pubsub_ctx);
+            pubsub_ctx = redisConnect("127.0.0.1", 6379);
+        }
         
         if (redis_ctx->err || pubsub_ctx->err) {
             throw std::runtime_error("Redis connection failed");
         }
         
-        // Set application status as online
-        setStatus("online");
+        // Store initial status
+        storeStatus("online");
     }
     
     ~HearFCCommunicator() {
         stopListening();
-        setStatus("offline");
+        storeStatus("offline");
         redisFree(redis_ctx);
         redisFree(pubsub_ctx);
     }
     
-    void setStatus(const std::string& status) {
+    void storeStatus(const std::string& status) {
+        Json::Value status_data;
+        status_data["status"] = status;
+        status_data["timestamp"] = std::chrono::duration<double>(
+            std::chrono::system_clock::now().time_since_epoch()
+        ).count();
+        status_data["app_id"] = app_id;
+        
+        Json::StreamWriterBuilder builder;
+        std::string status_str = Json::writeString(builder, status_data);
+        
+        // Store in Redis key for persistence
         redisReply* reply = (redisReply*)redisCommand(redis_ctx,
-            "HSET status:%s status %s last_seen %f app_id %s",
-            app_id.c_str(), status.c_str(), 
-            std::chrono::duration<double>(
-                std::chrono::system_clock::now().time_since_epoch()
-            ).count(),
-            app_id.c_str());
+            "SET hear_fc:latest_status %s", status_str.c_str());
         freeReplyObject(reply);
+        
+        // Also publish status update
+        publishStatus(status);
     }
 };
 ```
 
-### Message Sending (C++)
+### Publishing Messages (C++)
 
 ```cpp
-bool HearFCCommunicator::sendMessage(
-    const std::string& recipient,
+bool HearFCCommunicator::publishMessage(
+    const std::string& channel,
     const std::string& message_type,
-    const Json::Value& payload,
-    int priority = 2) {
+    const Json::Value& data) {
     
     // Create message JSON
     Json::Value message;
-    message["id"] = generateMessageId();
-    message["sender"] = app_id;
-    message["recipient"] = recipient;
-    message["message_type"] = message_type;
-    message["payload"] = payload;
-    message["priority"] = priority;
     message["timestamp"] = std::chrono::duration<double>(
         std::chrono::system_clock::now().time_since_epoch()
     ).count();
+    message["message_type"] = message_type;
+    message["data"] = data;
     
     // Serialize to string
     Json::StreamWriterBuilder builder;
     std::string message_str = Json::writeString(builder, message);
     
-    // Calculate priority score
-    double priority_score = priority * 1000 + message["timestamp"].asDouble();
-    
-    // Add to recipient's inbox queue
-    std::string queue_name = "queue:" + recipient + ":inbox";
+    // Publish to channel
     redisReply* reply = (redisReply*)redisCommand(redis_ctx,
-        "ZADD %s %f %s",
-        queue_name.c_str(), priority_score, message_str.c_str());
+        "PUBLISH %s %s", channel.c_str(), message_str.c_str());
+    
+    bool success = (reply && reply->type == REDIS_REPLY_INTEGER);
+    int subscriber_count = success ? reply->integer : 0;
+    freeReplyObject(reply);
+    
+    if (success) {
+        std::cout << "Published to " << channel << " (" 
+                  << subscriber_count << " subscribers)" << std::endl;
+    }
+    
+    return success;
+}
+
+// Convenience methods for specific message types
+void HearFCCommunicator::publishTelemetry(const Json::Value& telemetry_data) {
+    publishMessage("hear_fc_telemetry", "telemetry", telemetry_data);
+    
+    // Also store latest telemetry for persistence
+    Json::StreamWriterBuilder builder;
+    std::string telemetry_str = Json::writeString(builder, telemetry_data);
+    redisReply* reply = (redisReply*)redisCommand(redis_ctx,
+        "SET hear_fc:latest_telemetry %s", telemetry_str.c_str());
+    freeReplyObject(reply);
+}
+
+void HearFCCommunicator::publishStatus(const std::string& status) {
+    Json::Value status_data;
+    status_data["status"] = status;
+    status_data["app_id"] = app_id;
+    publishMessage("hear_fc_status", "status", status_data);
+}
+
+void HearFCCommunicator::publishResponse(const std::string& command_id, 
+                                        const std::string& result,
+                                        const std::string& message = "") {
+    Json::Value response_data;
+    response_data["command_id"] = command_id;
+    response_data["result"] = result;  // "success", "failed", "error"
+    response_data["message"] = message;
+    publishMessage("hear_fc_responses", "response", response_data);
+}
     
     bool success = (reply && reply->integer == 1);
     freeReplyObject(reply);
@@ -155,57 +197,75 @@ bool HearFCCommunicator::sendMessage(
     if (success) {
         // Send notification
         std::string channel = "channel:" + recipient;
-        reply = (redisReply*)redisCommand(redis_ctx,
-            "PUBLISH %s new_message:%s",
-            channel.c_str(), message["id"].asString().c_str());
-        freeReplyObject(reply);
-        
-        // Store message metadata
-        std::string meta_key = "message:" + message["id"].asString();
-        reply = (redisReply*)redisCommand(redis_ctx,
-            "HSET %s status pending sender %s recipient %s timestamp %f type %s",
-            meta_key.c_str(), app_id.c_str(), recipient.c_str(),
-            message["timestamp"].asDouble(), message_type.c_str());
-        freeReplyObject(reply);
-    }
-    
-    return success;
-}
-```
-
-### Message Receiving (C++)
+### Subscribing to Messages (C++)
 
 ```cpp
 void HearFCCommunicator::startListening() {
     if (is_listening) return;
     
     is_listening = true;
-    listener_thread = std::thread(&HearFCCommunicator::messageLoop, this);
+    listener_thread = std::thread(&HearFCCommunicator::subscriptionLoop, this);
 }
 
-void HearFCCommunicator::messageLoop() {
-    std::string inbox_queue = "queue:" + app_id + ":inbox";
+void HearFCCommunicator::subscriptionLoop() {
+    // Subscribe to command channel
+    redisReply* reply = (redisReply*)redisCommand(pubsub_ctx,
+        "SUBSCRIBE hear_fc_commands");
+    freeReplyObject(reply);
     
     while (is_listening) {
-        // Check for new messages with timeout
-        redisReply* reply = (redisReply*)redisCommand(redis_ctx,
-            "ZPOPMAX %s 1", inbox_queue.c_str());
-        
-        if (reply && reply->type == REDIS_REPLY_ARRAY && reply->elements > 0) {
-            // Parse message
-            std::string message_str = reply->element[0]->element[0]->str;
-            double priority_score = reply->element[0]->element[1]->dval;
-            
-            Json::Value message;
-            Json::Reader reader;
-            if (reader.parse(message_str, message)) {
-                handleMessage(message);
-            }
+        // Wait for messages
+        reply = (redisReply*)redisCommand(pubsub_ctx, "BLPOP temp 1");
+        if (reply) {
+            freeReplyObject(reply);
         }
-        freeReplyObject(reply);
+        
+        // Check for pub/sub messages
+        reply = nullptr;
+        if (redisGetReply(pubsub_ctx, (void**)&reply) == REDIS_OK && reply) {
+            if (reply->type == REDIS_REPLY_ARRAY && reply->elements == 3) {
+                std::string message_type = reply->element[0]->str;
+                std::string channel = reply->element[1]->str;
+                std::string message_content = reply->element[2]->str;
+                
+                if (message_type == "message") {
+                    handleSubscribedMessage(channel, message_content);
+                }
+            }
+            freeReplyObject(reply);
+        }
         
         // Small delay to prevent CPU spinning
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+}
+
+void HearFCCommunicator::handleSubscribedMessage(
+    const std::string& channel, 
+    const std::string& message_content) {
+    
+    Json::Value message;
+    Json::Reader reader;
+    
+    if (!reader.parse(message_content, message)) {
+        std::cerr << "Failed to parse message JSON" << std::endl;
+        return;
+    }
+    
+    std::string message_type = message["message_type"].asString();
+    Json::Value data = message["data"];
+    
+    try {
+        if (channel == "hear_fc_commands" && message_type == "command") {
+            handleCommand(data);
+        } else {
+            std::cout << "Received message on " << channel 
+                     << " type: " << message_type << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error handling message: " << e.what() << std::endl;
+    }
+}
     }
 }
 
@@ -217,77 +277,66 @@ void HearFCCommunicator::handleMessage(const Json::Value& message) {
     std::string meta_key = "message:" + message_id;
     redisReply* reply = (redisReply*)redisCommand(redis_ctx,
         "HSET %s status processing", meta_key.c_str());
-    freeReplyObject(reply);
-    
-    try {
-        // Handle different message types
-        if (message_type == "command") {
-            handleCommand(message);
-        } else if (message_type == "configuration") {
-            handleConfiguration(message);
-        } else if (message_type == "telemetry_request") {
-            handleTelemetryRequest(message);
-        } else if (message_type == "health_check") {
-            handleHealthCheck(message);
-        }
-        
-        // Mark as completed
-        reply = (redisReply*)redisCommand(redis_ctx,
-            "HSET %s status completed", meta_key.c_str());
-        freeReplyObject(reply);
-        
-    } catch (const std::exception& e) {
-        // Mark as failed
-        reply = (redisReply*)redisCommand(redis_ctx,
-            "HSET %s status failed", meta_key.c_str());
-        freeReplyObject(reply);
-        
-        std::cerr << "Error handling message: " << e.what() << std::endl;
-    }
-}
-```
-
 ### Command Handling Example (C++)
 
 ```cpp
-void HearFCCommunicator::handleCommand(const Json::Value& message) {
-    Json::Value payload = message["payload"];
-    std::string command = payload["command"].asString();
-    std::string command_id = payload["command_id"].asString();
+void HearFCCommunicator::handleCommand(const Json::Value& data) {
+    std::string command = data["command"].asString();
+    std::string command_id = data.get("command_id", "").asString();
+    Json::Value parameters = data["parameters"];
     
-    Json::Value response_payload;
-    response_payload["command_id"] = command_id;
-    response_payload["command"] = command;
+    std::string result = "success";
+    std::string message = "";
     
     try {
         if (command == "takeoff") {
-            double altitude = payload["parameters"]["altitude"].asDouble();
+            double altitude = parameters["altitude"].asDouble();
             bool success = executeTakeoff(altitude);
             
-            response_payload["status"] = success ? "success" : "failed";
-            response_payload["message"] = success ? 
-                "Takeoff completed" : "Takeoff failed";
+            result = success ? "success" : "failed";
+            message = success ? "Takeoff completed" : "Takeoff failed";
             
         } else if (command == "land") {
-            bool precision = payload["parameters"]["precision"].asBool();
+            bool precision = parameters.get("precision", false).asBool();
             bool success = executeLand(precision);
             
-            response_payload["status"] = success ? "success" : "failed";
-            response_payload["message"] = success ? 
-                "Landing completed" : "Landing failed";
+            result = success ? "success" : "failed";
+            message = success ? "Landing completed" : "Landing failed";
                 
         } else if (command == "goto") {
-            double lat = payload["parameters"]["lat"].asDouble();
-            double lon = payload["parameters"]["lon"].asDouble(); 
-            double alt = payload["parameters"]["altitude"].asDouble();
+            double lat = parameters["lat"].asDouble();
+            double lon = parameters["lon"].asDouble(); 
+            double alt = parameters["altitude"].asDouble();
             
             bool success = executeGoto(lat, lon, alt);
-            response_payload["status"] = success ? "success" : "failed";
+            result = success ? "success" : "failed";
+            message = success ? "Navigation completed" : "Navigation failed";
+            
+        } else if (command == "hover") {
+            bool success = executeHover();
+            result = success ? "success" : "failed";
+            message = success ? "Hover mode activated" : "Hover failed";
+            
+        } else if (command == "emergency_stop") {
+            bool success = executeEmergencyStop();
+            result = success ? "success" : "failed";
+            message = success ? "Emergency stop executed" : "Emergency stop failed";
             
         } else {
-            response_payload["status"] = "error";
-            response_payload["message"] = "Unknown command: " + command;
+            result = "error";
+            message = "Unknown command: " + command;
         }
+        
+    } catch (const std::exception& e) {
+        result = "error";
+        message = std::string("Command execution error: ") + e.what();
+    }
+    
+    // Send response back
+    if (!command_id.empty()) {
+        publishResponse(command_id, result, message);
+    }
+}
         
     } catch (const std::exception& e) {
         response_payload["status"] = "error";
@@ -318,6 +367,28 @@ void HearFCCommunicator::broadcastTelemetry() {
     
     // Send to petal-app-manager
     sendMessage("petal-app-manager", "telemetry", telemetry, 2);
+### Telemetry Broadcasting (C++)
+
+```cpp
+void HearFCCommunicator::broadcastTelemetry() {
+    Json::Value telemetry_data;
+    telemetry_data["timestamp"] = std::chrono::duration<double>(
+        std::chrono::system_clock::now().time_since_epoch()
+    ).count();
+    
+    // Gather telemetry data from your flight controller
+    telemetry_data["battery_level"] = getBatteryLevel();
+    telemetry_data["gps_coordinates"]["lat"] = getLatitude();
+    telemetry_data["gps_coordinates"]["lon"] = getLongitude();
+    telemetry_data["altitude"] = getCurrentAltitude();
+    telemetry_data["speed"] = getCurrentSpeed();
+    telemetry_data["orientation"]["roll"] = getRoll();
+    telemetry_data["orientation"]["pitch"] = getPitch();
+    telemetry_data["orientation"]["yaw"] = getYaw();
+    telemetry_data["system_status"] = getSystemStatus(); // "normal", "warning", "error"
+    
+    // Publish telemetry
+    publishTelemetry(telemetry_data);
 }
 
 // Call this periodically (e.g., 1Hz)
@@ -327,69 +398,141 @@ void HearFCCommunicator::telemetryLoop() {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 }
+
+void HearFCCommunicator::stopListening() {
+    is_listening = false;
+    if (listener_thread.joinable()) {
+        listener_thread.join();
+    }
+}
 ```
 
-## Message Types and Protocols
+## Message Types and Examples
 
 ### Commands (petal-app-manager → HEAR_FC)
+Published to: `hear_fc_commands`
+
 ```json
 {
+  "timestamp": 1234567890.123,
   "message_type": "command",
-  "payload": {
+  "data": {
     "command_id": "cmd_1234567890",
-    "command": "takeoff|land|goto|hover|emergency_stop",
+    "command": "takeoff",
     "parameters": {
-      "altitude": 20,
-      "lat": 37.7749,
-      "lon": -122.4194
+      "altitude": 20
     }
   }
 }
 ```
 
+#### Supported Commands:
+- **takeoff**: `{"command": "takeoff", "parameters": {"altitude": 20}}`
+- **land**: `{"command": "land", "parameters": {"precision": true}}`
+- **goto**: `{"command": "goto", "parameters": {"lat": 37.7749, "lon": -122.4194, "altitude": 50}}`
+- **hover**: `{"command": "hover", "parameters": {}}`
+- **emergency_stop**: `{"command": "emergency_stop", "parameters": {}}`
+
 ### Telemetry (HEAR_FC → petal-app-manager)
+Published to: `hear_fc_telemetry`
+
 ```json
 {
-  "message_type": "telemetry", 
-  "payload": {
-    "timestamp": 1234567890.123,
+  "timestamp": 1234567890.123,
+  "message_type": "telemetry",
+  "data": {
     "battery_level": 85,
     "gps_coordinates": {"lat": 37.7749, "lon": -122.4194},
     "altitude": 50.5,
     "speed": 5.2,
     "orientation": {"roll": 0.1, "pitch": 0.2, "yaw": 45.0},
-    "system_status": "normal|warning|error"
+    "system_status": "normal"
   }
 }
 ```
 
-### Configuration (petal-app-manager → HEAR_FC)
+### Status Updates (HEAR_FC → petal-app-manager)
+Published to: `hear_fc_status`
+
 ```json
 {
-  "message_type": "configuration",
-  "payload": {
-    "flight_mode": "autonomous|manual|guided",
-    "max_altitude": 100,
-    "max_speed": 10,
-    "geofence": {
-      "enabled": true,
-      "center": {"lat": 37.7749, "lon": -122.4194},
-      "radius": 1000
-    }
+  "timestamp": 1234567890.123,
+  "message_type": "status", 
+  "data": {
+    "status": "online",
+    "app_id": "HEAR_FC"
   }
 }
 ```
 
-### Alerts (HEAR_FC → petal-app-manager)
-```json
-{
-  "message_type": "alert",
-  "payload": {
-    "severity": "info|warning|critical",
-    "message": "Low battery warning",
-    "details": {"battery_level": 15, "estimated_flight_time": 120}
-  }
-}
+## Petal-App-Manager Integration
+
+The petal-app-manager side can easily communicate with HEAR_FC using the Redis proxy:
+
+```python
+from petal_app_manager.plugins.base import Petal
+from petal_app_manager.plugins.decorators import http_endpoint
+import json
+
+class DroneControlPetal(Petal):
+    def __init__(self):
+        super().__init__()
+        self.name = "drone_control"
+    
+    def startup(self):
+        super().startup()
+        asyncio.create_task(self._setup_subscriptions())
+    
+    async def _setup_subscriptions(self):
+        redis = self.proxies["redis"]
+        await redis.subscribe("hear_fc_telemetry", self._handle_telemetry)
+        await redis.subscribe("hear_fc_status", self._handle_status)
+        await redis.subscribe("hear_fc_responses", self._handle_responses)
+    
+    async def _handle_telemetry(self, channel: str, message: str):
+        try:
+            data = json.loads(message)
+            telemetry = data["data"]
+            self.log.info(f"Telemetry: Battery {telemetry['battery_level']}%")
+            # Process telemetry data...
+        except Exception as e:
+            self.log.error(f"Error processing telemetry: {e}")
+    
+    async def _handle_status(self, channel: str, message: str):
+        try:
+            data = json.loads(message)
+            status = data["data"]["status"]
+            self.log.info(f"HEAR_FC Status: {status}")
+        except Exception as e:
+            self.log.error(f"Error processing status: {e}")
+    
+    async def _handle_responses(self, channel: str, message: str):
+        try:
+            data = json.loads(message)
+            response = data["data"]
+            self.log.info(f"Command {response['command_id']}: {response['result']}")
+        except Exception as e:
+            self.log.error(f"Error processing response: {e}")
+    
+    @http_endpoint(path="/takeoff", method="POST")
+    async def takeoff(self, request):
+        data = await request.json()
+        altitude = data.get("altitude", 20)
+        
+        command = {
+            "timestamp": time.time(),
+            "message_type": "command",
+            "data": {
+                "command_id": f"cmd_{int(time.time())}",
+                "command": "takeoff",
+                "parameters": {"altitude": altitude}
+            }
+        }
+        
+        redis = self.proxies["redis"]
+        count = await redis.publish("hear_fc_commands", json.dumps(command))
+        
+        return {"sent": count > 0, "subscribers": count}
 ```
 
 ## Testing the Integration
@@ -397,63 +540,76 @@ void HearFCCommunicator::telemetryLoop() {
 ### Redis CLI Commands for Testing
 
 ```bash
-# Check if HEAR_FC is online
-redis-cli HGETALL status:HEAR_FC
+# Check latest status
+redis-cli GET hear_fc:latest_status
+
+# Check latest telemetry  
+redis-cli GET hear_fc:latest_telemetry
 
 # Send test command to HEAR_FC
-redis-cli ZADD queue:HEAR_FC:inbox 3000 '{"id":"test1","sender":"test","recipient":"HEAR_FC","message_type":"command","payload":{"command":"status"},"priority":3,"timestamp":1234567890}'
+redis-cli PUBLISH hear_fc_commands '{"timestamp":1234567890,"message_type":"command","data":{"command_id":"test1","command":"hover","parameters":{}}}'
 
-# Check message status
-redis-cli HGETALL message:test1
+# Monitor all pub/sub messages
+redis-cli PSUBSCRIBE "*"
 
-# Monitor messages (in separate terminal)
-redis-cli MONITOR
+# Monitor specific channels
+redis-cli SUBSCRIBE hear_fc_telemetry hear_fc_status hear_fc_responses
 ```
 
 ### Integration Testing Steps
 
-1. **Start Redis server**: `redis-server`
-2. **Start HEAR_FC application** with communication enabled
-3. **Start petal-app-manager** communication example
-4. **Verify connectivity** using status checks
-5. **Test message exchange** with simple commands
-6. **Monitor telemetry flow** for expected data
+1. **Start Redis server**: `redis-server --unixsocket /tmp/redis.sock`
+2. **Start HEAR_FC application** with pub/sub communication enabled
+3. **Start petal-app-manager** with Redis proxy configured
+4. **Verify connectivity** by checking status messages
+5. **Test command sending** from petal endpoints
+6. **Monitor telemetry flow** for expected data rates
 7. **Test error handling** with invalid commands
 
 ## Best Practices
 
-1. **Always acknowledge receipt** of critical commands
-2. **Use appropriate priority levels** for different message types
-3. **Implement proper error handling** and status reporting
+1. **Use Unix sockets** when possible for better performance
+2. **Handle JSON parsing errors** gracefully 
+3. **Implement proper error handling** in command execution
 4. **Monitor Redis connection health** and reconnect if needed
-5. **Use message timeouts** for time-sensitive operations
-6. **Validate all incoming message data** before processing
+5. **Use appropriate telemetry rates** (1Hz is usually sufficient)
+6. **Validate all incoming command data** before execution
 7. **Implement graceful shutdown** with status updates
+8. **Store critical data** in Redis keys for persistence
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Redis connection failures**: Check Redis server status and network connectivity
-2. **Message not received**: Verify queue names and Redis key patterns
+1. **Redis connection failures**: Check Redis server status and socket/port accessibility
+2. **Messages not received**: Verify channel names and subscription setup
 3. **JSON parsing errors**: Validate message format and encoding
-4. **Priority ordering issues**: Check priority score calculation
-5. **Memory leaks**: Ensure proper Redis reply object cleanup
+4. **No subscribers**: Check if petal-app-manager is running and subscribed
+5. **Command execution failures**: Check HEAR_FC flight controller interface
 
 ### Debug Commands
 
 ```bash
-# List all keys
+# List all Redis keys
 redis-cli KEYS "*"
 
 # Monitor real-time commands
 redis-cli MONITOR
 
-# Check queue contents
-redis-cli ZRANGE queue:HEAR_FC:inbox 0 -1 WITHSCORES
+# Check active subscribers per channel
+redis-cli PUBSUB CHANNELS
+redis-cli PUBSUB NUMSUB hear_fc_commands
 
-# Check application status
-redis-cli HGETALL status:HEAR_FC
+# Check Redis info
+redis-cli INFO
 ```
 
-This integration guide provides the foundation for implementing robust two-way communication between petal-app-manager and HEAR_FC using Redis as the message broker.
+### Debugging Tips
+
+1. **Use Redis MONITOR** to see all commands in real-time
+2. **Check both TCP and Unix socket** connections
+3. **Validate JSON** using online tools or `jq` command
+4. **Test with Redis CLI** before implementing in C++
+5. **Use logging** extensively in both HEAR_FC and petal sides
+
+This simplified pub/sub approach provides real-time communication without the complexity of message queues, while still maintaining reliability through Redis persistence for critical data.
