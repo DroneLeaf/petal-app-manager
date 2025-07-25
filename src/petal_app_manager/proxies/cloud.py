@@ -247,7 +247,7 @@ class CloudDBProxy(BaseProxy):
     ) -> Dict[str, Any]:
         """
         Retrieve a single item from DynamoDB using its partition key.
-        Only returns items that are not soft-deleted (deleted != True).
+        Only returns items that are not soft-deleted (deleted != True) and belong to this machine.
         
         Args:
             table_name: The DynamoDB table name
@@ -256,7 +256,7 @@ class CloudDBProxy(BaseProxy):
             machine_id: The machine ID for this request
             
         Returns:
-            The item as a dictionary if found and not deleted, or an error dictionary
+            The item as a dictionary if found, not deleted, and belongs to this machine, or an error dictionary
         """
         body = {
             "onBoardId": machine_id,
@@ -267,11 +267,14 @@ class CloudDBProxy(BaseProxy):
         
         result = await self._cloud_request(body, self.get_data_url, 'POST')
         
-        # Filter out soft-deleted items
+        # Filter out soft-deleted items and items not belonging to this machine
         if result.get("success") and result.get("data"):
             item_data = result["data"]
             if item_data.get("deleted") is True:
                 return {"error": "Item not found or has been deleted"}
+            # Check if robot_instance_id matches machine_id
+            if item_data.get("robot_instance_id") != machine_id:
+                return {"error": "Item not found or access denied"}
         
         return result
     
@@ -283,7 +286,7 @@ class CloudDBProxy(BaseProxy):
     ) -> Dict[str, Any]:
         """
         Scan a DynamoDB table with optional filters.
-        Only returns items that are not soft-deleted (deleted != True).
+        Only returns items that are not soft-deleted (deleted != True) and belong to this machine.
         
         Args:
             table_name: The DynamoDB table name
@@ -291,30 +294,43 @@ class CloudDBProxy(BaseProxy):
             filters: List of filter dictionaries, each with 'filter_key_name' and 'filter_key_value'
             
         Returns:
-            Dictionary containing list of matching items that are not deleted
+            Dictionary containing list of matching items that are not deleted and belong to this machine
         """
         body = {
             "table_name": table_name,
             "onBoardId": machine_id
         }
         
-        if filters:
-            body["scanFilter"] = filters
+        # Always add robot_instance_id filter to ensure only this machine's records are returned
+        if filters is None:
+            filters = []
+        else:
+            filters = filters.copy()  # Don't modify the original list
+        
+        # Add robot_instance_id filter
+        filters.append({
+            "filter_key_name": "robot_instance_id", 
+            "filter_key_value": machine_id
+        })
+        
+        body["scanFilter"] = filters
 
         result = await self._cloud_request(body, self.scan_data_url, 'POST')
         
-        # Filter out soft-deleted items
+        # Filter out soft-deleted items and double-check robot_instance_id
         if result.get("success") and result.get("data"):
             if isinstance(result["data"], list):
-                # Filter out items where deleted is True
+                # Filter out items where deleted is True or robot_instance_id doesn't match
                 filtered_items = [
                     item for item in result["data"] 
-                    if item.get("deleted") is not True
+                    if (item.get("deleted") is not True and 
+                        item.get("robot_instance_id") == machine_id)
                 ]
                 return {"data": filtered_items, "success": True}
             else:
-                # Single item response, check if it's deleted
-                if result["data"].get("deleted") is True:
+                # Single item response, check if it's deleted or doesn't belong to this machine
+                if (result["data"].get("deleted") is True or 
+                    result["data"].get("robot_instance_id") != machine_id):
                     return {"data": [], "success": True}
         
         return result
@@ -329,6 +345,7 @@ class CloudDBProxy(BaseProxy):
     ) -> Dict[str, Any]:
         """
         Update or insert an item in DynamoDB.
+        Automatically adds robot_instance_id to ensure item belongs to this machine.
         
         Args:
             table_name: The DynamoDB table name
@@ -340,12 +357,16 @@ class CloudDBProxy(BaseProxy):
         Returns:
             Response from the update operation
         """
+        # Ensure robot_instance_id is set to machine_id
+        data_with_robot_id = data.copy()
+        data_with_robot_id["robot_instance_id"] = machine_id
+        
         body = {
             "onBoardId": machine_id,
             "table_name": table_name,
             "filter_key": filter_key,
             "filter_value": filter_value,
-            "data": data
+            "data": data_with_robot_id
         }
 
         return await self._cloud_request(body, self.update_data_url, 'POST')
@@ -360,6 +381,7 @@ class CloudDBProxy(BaseProxy):
     ) -> Dict[str, Any]:
         """
         Puts an item in DynamoDB.
+        Automatically adds robot_instance_id to ensure item belongs to this machine.
         
         Args:
             table_name: The DynamoDB table name
@@ -371,12 +393,16 @@ class CloudDBProxy(BaseProxy):
         Returns:
             Response from the set operation
         """
+        # Ensure robot_instance_id is set to machine_id
+        data_with_robot_id = data.copy()
+        data_with_robot_id["robot_instance_id"] = machine_id
+        
         body = {
             "onBoardId": machine_id,
             "table_name": table_name,
             "filter_key": filter_key,
             "filter_value": filter_value,
-            "data": data
+            "data": data_with_robot_id
         }
 
         return await self._cloud_request(body, self.set_data_url, 'POST')

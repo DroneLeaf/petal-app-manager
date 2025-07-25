@@ -77,16 +77,11 @@ async def scan_table(request: ScanTableRequest) -> Dict[str, Any]:
         )
 
     try:
-        # Start with organization filter and any additional filters from request
-        filters = [
-            {"filter_key_name": "organization_id", "filter_key_value": local_db_proxy.organization_id}
-        ]
-        filters.extend(request.filters)
-        
+        # Use the filters from request - robot_instance_id filtering is handled automatically by the proxy
         result = await cloud_proxy.scan_items(
             table_name=table_name, 
             machine_id=local_db_proxy.machine_id,
-            filters=filters
+            filters=request.filters
         )
 
         if "error" in result:
@@ -101,7 +96,7 @@ async def scan_table(request: ScanTableRequest) -> Dict[str, Any]:
 
         logger.info(
             f"Retrieved {len(records)} records from cloud table {table_name} "
-            f"for organization {local_db_proxy.organization_id}"
+            f"for machine {local_db_proxy.machine_id}"
         )
 
         # Process and return the records
@@ -200,15 +195,13 @@ async def set_item(request: SetItemRequest) -> Dict[str, Any]:
         )
 
     try:
-        # Add organization_id to the item data if not present
+        # Add robot_instance_id to the item data if not present - this is handled automatically by the proxy
         item_data = request.item_data.copy()
-        if "organization_id" not in item_data:
-            item_data["organization_id"] = local_db_proxy.organization_id
 
         result = await cloud_proxy.set_item(
             table_name=request.table_name,
-            filter_key="organization_id",
-            filter_value=local_db_proxy.organization_id,
+            filter_key="id",  # Use id as the primary key instead of organization_id
+            filter_value=item_data.get("id", ""),  # Get id from item_data
             data=item_data,
             machine_id=local_db_proxy.machine_id
         )
