@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware  # Add this import
-from .proxies import cloud, localdb, redis, external
+from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy
+
 from .plugins.loader import load_petals
-from .api import health, proxy_info
+from .api import health, proxy_info, cloud_api
+from . import api
 import logging
 
 from .logger import setup_logging
@@ -13,9 +15,7 @@ import dotenv
 import json
 
 from contextlib import asynccontextmanager
-
-# Load environment variables from .env file if it exists
-dotenv.load_dotenv(dotenv.find_dotenv())
+from . import Config
 
 def build_app(
     log_level="INFO", 
@@ -57,9 +57,13 @@ def build_app(
         log_level=log_level,
         app_prefixes=(
             # main app + sub-modules
+            "petalappmanager",
+            "petalappmanagerapi",
             "localdbproxy",
-            "mavlinkparser",        # also covers mavlinkparser.blockingparser
+            "mavlinkexternalproxy",
+            "mavlinkftpproxy",        # also covers mavlinkftpproxy.blockingparser
             "redisproxy",
+            "clouddbproxy",
             "pluginsloader",
             # external “petal_*” plug-ins and friends
             "petal_",               # petal_flight_log, petal_hello_world, …
@@ -86,25 +90,56 @@ def build_app(
 
     # ---------- start proxies ----------
     proxies = {
-        "ext_mavlink": external.MavLinkExternalProxy(endpoint=os.environ.get("MAVLINK_ENDPOINT", "udp:127.0.0.1:14551"),
-                                                     baud=int(os.environ.get("MAVLINK_BAUD", 115200)),
-                                                     maxlen=int(os.environ.get("MAVLINK_MAXLEN", 200))),
-        # "cloud"  : cloud.CloudProxy(),
-        "redis"  : redis.RedisProxy(),
-        "db"     : localdb.LocalDBProxy(),
+        "ext_mavlink": MavLinkExternalProxy(
+            endpoint=Config.MAVLINK_ENDPOINT,
+            baud=Config.MAVLINK_BAUD,
+            maxlen=Config.MAVLINK_MAXLEN
+        ),
+        "redis"  : RedisProxy(
+            host=Config.REDIS_HOST,
+            port=Config.REDIS_PORT,
+            db=Config.REDIS_DB,
+            password=Config.REDIS_PASSWORD,
+        ),
+        "db" : LocalDBProxy(
+            host=Config.LOCAL_DB_HOST,
+            port=Config.LOCAL_DB_PORT,
+            get_data_url=Config.GET_DATA_URL,
+            scan_data_url=Config.SCAN_DATA_URL,
+            update_data_url=Config.UPDATE_DATA_URL,
+            set_data_url=Config.SET_DATA_URL,
+        ),
+        "cloud" : CloudDBProxy(
+            endpoint=Config.CLOUD_ENDPOINT,
+            access_token_url=Config.ACCESS_TOKEN_URL,
+            session_token_url=Config.SESSION_TOKEN_URL,
+            s3_bucket_name=Config.S3_BUCKET_NAME,
+            get_data_url=Config.GET_DATA_URL,
+            scan_data_url=Config.SCAN_DATA_URL,
+            update_data_url=Config.UPDATE_DATA_URL,
+            set_data_url=Config.SET_DATA_URL,
+        ),
     }
 
-    proxies["ftp_mavlink"] = external.MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
+    proxies["ftp_mavlink"] = MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
 
     for p in proxies.values():
         app.add_event_handler("startup", p.start)
         app.add_event_handler("shutdown", p.stop)
 
+    api.set_proxies(proxies)
+    api_logger = logging.getLogger("PetalAppManagerAPI")
+
     # ---------- core routers ----------
-    # Configure health check with proxy instances
-    health.set_proxies(proxies)
+    # Set the logger for health check endpoints
+    health._set_logger(api_logger)  # Set the logger for health check endpoints
     app.include_router(health.router)
+    # Configure health check with proxy instances
+    proxy_info._set_logger(api_logger)  # Set the logger for proxy info endpoints
     app.include_router(proxy_info.router, prefix="/debug")
+    # Configure cloud API with proxy instances
+    cloud_api._set_logger(api_logger)  # Set the logger for cloud API endpoints
+    app.include_router(cloud_api.router, prefix="/cloud")
 
     # ---------- dynamic plugins ----------
     # Set up the logger for the plugins loader
@@ -118,8 +153,8 @@ def build_app(
     return app
 
 # Allow configuration through environment variables
-log_level = os.environ.get("PETAL_LOG_LEVEL", "INFO")
-log_to_file = os.environ.get("PETAL_LOG_TO_FILE", "").lower() in ("true", "1", "yes")
+log_level = Config.PETAL_LOG_LEVEL
+log_to_file = Config.PETAL_LOG_TO_FILE
 
 app = build_app(
     log_level=log_level, 

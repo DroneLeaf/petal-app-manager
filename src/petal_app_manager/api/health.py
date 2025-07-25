@@ -7,32 +7,45 @@ import logging
 from ..proxies.redis import RedisProxy
 from ..proxies.localdb import LocalDBProxy
 from ..proxies.external import MavLinkExternalProxy
+from ..api import get_proxies
 
 router = APIRouter(tags=["health"])
 
-# Global proxy references - these will be set by the main application
-_proxies: Dict[str, Any] = {}
+_logger: Optional[logging.Logger] = None
 
-def set_proxies(proxies: Dict[str, Any]):
-    """Set the proxy instances for health checks."""
-    global _proxies
-    _proxies = proxies
+def _set_logger(logger: logging.Logger):
+    """Set the _logger for api endpoints."""
+    global _logger
+    _logger = logger
+    if not isinstance(_logger, logging.Logger):
+        raise ValueError("Logger must be an instance of logging.Logger")
+    if not _logger.name:
+        raise ValueError("Logger must have a name set")
+    if not _logger.handlers:
+        raise ValueError("Logger must have at least one handler configured")
 
-def get_proxies() -> Dict[str, Any]:
-    """Get the proxy instances."""
-    return _proxies
+def get_logger() -> Optional[logging.Logger]:
+    """Get the logger instance."""
+    global _logger
+    if not _logger:
+        raise ValueError("Logger has not been set. Call _set_logger first.")
+    return _logger
 
 @router.get("/health")
 async def health_check():
     """Basic health check endpoint."""
+    logger = get_logger()
+    logger.info("Health check requested")
     return {"status": "ok"}
 
 @router.get("/health/detailed")
 async def detailed_health_check():
     """Comprehensive health check endpoint that reports the status of each proxy."""
     proxies = get_proxies()
+    logger = get_logger()
     
     if not proxies:
+        logger.warning("Health check requested but no proxies are configured.")
         return {
             "status": "error",
             "message": "No proxies configured",
@@ -56,6 +69,7 @@ async def detailed_health_check():
             if redis_status["status"] != "healthy":
                 overall_healthy = False
         except Exception as e:
+            logger.error(f"Error checking Redis proxy health: {e}")
             health_status["proxies"]["redis"] = {
                 "status": "error",
                 "error": str(e),
@@ -72,6 +86,7 @@ async def detailed_health_check():
             if db_status["status"] != "healthy":
                 overall_healthy = False
         except Exception as e:
+            logger.error(f"Error checking LocalDB proxy health: {e}")
             health_status["proxies"]["db"] = {
                 "status": "error",
                 "error": str(e),
@@ -88,6 +103,7 @@ async def detailed_health_check():
             if mavlink_status["status"] != "healthy":
                 overall_healthy = False
         except Exception as e:
+            logger.error(f"Error checking MAVLink proxy health: {e}")
             health_status["proxies"]["ext_mavlink"] = {
                 "status": "error",
                 "error": str(e),
@@ -102,9 +118,11 @@ async def detailed_health_check():
 
 async def _check_redis_proxy(proxy: RedisProxy) -> Dict[str, Any]:
     """Check Redis proxy health."""
+    logger = get_logger()
     try:
         # Check if client is initialized
         if not proxy._client:
+            logger.warning("Redis client not initialized")
             return {
                 "status": "unhealthy",
                 "details": "Redis client not initialized",
@@ -144,6 +162,7 @@ async def _check_redis_proxy(proxy: RedisProxy) -> Dict[str, Any]:
                 online_apps = await proxy.list_online_applications()
                 info["communication"]["online_applications"] = online_apps
             except Exception as e:
+                logger.error(f"Error fetching online applications: {e}")
                 info["communication"]["online_applications_error"] = str(e)
             
             return info
@@ -159,6 +178,7 @@ async def _check_redis_proxy(proxy: RedisProxy) -> Dict[str, Any]:
                 }
             }
     except Exception as e:
+        logger.error(f"Error checking Redis proxy health: {e}")
         return {
             "status": "error",
             "error": str(e),
@@ -172,6 +192,8 @@ async def _check_redis_proxy(proxy: RedisProxy) -> Dict[str, Any]:
 
 async def _check_localdb_proxy(proxy: LocalDBProxy) -> Dict[str, Any]:
     """Check LocalDB proxy health."""
+    logger = get_logger()
+
     try:
         # Basic connection test - try to make a simple request
         test_response = await proxy._loop.run_in_executor(
@@ -208,6 +230,7 @@ async def _check_localdb_proxy(proxy: LocalDBProxy) -> Dict[str, Any]:
         return status_info
         
     except Exception as e:
+        logger.error(f"Error checking LocalDB proxy health: {e}")
         return {
             "status": "error",
             "error": str(e),
@@ -225,6 +248,7 @@ async def _check_localdb_proxy(proxy: LocalDBProxy) -> Dict[str, Any]:
 
 async def _check_mavlink_proxy(proxy: MavLinkExternalProxy) -> Dict[str, Any]:
     """Check MAVLink proxy health."""
+    logger = get_logger()
     try:
         current_time = time.time()
         
@@ -276,6 +300,7 @@ async def _check_mavlink_proxy(proxy: MavLinkExternalProxy) -> Dict[str, Any]:
         return status_info
         
     except Exception as e:
+        logger.error(f"Error checking MAVLink proxy health: {e}")
         return {
             "status": "error",
             "error": str(e),

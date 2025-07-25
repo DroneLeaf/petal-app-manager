@@ -21,6 +21,7 @@ import logging
 import platform
 import subprocess
 from pathlib import Path
+import os
 
 from .base import BaseProxy
 
@@ -31,12 +32,20 @@ class LocalDBProxy(BaseProxy):
     
     def __init__(
         self,
-        host: str = "localhost",
-        port: int = 3000,
+        get_data_url: str,
+        scan_data_url: str,
+        update_data_url: str,
+        set_data_url: str,
+        host: str,
+        port: int,
         debug: bool = False,
     ):
         self.host = host
         self.port = port
+        self.get_data_url = get_data_url
+        self.scan_data_url = scan_data_url
+        self.update_data_url = update_data_url
+        self.set_data_url = set_data_url
         self.debug = debug
         
         self._loop = None
@@ -196,6 +205,7 @@ class LocalDBProxy(BaseProxy):
     ) -> Dict[str, Any]:
         """
         Retrieve a single item from DynamoDB using its partition key.
+        Only returns items that are not soft-deleted (deleted != True) and belong to this machine.
         
         Args:
             table_name: The DynamoDB table name
@@ -203,7 +213,7 @@ class LocalDBProxy(BaseProxy):
             partition_value: Value of the partition key to look up
             
         Returns:
-            The item as a dictionary if found, or an error dictionary
+            The item as a dictionary if found, not deleted, and belongs to this machine, or an error dictionary
         """
         if not self._machine_id:
             return {"error": "Machine ID not available"}
@@ -215,12 +225,23 @@ class LocalDBProxy(BaseProxy):
             "partition_value": partition_value
         }
         
-        path = '/drone/onBoard/config/getData'
+        path = self.get_data_url
         
-        return await self._loop.run_in_executor(
+        result = await self._loop.run_in_executor(
             self._exe, 
             lambda: self._remote_file_request(body, path, 'POST')
         )
+        
+        # Filter out soft-deleted items and items not belonging to this machine
+        if result.get("success") and result.get("data"):
+            item_data = result["data"]
+            if item_data.get("deleted") is True:
+                return {"error": "Item not found or has been deleted"}
+            # Check if robot_instance_id matches machine_id
+            if item_data.get("robot_instance_id") != self._machine_id:
+                return {"error": "Item not found or access denied"}
+        
+        return result
     
     async def scan_items(
         self, 
@@ -229,13 +250,14 @@ class LocalDBProxy(BaseProxy):
     ) -> List[Dict[str, Any]]:
         """
         Scan a DynamoDB table with optional filters.
+        Only returns items that are not soft-deleted (deleted != True) and belong to this machine.
         
         Args:
             table_name: The DynamoDB table name
             filters: List of filter dictionaries, each with 'filter_key_name' and 'filter_key_value'
             
         Returns:
-            List of matching items
+            List of matching items that are not deleted and belong to this machine
         """
         if not self._machine_id:
             return [{"error": "Machine ID not available"}]
@@ -245,15 +267,44 @@ class LocalDBProxy(BaseProxy):
             "onBoardId": self._machine_id
         }
         
-        if filters:
-            body["scanFilter"] = filters
+        # Always add robot_instance_id filter to ensure only this machine's records are returned
+        if filters is None:
+            filters = []
+        else:
+            filters = filters.copy()  # Don't modify the original list
         
-        path = '/drone/onBoard/config/scanData'
+        # Add robot_instance_id filter
+        filters.append({
+            "filter_key_name": "robot_instance_id", 
+            "filter_key_value": self._machine_id
+        })
         
-        return await self._loop.run_in_executor(
+        body["scanFilter"] = filters
+
+        path = self.scan_data_url
+
+        result = await self._loop.run_in_executor(
             self._exe, 
             lambda: self._remote_file_request(body, path, 'POST')
         )
+        
+        # Filter out soft-deleted items and double-check robot_instance_id
+        if result.get("success") and result.get("data"):
+            if isinstance(result["data"], list):
+                # Filter out items where deleted is True or robot_instance_id doesn't match
+                filtered_items = [
+                    item for item in result["data"] 
+                    if (item.get("deleted") is not True and 
+                        item.get("robot_instance_id") == self._machine_id)
+                ]
+                return {"data": filtered_items, "success": True}
+            else:
+                # Single item response, check if it's deleted or doesn't belong to this machine
+                if (result["data"].get("deleted") is True or 
+                    result["data"].get("robot_instance_id") != self._machine_id):
+                    return {"data": [], "success": True}
+        
+        return result
     
     async def update_item(
         self,
@@ -264,6 +315,7 @@ class LocalDBProxy(BaseProxy):
     ) -> Dict[str, Any]:
         """
         Update or insert an item in DynamoDB.
+        Automatically adds robot_instance_id to ensure item belongs to this machine.
         
         Args:
             table_name: The DynamoDB table name
@@ -277,16 +329,20 @@ class LocalDBProxy(BaseProxy):
         if not self._machine_id:
             return {"error": "Machine ID not available"}
         
+        # Ensure robot_instance_id is set to machine_id
+        data_with_robot_id = data.copy()
+        data_with_robot_id["robot_instance_id"] = self._machine_id
+        
         body = {
             "onBoardId": self._machine_id,
             "table_name": table_name,
             "filter_key": filter_key,
             "filter_value": filter_value,
-            "data": data
+            "data": data_with_robot_id
         }
-        
-        path = '/drone/onBoard/config/updateData'
-        
+
+        path = self.update_data_url
+
         return await self._loop.run_in_executor(
             self._exe, 
             lambda: self._remote_file_request(body, path, 'POST')
@@ -300,7 +356,8 @@ class LocalDBProxy(BaseProxy):
         data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Set or update an item in DynamoDB.
+        Puts an item in DynamoDB.
+        Automatically adds robot_instance_id to ensure item belongs to this machine.
         
         Args:
             table_name: The DynamoDB table name
@@ -314,16 +371,20 @@ class LocalDBProxy(BaseProxy):
         if not self._machine_id:
             return {"error": "Machine ID not available"}
         
+        # Ensure robot_instance_id is set to machine_id
+        data_with_robot_id = data.copy()
+        data_with_robot_id["robot_instance_id"] = self._machine_id
+        
         body = {
             "onBoardId": self._machine_id,
             "table_name": table_name,
             "filter_key": filter_key,
             "filter_value": filter_value,
-            "data": data
+            "data": data_with_robot_id
         }
-        
-        path = '/drone/onBoard/config/setData'
-        
+
+        path = self.set_data_url
+
         return await self._loop.run_in_executor(
             self._exe, 
             lambda: self._remote_file_request(body, path, 'POST')
@@ -336,7 +397,7 @@ class LocalDBProxy(BaseProxy):
         filter_value: str
     ) -> Dict[str, Any]:
         """
-        Delete an item from DynamoDB.
+        Soft delete an item from DynamoDB by setting deleted=True.
         
         Args:
             table_name: The DynamoDB table name
@@ -344,21 +405,36 @@ class LocalDBProxy(BaseProxy):
             filter_value: Value of the key to delete
             
         Returns:
-            Response from the delete operation
+            Response from the update operation
         """
         if not self._machine_id:
             return {"error": "Machine ID not available"}
         
+        # Get the existing item directly from the database (bypassing soft delete filter)
         body = {
             "onBoardId": self._machine_id,
             "table_name": table_name,
-            "filter_key": filter_key,
-            "filter_value": filter_value
+            "partition_key": filter_key,
+            "partition_value": filter_value
         }
-        
-        path = '/drone/onBoard/config/deleteData'
-        
-        return await self._loop.run_in_executor(
+
+        path = self.get_data_url
+
+        existing_item_result = await self._loop.run_in_executor(
             self._exe, 
             lambda: self._remote_file_request(body, path, 'POST')
+        )
+        
+        if not existing_item_result.get("success") or not existing_item_result.get("data"):
+            return {"error": "Item not found"}
+        
+        # Update the item with deleted=True while preserving existing data
+        item_data = existing_item_result["data"].copy()
+        item_data["deleted"] = True
+        
+        return await self.update_item(
+            table_name=table_name,
+            filter_key=filter_key,
+            filter_value=filter_value,
+            data=item_data
         )
