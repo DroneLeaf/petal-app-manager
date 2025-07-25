@@ -147,8 +147,12 @@ class CloudDBProxy(BaseProxy):
                 response = conn.getresponse()
                 
                 if response.status != 200:
-                    raise Exception(f"HTTP {response.status}: {response.reason}")
-                
+                    try:
+                        raise Exception(f"HTTP {response.status}: {response.reason}")
+                    except Exception as e:
+                        self.log.error(f"Failed to fetch session credentials: {str(e)}")
+                        conn.close()
+                        return {"error": str(e)}
                 raw_data = response.read()
                 conn.close()
                 
