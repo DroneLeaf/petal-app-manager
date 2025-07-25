@@ -54,53 +54,57 @@ class RedisProxy(BaseProxy):
         """Initialize the connection to Redis."""
         self._loop = asyncio.get_running_loop()
         
-        # Create Redis client - prioritize Unix socket
-        if self.unix_socket_path:
-            self.log.info("Initializing Redis connection via Unix socket: %s", self.unix_socket_path)
-            self._client = await self._loop.run_in_executor(
-                self._exe,
-                lambda: redis.Redis(
-                    unix_socket_path=self.unix_socket_path,
-                    db=self.db,
-                    password=self.password,
-                    decode_responses=True
+        try:
+            # Create Redis client - prioritize Unix socket
+            if self.unix_socket_path:
+                self.log.info("Initializing Redis connection via Unix socket: %s", self.unix_socket_path)
+                self._client = await self._loop.run_in_executor(
+                    self._exe,
+                    lambda: redis.Redis(
+                        unix_socket_path=self.unix_socket_path,
+                        db=self.db,
+                        password=self.password,
+                        decode_responses=True
+                    )
                 )
-            )
-            
-            # Create separate client for pub/sub operations
-            self._pubsub_client = await self._loop.run_in_executor(
-                self._exe,
-                lambda: redis.Redis(
-                    unix_socket_path=self.unix_socket_path,
-                    db=self.db,
-                    password=self.password,
-                    decode_responses=True
+                
+                # Create separate client for pub/sub operations
+                self._pubsub_client = await self._loop.run_in_executor(
+                    self._exe,
+                    lambda: redis.Redis(
+                        unix_socket_path=self.unix_socket_path,
+                        db=self.db,
+                        password=self.password,
+                        decode_responses=True
+                    )
                 )
-            )
-        else:
-            self.log.info("Initializing Redis connection to %s:%s db=%s", self.host, self.port, self.db)
-            self._client = await self._loop.run_in_executor(
-                self._exe,
-                lambda: redis.Redis(
-                    host=self.host,
-                    port=self.port,
-                    db=self.db,
-                    password=self.password,
-                    decode_responses=True
+            else:
+                self.log.info("Initializing Redis connection to %s:%s db=%s", self.host, self.port, self.db)
+                self._client = await self._loop.run_in_executor(
+                    self._exe,
+                    lambda: redis.Redis(
+                        host=self.host,
+                        port=self.port,
+                        db=self.db,
+                        password=self.password,
+                        decode_responses=True
+                    )
                 )
-            )
-            
-            # Create separate client for pub/sub operations
-            self._pubsub_client = await self._loop.run_in_executor(
-                self._exe,
-                lambda: redis.Redis(
-                    host=self.host,
-                    port=self.port,
-                    db=self.db,
-                    password=self.password,
-                    decode_responses=True
+                
+                # Create separate client for pub/sub operations
+                self._pubsub_client = await self._loop.run_in_executor(
+                    self._exe,
+                    lambda: redis.Redis(
+                        host=self.host,
+                        port=self.port,
+                        db=self.db,
+                        password=self.password,
+                        decode_responses=True
+                    )
                 )
-            )
+        except Exception as e:
+            self.log.error(f"Failed to create Redis clients: {e}")
+            return
         
         # Test connection
         try:
