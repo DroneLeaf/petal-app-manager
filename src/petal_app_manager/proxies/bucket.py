@@ -227,8 +227,8 @@ class S3BucketProxy(BaseProxy):
         clean_filename = Path(filename).name
         unique_filename = f"{uuid.uuid4()}_{clean_filename}"
         
-        # Generate key: flight_logs/machine_id/YYYYMMDD_HHMMSS_uuid_filename
-        return f"{self.upload_prefix}{machine_id}/{timestamp}_{unique_filename}"
+        # Generate key: machine_id/flight-logs/YYYYMMDD_HHMMSS_uuid_filename
+        return f"{machine_id}/flight-logs/{timestamp}_{unique_filename}"
         
     async def _refresh_s3_client(self):
         """Refresh the S3 client with new credentials if needed."""
@@ -339,12 +339,18 @@ class S3BucketProxy(BaseProxy):
         """
         def _list():
             try:
-                # Build the prefix for listing
-                list_prefix = self.upload_prefix
+                # Build the prefix for listing with new structure: machine_id/flight-logs/
                 if machine_id:
-                    list_prefix += f"{machine_id}/"
+                    list_prefix = f"{machine_id}/flight-logs/"
+                else:
+                    # If no machine_id specified, list all files (no prefix filter)
+                    list_prefix = ""
+                
                 if prefix:
-                    list_prefix += prefix
+                    if list_prefix:
+                        list_prefix += prefix
+                    else:
+                        list_prefix = prefix
                 
                 # Limit max_keys to prevent excessive results
                 limited_max_keys = min(max_keys, 1000)

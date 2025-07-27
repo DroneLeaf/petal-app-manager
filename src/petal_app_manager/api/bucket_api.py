@@ -51,9 +51,7 @@ async def upload_file_test(
         machine_id = test_machine_id
         if not machine_id and "db" in proxies:
             local_db_proxy: LocalDBProxy = proxies["db"]
-            machine_result = await local_db_proxy.machine_id
-            if not machine_result.get("error"):
-                machine_id = machine_result["machine_id"]
+            machine_id = local_db_proxy.machine_id
         
         if not machine_id:
             machine_id = "test-machine-default"
@@ -117,9 +115,7 @@ async def list_files_test(
         # Use provided machine_id, or get from localdb if available
         if not machine_id and "db" in proxies:
             local_db_proxy: LocalDBProxy = proxies["db"]
-            machine_result = await local_db_proxy.machine_id
-            if not machine_result.get("error"):
-                machine_id = machine_result["machine_id"]
+            machine_id = local_db_proxy.machine_id
 
         # List files for the specified machine (or all if no machine_id)
         result = await bucket_proxy.list_files(
