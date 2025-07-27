@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware  # Add this import
-from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy
+from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy
 
 from .plugins.loader import load_petals
-from .api import health, proxy_info, cloud_api
+from .api import health, proxy_info, cloud_api, bucket_api
 from . import api
 import logging
 
@@ -64,6 +64,7 @@ def build_app(
             "mavlinkftpproxy",        # also covers mavlinkftpproxy.blockingparser
             "redisproxy",
             "clouddbproxy",
+            "s3bucketproxy",
             "pluginsloader",
             # external “petal_*” plug-ins and friends
             "petal_",               # petal_flight_log, petal_hello_world, …
@@ -120,6 +121,11 @@ def build_app(
             update_data_url=Config.UPDATE_DATA_URL,
             set_data_url=Config.SET_DATA_URL,
         ),
+        "bucket" : S3BucketProxy(
+            session_token_url=Config.SESSION_TOKEN_URL,
+            bucket_name=Config.S3_BUCKET_NAME,
+            upload_prefix="flight_logs/"
+        ),
     }
 
     proxies["ftp_mavlink"] = MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
@@ -141,6 +147,9 @@ def build_app(
     # Configure cloud API with proxy instances
     cloud_api._set_logger(api_logger)  # Set the logger for cloud API endpoints
     app.include_router(cloud_api.router, prefix="/cloud")
+    # Configure bucket API with proxy instances
+    bucket_api._set_logger(api_logger)  # Set the logger for bucket API endpoints
+    app.include_router(bucket_api.router, prefix="/test")
 
     # ---------- dynamic plugins ----------
     # Set up the logger for the plugins loader
