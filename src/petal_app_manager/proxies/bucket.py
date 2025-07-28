@@ -14,7 +14,12 @@ import requests
 from botocore.exceptions import ClientError, NoCredentialsError
 
 from .base import BaseProxy
+from .localdb import LocalDBProxy
 
+_ULOG_MAGIC   = b"ULog\x01\x12\x35"     # 7‑byte magic    :contentReference[oaicite:0]{index=0}
+_ULOG_VERSION = 1                       # current spec
+_ROSBAG_MAGIC = b"#ROSBAG"              # first 7 bytes   :contentReference[oaicite:1]{index=1}
+_SIZE_LIMIT   = 2 * 1024**3             # 2 GiB
 
 class S3BucketProxy(BaseProxy):
     """
@@ -29,12 +34,14 @@ class S3BucketProxy(BaseProxy):
         self,
         session_token_url: str,
         bucket_name: str,
+        local_db_proxy: 'LocalDBProxy',
         upload_prefix: str = 'flight_logs/',
         debug: bool = False,
         request_timeout: int = 30
     ):
         self.session_token_url = session_token_url
         self.bucket_name = bucket_name
+        self.local_db_proxy = local_db_proxy
         self.upload_prefix = upload_prefix.rstrip('/') + '/'
         self.debug = debug
         self.request_timeout = request_timeout
@@ -75,6 +82,24 @@ class S3BucketProxy(BaseProxy):
         self._exe.shutdown(wait=False)
         self.s3_client = None
         self.log.info("S3BucketProxy stopped")
+
+    def _get_machine_id(self) -> Optional[str]:
+        """
+        Get the machine ID from the LocalDBProxy.
+        
+        Returns:
+            The machine ID if available, None otherwise
+        """
+        if not self.local_db_proxy:
+            self.log.error("LocalDBProxy not available")
+            return None
+        
+        machine_id = self.local_db_proxy.machine_id
+        if not machine_id:
+            self.log.error("Machine ID not available from LocalDBProxy")
+            return None
+        
+        return machine_id
         
     def _validate_file_extension(self, filename: str) -> bool:
         """
@@ -96,52 +121,50 @@ class S3BucketProxy(BaseProxy):
     
     def _validate_file_content(self, file_path: Path) -> Dict[str, Any]:
         """
-        Basic validation of file content for flight logs.
-        
-        Args:
-            file_path: Path to the file to validate
-            
-        Returns:
-            Dictionary with validation results
+        Basic validation of PX4 ULog (*.ulg) and ROS1 bag (*.bag) flight‑log files.
+        Returns a dict with either {"valid": True, ...} or {"valid": False, "error": ...}.
         """
         try:
+            # ---------- existence & size -------------------------------------------------
             if not file_path.exists():
                 return {"valid": False, "error": "File does not exist"}
-            
-            # Check file size (must be > 0 and < 2GB)
-            file_size = file_path.stat().st_size
-            if file_size == 0:
+
+            size = file_path.stat().st_size
+            if size == 0:
                 return {"valid": False, "error": "File is empty"}
-            
-            if file_size > 2 * 1024 * 1024 * 1024:  # 2GB limit
-                return {"valid": False, "error": "File too large (max 2GB)"}
-            
-            # Basic content validation based on extension
-            extension = file_path.suffix.lower()
-            
-            if extension == '.ulg':
-                # ULog files should start with a specific magic number
-                with open(file_path, 'rb') as f:
-                    header = f.read(8)
-                    if not header.startswith(b'ULogData'):
-                        return {"valid": False, "error": "Invalid ULog file format"}
-            
-            elif extension == '.bag':
-                # ROS bag files should start with "#ROSBAG" 
-                with open(file_path, 'rb') as f:
-                    header = f.read(7)
-                    if not header == b'#ROSBAG':
-                        return {"valid": False, "error": "Invalid ROS bag file format"}
-            
-            return {
-                "valid": True, 
-                "file_size": file_size,
-                "extension": extension
-            }
-            
+            if size > _SIZE_LIMIT:
+                return {"valid": False, "error": "File too large (max 2 GiB)"}
+
+            # ---------- content sniff ----------------------------------------------------
+            ext = file_path.suffix.lower()
+
+            if ext == ".ulg":
+                with file_path.open("rb") as f:
+                    header = f.read(8)  # 7‑byte magic + 1‑byte version
+                if not (header[:7] == _ULOG_MAGIC and header[7] == _ULOG_VERSION):
+                    return {"valid": False,
+                            "error": "Invalid ULog header (magic/version mismatch)"}
+
+            elif ext == ".bag":
+                with file_path.open("rb") as f:
+                    header = f.read(8)  # '#ROSBAG'
+                if not header.startswith(_ROSBAG_MAGIC):
+                    return {"valid": False,
+                            "error": "Invalid ROS bag header (expected '#ROSBAG')"}
+
+            else:
+                return {"valid": False,
+                        "error": f"Unsupported extension '{ext}'"}
+
+            # ---------- success ----------------------------------------------------------
+            return {"valid": True,
+                    "file_size": size,
+                    "extension": ext}
+
         except Exception as e:
-            self.log.error(f"File validation error: {e}")
-            return {"valid": False, "error": f"Validation failed: {str(e)}"}
+            # log & bubble up a clean error object
+            self.log.error("File validation error: %s", e)
+            return {"valid": False, "error": f"Validation failed: {e}"}
         
     async def _get_session_credentials(self) -> Dict[str, Any]:
         """
@@ -241,19 +264,23 @@ class S3BucketProxy(BaseProxy):
     
     # ------ Public API methods ------ #
     
-    async def upload_file(self, file_path: Path, machine_id: str, 
+    async def upload_file(self, file_path: Path, 
                          custom_filename: Optional[str] = None) -> Dict[str, Any]:
         """
         Upload a flight log file to S3.
         
         Args:
             file_path: Path to the local file to upload
-            machine_id: Machine ID for organization
             custom_filename: Optional custom filename (defaults to original)
             
         Returns:
             Dictionary with upload results
         """
+        # Get machine ID from LocalDBProxy
+        machine_id = self._get_machine_id()
+        if not machine_id:
+            return {"error": "Machine ID not available"}
+        
         def _upload():
             try:
                 filename = custom_filename or file_path.name
@@ -324,33 +351,29 @@ class S3BucketProxy(BaseProxy):
         except Exception as e:
             return {"error": f"Client initialization failed: {str(e)}"}
     
-    async def list_files(self, machine_id: Optional[str] = None, 
-                        prefix: Optional[str] = None, max_keys: int = 100) -> Dict[str, Any]:
+    async def list_files(self, prefix: Optional[str] = None, max_keys: int = 100) -> Dict[str, Any]:
         """
-        List files in the S3 bucket.
+        List files in the S3 bucket for the current machine.
         
         Args:
-            machine_id: Optional machine ID to filter by
             prefix: Optional additional prefix to filter by
             max_keys: Maximum number of files to return (default 100, max 1000)
             
         Returns:
             Dictionary with list of files
         """
+        # Get machine ID from LocalDBProxy
+        machine_id = self._get_machine_id()
+        if not machine_id:
+            return {"error": "Machine ID not available"}
+        
         def _list():
             try:
                 # Build the prefix for listing with new structure: machine_id/flight-logs/
-                if machine_id:
-                    list_prefix = f"{machine_id}/flight-logs/"
-                else:
-                    # If no machine_id specified, list all files (no prefix filter)
-                    list_prefix = ""
+                list_prefix = f"{machine_id}/flight-logs/"
                 
                 if prefix:
-                    if list_prefix:
-                        list_prefix += prefix
-                    else:
-                        list_prefix = prefix
+                    list_prefix += prefix
                 
                 # Limit max_keys to prevent excessive results
                 limited_max_keys = min(max_keys, 1000)

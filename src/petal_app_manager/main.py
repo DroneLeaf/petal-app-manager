@@ -90,6 +90,7 @@ def build_app(
     )
 
     # ---------- start proxies ----------
+    # Create LocalDBProxy first since S3BucketProxy depends on it
     proxies = {
         "ext_mavlink": MavLinkExternalProxy(
             endpoint=Config.MAVLINK_ENDPOINT,
@@ -121,13 +122,14 @@ def build_app(
             update_data_url=Config.UPDATE_DATA_URL,
             set_data_url=Config.SET_DATA_URL,
         ),
-        "bucket" : S3BucketProxy(
-            session_token_url=Config.SESSION_TOKEN_URL,
-            bucket_name=Config.S3_BUCKET_NAME,
-            upload_prefix="flight_logs/"
-        ),
     }
 
+    proxies["bucket"] = S3BucketProxy(
+        session_token_url=Config.SESSION_TOKEN_URL,
+        bucket_name=Config.S3_BUCKET_NAME,
+        local_db_proxy=proxies["db"],
+        upload_prefix="flight_logs/"
+    )
     proxies["ftp_mavlink"] = MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
 
     for p in proxies.values():

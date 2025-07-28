@@ -13,9 +13,14 @@ class TestS3BucketProxy:
     
     def test_file_extension_validation(self):
         """Test file extension validation."""
+        # Create a mock LocalDBProxy
+        mock_local_db_proxy = MagicMock()
+        mock_local_db_proxy.machine_id = "test-machine-123"
+        
         proxy = S3BucketProxy(
             session_token_url="http://test:3000/token",
-            bucket_name="test-bucket"
+            bucket_name="test-bucket",
+            local_db_proxy=mock_local_db_proxy
         )
         
         # Valid extensions
@@ -36,14 +41,23 @@ class TestS3BucketProxy:
     
     def test_file_content_validation(self):
         """Test file content validation."""
+        # Create a mock LocalDBProxy
+        mock_local_db_proxy = MagicMock()
+        mock_local_db_proxy.machine_id = "test-machine-123"
+        
         proxy = S3BucketProxy(
             session_token_url="http://test:3000/token",
-            bucket_name="test-bucket"
+            bucket_name="test-bucket",
+            local_db_proxy=mock_local_db_proxy
         )
         
+        # Define valid file headers
+        ulog_header   = b"ULog\x01\x12\x35\x01\x00"          # 7‑byte magic + v1 + pad
+        rosbag_header = b"#ROSBAG V2.0\n"                    # starts with '#ROSBAG'
+
         # Test valid ULog file
         with tempfile.NamedTemporaryFile(suffix='.ulg', delete=False) as f:
-            f.write(b'ULogData\x00\x01\x02\x03')
+            f.write(ulog_header)
             ulg_path = Path(f.name)
         
         try:
@@ -56,7 +70,7 @@ class TestS3BucketProxy:
         
         # Test valid ROS bag file
         with tempfile.NamedTemporaryFile(suffix='.bag', delete=False) as f:
-            f.write(b'#ROSBAG V1.2\n')
+            f.write(rosbag_header)
             bag_path = Path(f.name)
         
         try:
@@ -75,7 +89,7 @@ class TestS3BucketProxy:
         try:
             result = proxy._validate_file_content(invalid_ulg_path)
             assert result["valid"] is False
-            assert "Invalid ULog file format" in result["error"]
+            assert "Invalid ULog header" in result["error"]
         finally:
             invalid_ulg_path.unlink()
         
@@ -98,9 +112,14 @@ class TestS3BucketProxy:
     
     def test_s3_key_generation(self):
         """Test S3 key generation."""
+        # Create a mock LocalDBProxy
+        mock_local_db_proxy = MagicMock()
+        mock_local_db_proxy.machine_id = "test-machine-123"
+        
         proxy = S3BucketProxy(
             session_token_url="http://test:3000/token",
             bucket_name="test-bucket",
+            local_db_proxy=mock_local_db_proxy,
             upload_prefix="flight_logs/"
         )
         
@@ -108,24 +127,29 @@ class TestS3BucketProxy:
         
         # Test normal filename
         key = proxy._generate_s3_key("flight_log.ulg", machine_id)
-        assert key.startswith("flight_logs/test-machine-123/")
+        assert key.startswith("test-machine-123/flight-logs/")
         assert key.endswith("_flight_log.ulg")
         
         # Test filename with path
         key = proxy._generate_s3_key("path/to/file.bag", machine_id)
-        assert key.startswith("flight_logs/test-machine-123/")
+        assert key.startswith("test-machine-123/flight-logs/")
         assert key.endswith("_file.bag")
         
         # Test uppercase extension
         key = proxy._generate_s3_key("TEST.ULG", machine_id)
-        assert key.startswith("flight_logs/test-machine-123/")
+        assert key.startswith("test-machine-123/flight-logs/")
         assert key.endswith("_TEST.ULG")
     
     def test_session_credentials_caching_structure(self):
         """Test session credentials caching structure."""
+        # Create a mock LocalDBProxy
+        mock_local_db_proxy = MagicMock()
+        mock_local_db_proxy.machine_id = "test-machine-123"
+        
         proxy = S3BucketProxy(
             session_token_url="http://test:3000/token",
-            bucket_name="test-bucket"
+            bucket_name="test-bucket",
+            local_db_proxy=mock_local_db_proxy
         )
         
         # Test that cache structure is initialized
@@ -137,10 +161,15 @@ class TestS3BucketProxy:
     
     def test_configuration_validation(self):
         """Test configuration validation."""
+        # Create a mock LocalDBProxy
+        mock_local_db_proxy = MagicMock()
+        mock_local_db_proxy.machine_id = "test-machine-123"
+        
         # Valid configuration
         proxy = S3BucketProxy(
             session_token_url="http://test:3000/token",
-            bucket_name="test-bucket"
+            bucket_name="test-bucket",
+            local_db_proxy=mock_local_db_proxy
         )
         assert proxy.session_token_url == "http://test:3000/token"
         assert proxy.bucket_name == "test-bucket"
@@ -150,6 +179,7 @@ class TestS3BucketProxy:
         proxy = S3BucketProxy(
             session_token_url="https://auth.example.com/token",
             bucket_name="my-custom-bucket",
+            local_db_proxy=mock_local_db_proxy,
             upload_prefix="logs",
             debug=True,
             request_timeout=60
@@ -166,10 +196,15 @@ class TestS3BucketProxy:
     @pytest.mark.asyncio
     async def test_start_validation(self):
         """Test proxy start validation."""
+        # Create a mock LocalDBProxy
+        mock_local_db_proxy = MagicMock()
+        mock_local_db_proxy.machine_id = "test-machine-123"
+        
         # Missing session_token_url should raise ValueError
         proxy = S3BucketProxy(
             session_token_url="",
-            bucket_name="test-bucket"
+            bucket_name="test-bucket",
+            local_db_proxy=mock_local_db_proxy
         )
         
         with pytest.raises(ValueError, match="SESSION_TOKEN_URL and BUCKET_NAME must be configured"):
@@ -178,7 +213,8 @@ class TestS3BucketProxy:
         # Missing bucket_name should raise ValueError
         proxy = S3BucketProxy(
             session_token_url="http://test:3000/token",
-            bucket_name=""
+            bucket_name="",
+            local_db_proxy=mock_local_db_proxy
         )
         
         with pytest.raises(ValueError, match="SESSION_TOKEN_URL and BUCKET_NAME must be configured"):

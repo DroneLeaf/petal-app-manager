@@ -34,8 +34,7 @@ def get_logger() -> logging.Logger:
 )
 async def upload_file_test(
     file: UploadFile = File(...),
-    custom_filename: Optional[str] = Form(None),
-    test_machine_id: Optional[str] = Form("test-machine-123")
+    custom_filename: Optional[str] = Form(None)
 ) -> Dict[str, Any]:
     """Upload a flight log file to S3 bucket storage for testing."""
     proxies = get_proxies()
@@ -47,15 +46,6 @@ async def upload_file_test(
         raise HTTPException(status_code=400, detail="No file selected")
 
     try:
-        # Use provided machine ID for testing, fallback to localdb if available
-        machine_id = test_machine_id
-        if not machine_id and "db" in proxies:
-            local_db_proxy: LocalDBProxy = proxies["db"]
-            machine_id = local_db_proxy.machine_id
-        
-        if not machine_id:
-            machine_id = "test-machine-default"
-
         # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
             content = await file.read()
@@ -66,7 +56,6 @@ async def upload_file_test(
             # Upload file using bucket proxy
             result = await bucket_proxy.upload_file(
                 temp_file_path, 
-                machine_id, 
                 custom_filename or file.filename
             )
 
@@ -74,6 +63,13 @@ async def upload_file_test(
                 raise HTTPException(status_code=400, detail=result["error"])
 
             logger.info(f"Successfully uploaded file: {result['s3_key']}")
+            
+            # Get machine_id from LocalDBProxy for informational purposes
+            machine_id = None
+            if "db" in proxies:
+                local_db_proxy: LocalDBProxy = proxies["db"]
+                machine_id = local_db_proxy.machine_id
+            
             return {
                 "success": True,
                 "message": "File uploaded successfully",
@@ -98,10 +94,9 @@ async def upload_file_test(
 @router.get(
     "/list",
     summary="List flight log files in S3 bucket",
-    description="List all flight log files stored in the S3 bucket, optionally filtered by machine ID.",
+    description="List all flight log files stored in the S3 bucket for the current machine.",
 )
 async def list_files_test(
-    machine_id: Optional[str] = Query(None, description="Machine ID to filter by"),
     prefix: Optional[str] = Query(None, description="Additional prefix to filter by"),
     max_keys: int = Query(100, le=1000, description="Maximum number of files to return")
 ) -> Dict[str, Any]:
@@ -112,14 +107,8 @@ async def list_files_test(
     bucket_proxy: S3BucketProxy = proxies["bucket"]
 
     try:
-        # Use provided machine_id, or get from localdb if available
-        if not machine_id and "db" in proxies:
-            local_db_proxy: LocalDBProxy = proxies["db"]
-            machine_id = local_db_proxy.machine_id
-
-        # List files for the specified machine (or all if no machine_id)
+        # List files for the current machine
         result = await bucket_proxy.list_files(
-            machine_id=machine_id,
             prefix=prefix,
             max_keys=max_keys
         )
@@ -127,7 +116,13 @@ async def list_files_test(
         if result.get("error"):
             raise HTTPException(status_code=500, detail=result["error"])
 
-        logger.info(f"Listed {len(result.get('files', []))} files for machine {machine_id or 'all'}")
+        # Get machine_id from LocalDBProxy for informational purposes
+        machine_id = None
+        if "db" in proxies:
+            local_db_proxy: LocalDBProxy = proxies["db"]
+            machine_id = local_db_proxy.machine_id
+
+        logger.info(f"Listed {len(result.get('files', []))} files for machine {machine_id or 'current'}")
 
         return {
             "success": True,
