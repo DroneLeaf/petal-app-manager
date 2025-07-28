@@ -111,17 +111,7 @@ def build_app(
             scan_data_url=Config.SCAN_DATA_URL,
             update_data_url=Config.UPDATE_DATA_URL,
             set_data_url=Config.SET_DATA_URL,
-        ),
-        "cloud" : CloudDBProxy(
-            endpoint=Config.CLOUD_ENDPOINT,
-            access_token_url=Config.ACCESS_TOKEN_URL,
-            session_token_url=Config.SESSION_TOKEN_URL,
-            s3_bucket_name=Config.S3_BUCKET_NAME,
-            get_data_url=Config.GET_DATA_URL,
-            scan_data_url=Config.SCAN_DATA_URL,
-            update_data_url=Config.UPDATE_DATA_URL,
-            set_data_url=Config.SET_DATA_URL,
-        ),
+        )
     }
 
     proxies["bucket"] = S3BucketProxy(
@@ -130,6 +120,18 @@ def build_app(
         local_db_proxy=proxies["db"],
         upload_prefix="flight_logs/"
     )
+    proxies["cloud"] = CloudDBProxy(
+        endpoint=Config.CLOUD_ENDPOINT,
+        local_db_proxy=proxies["db"],
+        access_token_url=Config.ACCESS_TOKEN_URL,
+        session_token_url=Config.SESSION_TOKEN_URL,
+        s3_bucket_name=Config.S3_BUCKET_NAME,
+        get_data_url=Config.GET_DATA_URL,
+        scan_data_url=Config.SCAN_DATA_URL,
+        update_data_url=Config.UPDATE_DATA_URL,
+        set_data_url=Config.SET_DATA_URL,
+    )
+    
     proxies["ftp_mavlink"] = MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
 
     for p in proxies.values():

@@ -34,7 +34,7 @@ class S3BucketProxy(BaseProxy):
         self,
         session_token_url: str,
         bucket_name: str,
-        local_db_proxy: 'LocalDBProxy',
+        local_db_proxy: LocalDBProxy,
         upload_prefix: str = 'flight_logs/',
         debug: bool = False,
         request_timeout: int = 30
