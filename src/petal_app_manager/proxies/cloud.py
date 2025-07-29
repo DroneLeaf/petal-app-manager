@@ -24,6 +24,7 @@ import ssl
 from urllib.parse import urlparse
 
 from .base import BaseProxy
+from .localdb import LocalDBProxy
 
 class CloudDBProxy(BaseProxy):
     """
@@ -34,6 +35,7 @@ class CloudDBProxy(BaseProxy):
         self,
         access_token_url: str,
         endpoint: str,
+        local_db_proxy: LocalDBProxy,
         session_token_url: str = None,
         s3_bucket_name: str = None,
         get_data_url: str = '/drone/onBoard/config/getData',
@@ -53,6 +55,7 @@ class CloudDBProxy(BaseProxy):
         self.set_data_url = set_data_url
         self.debug = debug
         self.request_timeout = request_timeout
+        self.local_db_proxy = local_db_proxy
         
         self._loop = None
         self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -86,6 +89,24 @@ class CloudDBProxy(BaseProxy):
         self._exe.shutdown(wait=False)
         self.log.info("CloudDBProxy stopped")
         
+    def _get_machine_id(self) -> Optional[str]:
+        """
+        Get the machine ID from the LocalDBProxy.
+        
+        Returns:
+            The machine ID if available, None otherwise
+        """
+        if not self.local_db_proxy:
+            self.log.error("LocalDBProxy not available")
+            return None
+        
+        machine_id = self.local_db_proxy.machine_id
+        if not machine_id:
+            self.log.error("Machine ID not available from LocalDBProxy")
+            return None
+        
+        return machine_id
+
     async def _get_access_token(self) -> Dict[str, Any]:
         """
         Fetch AWS session credentials from the session manager with caching.
@@ -243,7 +264,6 @@ class CloudDBProxy(BaseProxy):
         table_name: str, 
         partition_key: str, 
         partition_value: str,
-        machine_id: str
     ) -> Dict[str, Any]:
         """
         Retrieve a single item from DynamoDB using its partition key.
@@ -253,11 +273,12 @@ class CloudDBProxy(BaseProxy):
             table_name: The DynamoDB table name
             partition_key: Name of the partition key (usually 'id')
             partition_value: Value of the partition key to look up
-            machine_id: The machine ID for this request
             
         Returns:
             The item as a dictionary if found, not deleted, and belongs to this machine, or an error dictionary
         """
+        machine_id = self._get_machine_id()
+
         body = {
             "onBoardId": machine_id,
             "table_name": table_name,
@@ -281,7 +302,6 @@ class CloudDBProxy(BaseProxy):
     async def scan_items(
         self, 
         table_name: str, 
-        machine_id: str,
         filters: Optional[List[Dict[str, str]]] = None
     ) -> Dict[str, Any]:
         """
@@ -290,12 +310,13 @@ class CloudDBProxy(BaseProxy):
         
         Args:
             table_name: The DynamoDB table name
-            machine_id: The machine ID for this request
             filters: List of filter dictionaries, each with 'filter_key_name' and 'filter_key_value'
             
         Returns:
             Dictionary containing list of matching items that are not deleted and belong to this machine
         """
+        machine_id = self._get_machine_id()
+
         body = {
             "table_name": table_name,
             "onBoardId": machine_id
@@ -341,7 +362,6 @@ class CloudDBProxy(BaseProxy):
         filter_key: str,
         filter_value: str,
         data: Dict[str, Any],
-        machine_id: str
     ) -> Dict[str, Any]:
         """
         Update or insert an item in DynamoDB.
@@ -352,12 +372,13 @@ class CloudDBProxy(BaseProxy):
             filter_key: Name of the key to filter on (usually 'id')
             filter_value: Value of the key to update
             data: The complete item data to update or insert
-            machine_id: The machine ID for this request
             
         Returns:
             Response from the update operation
         """
         # Ensure robot_instance_id is set to machine_id
+        machine_id = self._get_machine_id()
+
         data_with_robot_id = data.copy()
         data_with_robot_id["robot_instance_id"] = machine_id
         
@@ -377,7 +398,6 @@ class CloudDBProxy(BaseProxy):
         filter_key: str,
         filter_value: str,
         data: Dict[str, Any],
-        machine_id: str
     ) -> Dict[str, Any]:
         """
         Puts an item in DynamoDB.
@@ -388,12 +408,13 @@ class CloudDBProxy(BaseProxy):
             filter_key: Name of the key to filter on (usually 'id')
             filter_value: Value of the key to update
             data: The complete item data to update or insert
-            machine_id: The machine ID for this request
             
         Returns:
             Response from the set operation
         """
         # Ensure robot_instance_id is set to machine_id
+        machine_id = self._get_machine_id()
+
         data_with_robot_id = data.copy()
         data_with_robot_id["robot_instance_id"] = machine_id
         
@@ -412,7 +433,6 @@ class CloudDBProxy(BaseProxy):
         table_name: str,
         filter_key: str,
         filter_value: str,
-        machine_id: str
     ) -> Dict[str, Any]:
         """
         Soft delete an item from DynamoDB by setting deleted=True.
@@ -421,12 +441,13 @@ class CloudDBProxy(BaseProxy):
             table_name: The DynamoDB table name
             filter_key: Name of the key to filter on (usually 'id')
             filter_value: Value of the key to delete
-            machine_id: The machine ID for this request
             
         Returns:
             Response from the update operation
         """
         # Get the existing item directly from the database (bypassing soft delete filter)
+        machine_id = self._get_machine_id()
+
         body = {
             "onBoardId": machine_id,
             "table_name": table_name,
@@ -447,6 +468,5 @@ class CloudDBProxy(BaseProxy):
             table_name=table_name,
             filter_key=filter_key,
             filter_value=filter_value,
-            data=item_data,
-            machine_id=machine_id
+            data=item_data
         )

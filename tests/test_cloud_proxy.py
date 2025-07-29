@@ -14,9 +14,13 @@ from typing import Generator, AsyncGenerator
 @pytest_asyncio.fixture
 async def proxy() -> AsyncGenerator[CloudDBProxy, None]:
     """Create a CloudDBProxy instance for testing."""
+    mock_local_db_proxy = MagicMock()
+    mock_local_db_proxy.machine_id = "test-machine-123"
+
     proxy = CloudDBProxy(
         access_token_url="https://example.com/token",
         endpoint="https://api.example.com",
+        local_db_proxy=mock_local_db_proxy,
         debug=True
     )
     
@@ -34,9 +38,13 @@ async def proxy() -> AsyncGenerator[CloudDBProxy, None]:
 @pytest.mark.asyncio
 async def test_get_access_token_caching():
     """Test that access tokens are properly cached."""
+    mock_local_db_proxy = MagicMock()
+    mock_local_db_proxy.machine_id = "test-machine-123"
+
     proxy = CloudDBProxy(
         access_token_url="https://example.com/token",
         endpoint="https://api.example.com",
+        local_db_proxy=mock_local_db_proxy,
         debug=True
     )
     
@@ -62,9 +70,13 @@ async def test_get_access_token_caching():
 @pytest.mark.asyncio
 async def test_get_access_token_expired():
     """Test token refresh when cached token is expired."""
+    mock_local_db_proxy = MagicMock()
+    mock_local_db_proxy.machine_id = "test-machine-123"
+
     proxy = CloudDBProxy(
         access_token_url="https://example.com/token",
         endpoint="https://api.example.com",
+        local_db_proxy=mock_local_db_proxy,
         debug=True
     )
     
@@ -94,20 +106,19 @@ async def test_get_access_token_expired():
 @pytest.mark.asyncio
 async def test_get_item(proxy: CloudDBProxy):
     """Test retrieving an item from the cloud database."""
-    mock_response = {"data": {"id": "123", "name": "Test Item", "status": "active", "robot_instance_id": "test-machine-id"}, "success": True}
+    mock_response = {"data": {"id": "123", "name": "Test Item", "status": "active", "robot_instance_id": "test-machine-123"}, "success": True}
     
     with patch.object(proxy, '_cloud_request', return_value=mock_response):
         result = await proxy.get_item(
             table_name="test-table",
             partition_key="id",
-            partition_value="123",
-            machine_id="test-machine-id"
+            partition_value="123"
         )
         
         assert result == mock_response
         proxy._cloud_request.assert_called_once_with(
             {
-                "onBoardId": "test-machine-id",
+                "onBoardId": "test-machine-123",
                 "table_name": "test-table",
                 "partition_key": "id",
                 "partition_value": "123"
@@ -119,14 +130,13 @@ async def test_get_item(proxy: CloudDBProxy):
 @pytest.mark.asyncio
 async def test_get_item_soft_deleted(proxy: CloudDBProxy):
     """Test that soft-deleted items are filtered out."""
-    mock_response = {"data": {"id": "123", "name": "Test Item", "deleted": True, "robot_instance_id": "test-machine-id"}, "success": True}
+    mock_response = {"data": {"id": "123", "name": "Test Item", "deleted": True, "robot_instance_id": "test-machine-123"}, "success": True}
     
     with patch.object(proxy, '_cloud_request', return_value=mock_response):
         result = await proxy.get_item(
             table_name="test-table",
             partition_key="id",
-            partition_value="123",
-            machine_id="test-machine-id"
+            partition_value="123"
         )
         
         assert "error" in result
@@ -141,8 +151,7 @@ async def test_get_item_wrong_robot_id(proxy: CloudDBProxy):
         result = await proxy.get_item(
             table_name="test-table",
             partition_key="id",
-            partition_value="123",
-            machine_id="test-machine-id"
+            partition_value="123"
         )
         
         assert "error" in result
@@ -153,24 +162,23 @@ async def test_scan_items_without_filters(proxy: CloudDBProxy):
     """Test scanning items without filters."""
     mock_response = {
         "data": [
-            {"id": "123", "name": "Item 1", "robot_instance_id": "test-machine-id"},
-            {"id": "456", "name": "Item 2", "robot_instance_id": "test-machine-id"}
+            {"id": "123", "name": "Item 1", "robot_instance_id": "test-machine-123"},
+            {"id": "456", "name": "Item 2", "robot_instance_id": "test-machine-123"}
         ],
         "success": True
     }
     
     with patch.object(proxy, '_cloud_request', return_value=mock_response):
         result = await proxy.scan_items(
-            table_name="test-table",
-            machine_id="test-machine-id"
+            table_name="test-table"
         )
         
         assert result == mock_response
         proxy._cloud_request.assert_called_once_with(
             {
                 "table_name": "test-table",
-                "onBoardId": "test-machine-id",
-                "scanFilter": [{"filter_key_name": "robot_instance_id", "filter_key_value": "test-machine-id"}]
+                "onBoardId": "test-machine-123",
+                "scanFilter": [{"filter_key_name": "robot_instance_id", "filter_key_value": "test-machine-123"}]
             },
             proxy.scan_data_url,
             'POST'
@@ -181,25 +189,24 @@ async def test_scan_items_filters_soft_deleted(proxy: CloudDBProxy):
     """Test that soft-deleted items are filtered out from scan results."""
     mock_response = {
         "data": [
-            {"id": "123", "name": "Item 1", "robot_instance_id": "test-machine-id"},
-            {"id": "456", "name": "Item 2", "deleted": True, "robot_instance_id": "test-machine-id"},
-            {"id": "789", "name": "Item 3", "robot_instance_id": "test-machine-id"}
+            {"id": "123", "name": "Item 1", "robot_instance_id": "test-machine-123"},
+            {"id": "456", "name": "Item 2", "deleted": True, "robot_instance_id": "test-machine-123"},
+            {"id": "789", "name": "Item 3", "robot_instance_id": "test-machine-123"}
         ],
         "success": True
     }
     
     expected_filtered = {
         "data": [
-            {"id": "123", "name": "Item 1", "robot_instance_id": "test-machine-id"},
-            {"id": "789", "name": "Item 3", "robot_instance_id": "test-machine-id"}
+            {"id": "123", "name": "Item 1", "robot_instance_id": "test-machine-123"},
+            {"id": "789", "name": "Item 3", "robot_instance_id": "test-machine-123"}
         ],
         "success": True
     }
     
     with patch.object(proxy, '_cloud_request', return_value=mock_response):
         result = await proxy.scan_items(
-            table_name="test-table",
-            machine_id="test-machine-id"
+            table_name="test-table"
         )
         
         assert result == expected_filtered
@@ -208,7 +215,7 @@ async def test_scan_items_filters_soft_deleted(proxy: CloudDBProxy):
 async def test_scan_items_with_filters(proxy: CloudDBProxy):
     """Test scanning items with filters."""
     mock_response = {
-        "data": [{"id": "123", "name": "Item 1", "robot_instance_id": "test-machine-id"}],
+        "data": [{"id": "123", "name": "Item 1", "robot_instance_id": "test-machine-123"}],
         "success": True
     }
     filters = [{"filter_key_name": "organization_id", "filter_key_value": "org-123"}]
@@ -216,7 +223,6 @@ async def test_scan_items_with_filters(proxy: CloudDBProxy):
     with patch.object(proxy, '_cloud_request', return_value=mock_response):
         result = await proxy.scan_items(
             table_name="test-table",
-            machine_id="test-machine-id",
             filters=filters
         )
         
@@ -224,8 +230,8 @@ async def test_scan_items_with_filters(proxy: CloudDBProxy):
         proxy._cloud_request.assert_called_once_with(
             {
                 "table_name": "test-table",
-                "onBoardId": "test-machine-id",
-                "scanFilter": filters + [{"filter_key_name": "robot_instance_id", "filter_key_value": "test-machine-id"}]
+                "onBoardId": "test-machine-123",
+                "scanFilter": filters + [{"filter_key_name": "robot_instance_id", "filter_key_value": "test-machine-123"}]
             },
             proxy.scan_data_url,
             'POST'
@@ -237,21 +243,20 @@ async def test_update_item(proxy: CloudDBProxy):
     mock_response = {"success": True}
     item_data = {"id": "123", "name": "Updated Item", "status": "inactive"}
     expected_data = item_data.copy()
-    expected_data["robot_instance_id"] = "test-machine-id"
+    expected_data["robot_instance_id"] = "test-machine-123"
     
     with patch.object(proxy, '_cloud_request', return_value=mock_response):
         result = await proxy.update_item(
             table_name="test-table",
             filter_key="id",
             filter_value="123",
-            data=item_data,
-            machine_id="test-machine-id"
+            data=item_data
         )
         
         assert result == mock_response
         proxy._cloud_request.assert_called_once_with(
             {
-                "onBoardId": "test-machine-id",
+                "onBoardId": "test-machine-123",
                 "table_name": "test-table",
                 "filter_key": "id",
                 "filter_value": "123",
@@ -267,21 +272,20 @@ async def test_set_item(proxy: CloudDBProxy):
     mock_response = {"success": True}
     item_data = {"id": "123", "name": "New Item", "status": "active"}
     expected_data = item_data.copy()
-    expected_data["robot_instance_id"] = "test-machine-id"
+    expected_data["robot_instance_id"] = "test-machine-123"
     
     with patch.object(proxy, '_cloud_request', return_value=mock_response):
         result = await proxy.set_item(
             table_name="test-table",
             filter_key="id",
             filter_value="123",
-            data=item_data,
-            machine_id="test-machine-id"
+            data=item_data
         )
         
         assert result == mock_response
         proxy._cloud_request.assert_called_once_with(
             {
-                "onBoardId": "test-machine-id",
+                "onBoardId": "test-machine-123",
                 "table_name": "test-table",
                 "filter_key": "id",
                 "filter_value": "123",
@@ -307,8 +311,7 @@ async def test_delete_item(proxy: CloudDBProxy):
         result = await proxy.delete_item(
             table_name="test-table",
             filter_key="id",
-            filter_value="123",
-            machine_id="test-machine-id"
+            filter_value="123"
         )
         
         assert result == mock_update_response
@@ -316,7 +319,7 @@ async def test_delete_item(proxy: CloudDBProxy):
         # Verify _cloud_request was called for direct database access
         proxy._cloud_request.assert_called_once_with(
             {
-                "onBoardId": "test-machine-id",
+                "onBoardId": "test-machine-123",
                 "table_name": "test-table",
                 "partition_key": "id",
                 "partition_value": "123"
@@ -332,8 +335,7 @@ async def test_delete_item(proxy: CloudDBProxy):
             table_name="test-table",
             filter_key="id",
             filter_value="123",
-            data=expected_data,
-            machine_id="test-machine-id"
+            data=expected_data
         )
 
 @pytest.mark.asyncio
@@ -345,8 +347,7 @@ async def test_delete_item_not_found(proxy: CloudDBProxy):
         result = await proxy.delete_item(
             table_name="test-table",
             filter_key="id",
-            filter_value="123",
-            machine_id="test-machine-id"
+            filter_value="123"
         )
         
         assert "error" in result
@@ -355,9 +356,13 @@ async def test_delete_item_not_found(proxy: CloudDBProxy):
 @pytest.mark.asyncio
 async def test_authentication_failure():
     """Test behavior when authentication fails."""
+    mock_local_db_proxy = MagicMock()
+    mock_local_db_proxy.machine_id = "test-machine-123"
+
     proxy = CloudDBProxy(
         access_token_url="https://example.com/token",
         endpoint="https://api.example.com",
+        local_db_proxy=mock_local_db_proxy,
         debug=True
     )
     
@@ -370,8 +375,7 @@ async def test_authentication_failure():
         result = await proxy.get_item(
             table_name="test-table",
             partition_key="id",
-            partition_value="123",
-            machine_id="test-machine-id"
+            partition_value="123"
         )
         
         assert "error" in result
@@ -386,7 +390,8 @@ async def test_configuration_validation():
     # Test missing ACCESS_TOKEN_URL
     proxy1 = CloudDBProxy(
         access_token_url="",
-        endpoint="https://api.example.com"
+        endpoint="https://api.example.com",
+        local_db_proxy=MagicMock()
     )
     
     with pytest.raises(ValueError, match="ACCESS_TOKEN_URL and CLOUD_ENDPOINT must be configured"):
@@ -395,7 +400,8 @@ async def test_configuration_validation():
     # Test missing CLOUD_ENDPOINT
     proxy2 = CloudDBProxy(
         access_token_url="https://example.com/token",
-        endpoint=""
+        endpoint="",
+        local_db_proxy=MagicMock()
     )
     
     with pytest.raises(ValueError, match="ACCESS_TOKEN_URL and CLOUD_ENDPOINT must be configured"):
