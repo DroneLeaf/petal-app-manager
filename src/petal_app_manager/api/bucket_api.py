@@ -242,39 +242,6 @@ async def delete_file_test(s3_key: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Internal server error during delete: {str(e)}")
 
 @router.get(
-    "/health",
-    summary="Health check for S3 bucket proxy",
-    description="Check if the S3 bucket proxy is working and can connect to AWS."
-)
-async def health_check() -> Dict[str, Any]:
-    """Health check for S3 bucket proxy."""
-    proxies = get_proxies()
-    logger = get_logger()
-
-    try:
-        bucket_proxy: S3BucketProxy = proxies["bucket"]
-        
-        # Try to get session credentials to test connectivity
-        credentials = await bucket_proxy._get_session_credentials()
-        
-        return {
-            "success": True,
-            "status": "healthy",
-            "message": "S3 bucket proxy is working",
-            "bucket_name": bucket_proxy.bucket_name,
-            "upload_prefix": bucket_proxy.upload_prefix,
-            "credentials_cached": bool(credentials)
-        }
-
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return {
-            "success": False,
-            "status": "unhealthy",
-            "message": f"S3 bucket proxy error: {str(e)}"
-        }
-
-@router.get(
     "/info",
     summary="Get S3 bucket proxy information",
     description="Get configuration and status information about the S3 bucket proxy."

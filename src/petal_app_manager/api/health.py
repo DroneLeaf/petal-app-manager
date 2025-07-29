@@ -7,6 +7,8 @@ import logging
 from ..proxies.redis import RedisProxy
 from ..proxies.localdb import LocalDBProxy
 from ..proxies.external import MavLinkExternalProxy
+from ..proxies.cloud import CloudDBProxy
+from ..proxies.bucket import S3BucketProxy
 from ..api import get_proxies
 
 router = APIRouter(tags=["health"])
@@ -108,6 +110,40 @@ async def detailed_health_check():
                 "status": "error",
                 "error": str(e),
                 "details": "Failed to check MAVLink proxy status"
+            }
+            overall_healthy = False
+    
+    # Check Cloud proxy
+    if "cloud" in proxies:
+        cloud_proxy: CloudDBProxy = proxies["cloud"]
+        try:
+            cloud_status = await _check_cloud_proxy(cloud_proxy)
+            health_status["proxies"]["cloud"] = cloud_status
+            if cloud_status["status"] != "healthy":
+                overall_healthy = False
+        except Exception as e:
+            logger.error(f"Error checking Cloud proxy health: {e}")
+            health_status["proxies"]["cloud"] = {
+                "status": "error",
+                "error": str(e),
+                "details": "Failed to check Cloud proxy status"
+            }
+            overall_healthy = False
+    
+    # Check S3 Bucket proxy
+    if "bucket" in proxies:
+        bucket_proxy: S3BucketProxy = proxies["bucket"]
+        try:
+            bucket_status = await _check_bucket_proxy(bucket_proxy)
+            health_status["proxies"]["bucket"] = bucket_status
+            if bucket_status["status"] != "healthy":
+                overall_healthy = False
+        except Exception as e:
+            logger.error(f"Error checking S3 Bucket proxy health: {e}")
+            health_status["proxies"]["bucket"] = {
+                "status": "error",
+                "error": str(e),
+                "details": "Failed to check S3 Bucket proxy status"
             }
             overall_healthy = False
     
@@ -308,5 +344,168 @@ async def _check_mavlink_proxy(proxy: MavLinkExternalProxy) -> Dict[str, Any]:
                 "endpoint": proxy.endpoint,
                 "baud": proxy.baud,
                 "connected": False
+            }
+        }
+
+async def _check_cloud_proxy(proxy: CloudDBProxy) -> Dict[str, Any]:
+    """Check Cloud proxy health."""
+    logger = get_logger()
+    try:
+        # Test basic connectivity by trying to get access token
+        credentials = await proxy._get_access_token()
+        
+        if credentials and credentials.get('accessToken'):
+            status_info = {
+                "status": "healthy",
+                "connection": {
+                    "endpoint": proxy.endpoint,
+                    "connected": True
+                },
+                "authentication": {
+                    "credentials_cached": bool(proxy._session_cache.get('credentials')),
+                    "credentials_expire_time": proxy._session_cache.get('expires_at', 0)
+                },
+                "machine_info": {
+                    "machine_id": proxy._get_machine_id()
+                }
+            }
+            
+            # Test a simple API call if possible
+            try:
+                # Try to make a test call to verify API connectivity
+                test_result = await proxy.scan_items("test_table", [])
+                # Even if the table doesn't exist, we should get a structured response
+                if isinstance(test_result, dict):
+                    status_info["api_test"] = {
+                        "connectivity": "ok",
+                        "can_make_requests": True
+                    }
+                else:
+                    status_info["api_test"] = {
+                        "connectivity": "unknown",
+                        "can_make_requests": False
+                    }
+            except Exception as e:
+                status_info["api_test"] = {
+                    "connectivity": "error",
+                    "error": str(e),
+                    "can_make_requests": False
+                }
+            
+            return status_info
+        else:
+            return {
+                "status": "unhealthy",
+                "details": "Failed to obtain valid access token",
+                "connection": {
+                    "endpoint": proxy.endpoint,
+                    "connected": False
+                },
+                "authentication": {
+                    "credentials_cached": False,
+                    "error": "No valid access token"
+                }
+            }
+            
+    except Exception as e:
+        logger.error(f"Error checking Cloud proxy health: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "connection": {
+                "endpoint": proxy.endpoint,
+                "connected": False
+            },
+            "authentication": {
+                "credentials_cached": False,
+                "error": "Authentication check failed"
+            }
+        }
+
+async def _check_bucket_proxy(proxy: S3BucketProxy) -> Dict[str, Any]:
+    """Check S3 Bucket proxy health."""
+    logger = get_logger()
+    try:
+        # Test basic connectivity by getting session credentials
+        credentials = await proxy._get_session_credentials()
+        
+        if credentials:
+            status_info = {
+                "status": "healthy",
+                "connection": {
+                    "bucket_name": proxy.bucket_name,
+                    "connected": True
+                },
+                "authentication": {
+                    "credentials_cached": bool(proxy._session_cache.get('credentials')),
+                    "credentials_expire_time": proxy._session_cache.get('expires_at', 0)
+                },
+                "configuration": {
+                    "upload_prefix": proxy.upload_prefix,
+                    "allowed_extensions": list(proxy.ALLOWED_EXTENSIONS),
+                    "request_timeout": proxy.request_timeout
+                }
+            }
+            
+            # Test S3 connectivity if possible
+            try:
+                if proxy.s3_client:
+                    # Try to list a few objects to test S3 connectivity
+                    # This is a minimal operation that tests the connection
+                    test_result = await proxy._loop.run_in_executor(
+                        proxy._exe,
+                        lambda: proxy.s3_client.list_objects_v2(
+                            Bucket=proxy.bucket_name,
+                            Prefix=proxy.upload_prefix,
+                            MaxKeys=1
+                        )
+                    )
+                    
+                    status_info["s3_test"] = {
+                        "connectivity": "ok",
+                        "can_access_bucket": True,
+                        "bucket_accessible": True
+                    }
+                else:
+                    status_info["s3_test"] = {
+                        "connectivity": "no_client",
+                        "can_access_bucket": False,
+                        "bucket_accessible": False
+                    }
+            except Exception as e:
+                status_info["s3_test"] = {
+                    "connectivity": "error",
+                    "error": str(e),
+                    "can_access_bucket": False,
+                    "bucket_accessible": False
+                }
+            
+            return status_info
+        else:
+            return {
+                "status": "unhealthy",
+                "details": "Failed to obtain valid S3 session credentials",
+                "connection": {
+                    "bucket_name": proxy.bucket_name,
+                    "connected": False
+                },
+                "authentication": {
+                    "credentials_cached": False,
+                    "error": "No valid session credentials"
+                }
+            }
+            
+    except Exception as e:
+        logger.error(f"Error checking S3 Bucket proxy health: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "connection": {
+                "bucket_name": proxy.bucket_name,
+                "connected": False
+            },
+            "authentication": {
+                "credentials_cached": False,
+                "error": "Health check failed"
             }
         }
