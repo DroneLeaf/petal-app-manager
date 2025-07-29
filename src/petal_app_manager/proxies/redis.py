@@ -43,7 +43,7 @@ class RedisProxy(BaseProxy):
         self._pubsub_client = None
         self._pubsub = None
         self._loop = None
-        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         self.log = logging.getLogger("RedisProxy")
         
         # Store active subscriptions
@@ -219,22 +219,23 @@ class RedisProxy(BaseProxy):
     
     # ------ Pub/Sub Operations ------ #
     
-    async def publish(self, channel: str, message: str) -> int:
+    def publish(self, channel: str, message: str) -> int:
         """Publish a message to a channel."""
         if not self._client:
             self.log.error("Redis client not initialized")
             return 0
             
         try:
-            return await self._loop.run_in_executor(
-                self._exe, 
-                lambda: self._client.publish(channel, message)
-            )
+            # return self._loop.run_in_executor(
+            #     self._exe, 
+            #     lambda: self._client.publish(channel, message)
+            # )
+            self._client.publish(channel, message)
         except Exception as e:
             self.log.error(f"Error publishing to channel {channel}: {e}")
             return 0
     
-    async def subscribe(self, channel: str, callback: Callable[[str, str], Awaitable[None]]):
+    def subscribe(self, channel: str, callback: Callable[[str, str], Awaitable[None]]):
         """Subscribe to a channel with a callback function."""
         if not self._pubsub:
             self.log.error("Redis pub/sub not initialized")
@@ -245,31 +246,30 @@ class RedisProxy(BaseProxy):
         
         # Subscribe to the channel
         try:
-            await self._loop.run_in_executor(
-                self._exe,
-                lambda: self._pubsub.subscribe(channel)
-            )
-            
+            # await self._loop.run_in_executor(
+            #     self._exe,
+            #     lambda: self._pubsub.subscribe(channel)
+            # )
+            self._pubsub.subscribe(channel)
             # Start listening if not already started
             if not self._subscription_task:
-                self._subscription_task = asyncio.create_task(self._listen_for_messages())
+                self._loop.run_in_executor(
+                    self._exe,
+                    self._listen_for_messages
+                )
                 
             self.log.info(f"Subscribed to channel: {channel}")
         except Exception as e:
             self.log.error(f"Error subscribing to channel {channel}: {e}")
     
-    async def unsubscribe(self, channel: str):
+    def unsubscribe(self, channel: str):
         """Unsubscribe from a channel."""
         if not self._pubsub:
             self.log.error("Redis pub/sub not initialized")
             return
         
         try:
-            await self._loop.run_in_executor(
-                self._exe,
-                lambda: self._pubsub.unsubscribe(channel)
-            )
-            
+            self._pubsub.unsubscribe(channel)
             # Remove callback
             if channel in self._subscriptions:
                 del self._subscriptions[channel]
@@ -278,29 +278,27 @@ class RedisProxy(BaseProxy):
         except Exception as e:
             self.log.error(f"Error unsubscribing from channel {channel}: {e}")
     
-    async def _listen_for_messages(self):
+    def _listen_for_messages(self):
         """Listen for messages from subscribed channels."""
         while True:
             try:
-                # Get message from pub/sub
-                message = await self._loop.run_in_executor(
-                    self._exe,
-                    lambda: self._pubsub.get_message(timeout=1.0)
-                )
-                
+
+                message = self._pubsub.get_message(timeout=1.0)
                 if message and message['type'] == 'message':
                     channel = message['channel']
                     data = message['data']
+                    self.log.info(f"Received at channel: {channel}, with data: {data}")
                     
                     # Call the registered callback
                     if channel in self._subscriptions:
                         callback = self._subscriptions[channel]
                         try:
-                            await callback(channel, data)
+                            callback(channel, data)
+                            self.log.info(f"Callback executed for channel: {channel}")  
                         except Exception as e:
                             self.log.error(f"Error in callback for channel {channel}: {e}")
                             
             except Exception as e:
                 if "timeout" not in str(e).lower():
                     self.log.error(f"Error listening for messages: {e}")
-                await asyncio.sleep(0.1)
+                
