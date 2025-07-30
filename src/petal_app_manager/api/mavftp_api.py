@@ -8,6 +8,7 @@ import logging
 from ..proxies.redis import RedisProxy
 from ..proxies.localdb import LocalDBProxy
 from ..proxies.external import MavLinkExternalProxy
+from ..proxies.external import MavLinkFTPProxy
 from ..proxies.cloud import CloudDBProxy
 from ..proxies.bucket import S3BucketProxy
 from ..api import get_proxies
@@ -35,7 +36,7 @@ def get_logger() -> Optional[logging.Logger]:
     return _logger
 
 class ClearFailLogsRequest(BaseModel):
-    remote_path: str = "fs/microsd"
+    remote_path: str = "/fs/microsd"
 
 @router.post(
     "/clear-error-logs",
@@ -51,7 +52,7 @@ async def clear_fail_logs(
     
     try:
         # Get the MAVLink FTP proxy
-        if "mavftp" not in proxies:
+        if "ftp_mavlink" not in proxies:
             logger.error("MAVLink FTP proxy not available")
             return {
                 "success": False,
@@ -59,7 +60,7 @@ async def clear_fail_logs(
                 "message": "Cannot clear error logs without MAVLink FTP connection"
             }
         
-        mavftp_proxy = proxies["mavftp"]
+        mavftp_proxy: MavLinkFTPProxy = proxies["ftp_mavlink"]
         
         # Clear error logs using the proxy
         logger.info(f"Clearing error logs from remote path: {request.remote_path}")

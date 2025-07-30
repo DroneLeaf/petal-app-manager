@@ -844,7 +844,7 @@ class MavLinkFTPProxy(BaseProxy):
 
     async def stop(self):
         """Stop the worker and close the link."""
-        asyncio.sleep(0.1)  # Ensure any pending writes are flushed
+        await asyncio.sleep(0.1)  # Ensure any pending writes are flushed
         
     # ------------------- I/O primitives --------------------- #
     async def _init_parser(self):
@@ -946,6 +946,22 @@ class MavLinkFTPProxy(BaseProxy):
         # Initialize parser if not already done (e.g., after reconnection)
         if not hasattr(self, '_parser') or self._parser is None:
             await self._init_parser()
+
+        # Try to get log entries from the vehicle, but handle timeout gracefully
+        entries = {}
+        try:
+            msg_id = str(mavutil.mavlink.MAVLINK_MSG_ID_LOG_ENTRY)
+            msg = self.mavlink_proxy.build_req_msg_log_request(message_id=msg_id)
+
+            entries = await self.mavlink_proxy.get_log_entries(
+                msg_id=msg_id,
+                request_msg=msg,
+                timeout=5.0
+            )
+        except (TimeoutError, RuntimeError) as e:
+            self._log.warning(f"Failed to get log entries from vehicle: {e}")
+            self._log.info("Attempting to list files directly via FTP without log entries...")
+            entries = {}
 
         await self._loop.run_in_executor(
             self._exe, 
@@ -1201,8 +1217,8 @@ class _BlockingParser:
                 if not self.proxy.master or not self.proxy.connected:
                     self._log.warning(f"Connection lost, skipping delete for {log.remote_path}")
                     return
-                with self.proxy._mav_lock:
-                    self._delete(log.remote_path)
+                self._delete(log.remote_path)
+                time.sleep(0.1)  # Give some time for the delete operation to complete
             except (OSError, socket.error) as e:
                 # Handle connection errors gracefully
                 if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
@@ -1342,7 +1358,7 @@ class _BlockingParser:
             self._log.error(f"Failed to list fail logs in {base}: {e}")
             return []
 
-    def _delete(self, path: str, retries=5, delay=2.0):
+    def _delete(self, path: str, retries=2, delay=2.0):
         """
         Delete a file or directory at *path* using MAVFTP.
         Retries on failure up to *retries* times with *delay* seconds between attempts.
