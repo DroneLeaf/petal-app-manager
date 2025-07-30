@@ -45,6 +45,37 @@ class ClearFailLogsRequest(BaseModel):
 async def clear_fail_logs(
     request: ClearFailLogsRequest
 ) -> Dict[str, Any]:
-    """List all data in a particular table in the cloud database."""
+    """Clear all fail_*.log files from the vehicle's filesystem."""
     proxies = get_proxies()
     logger = get_logger()
+    
+    try:
+        # Get the MAVLink FTP proxy
+        if "mavftp" not in proxies:
+            logger.error("MAVLink FTP proxy not available")
+            return {
+                "success": False,
+                "error": "MAVLink FTP proxy not configured or not available",
+                "message": "Cannot clear error logs without MAVLink FTP connection"
+            }
+        
+        mavftp_proxy = proxies["mavftp"]
+        
+        # Clear error logs using the proxy
+        logger.info(f"Clearing error logs from remote path: {request.remote_path}")
+        await mavftp_proxy.clear_error_logs(request.remote_path)
+        
+        logger.info("Error logs cleared successfully")
+        return {
+            "success": True,
+            "message": "Error logs cleared successfully",
+            "remote_path": request.remote_path
+        }
+        
+    except Exception as e:
+        logger.error(f"Error clearing fail logs: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to clear error logs from vehicle"
+        }

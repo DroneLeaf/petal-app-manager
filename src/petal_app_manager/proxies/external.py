@@ -842,13 +842,9 @@ class MavLinkFTPProxy(BaseProxy):
         if self.mavlink_proxy.master:
             await self._init_parser()
 
-
     async def stop(self):
         """Stop the worker and close the link."""
-        # Stop the worker thread
-        await super().stop()
-        
-
+        asyncio.sleep(0.1)  # Ensure any pending writes are flushed
         
     # ------------------- I/O primitives --------------------- #
     async def _init_parser(self):
@@ -916,7 +912,7 @@ class MavLinkFTPProxy(BaseProxy):
         # Check connection and attempt to establish if needed
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
             self._log.warning("FTP connection not established, attempting to connect...")
-            await self._establish_connection()
+            await self.mavlink_proxy._establish_connection()
             
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
             raise RuntimeError("MAVLink FTP connection could not be established")
@@ -942,7 +938,7 @@ class MavLinkFTPProxy(BaseProxy):
         # Check connection and attempt to establish if needed
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
             self._log.warning("FTP connection not established, attempting to connect...")
-            await self._establish_connection()
+            await self.mavlink_proxy._establish_connection()
             
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
             raise RuntimeError("MAVLink FTP connection could not be established")
