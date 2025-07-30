@@ -842,13 +842,9 @@ class MavLinkFTPProxy(BaseProxy):
         if self.mavlink_proxy.master:
             await self._init_parser()
 
-
     async def stop(self):
         """Stop the worker and close the link."""
-        # Stop the worker thread
-        await super().stop()
-        
-
+        await asyncio.sleep(0.1)  # Ensure any pending writes are flushed
         
     # ------------------- I/O primitives --------------------- #
     async def _init_parser(self):
@@ -916,7 +912,7 @@ class MavLinkFTPProxy(BaseProxy):
         # Check connection and attempt to establish if needed
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
             self._log.warning("FTP connection not established, attempting to connect...")
-            await self._establish_connection()
+            await self.mavlink_proxy._establish_connection()
             
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
             raise RuntimeError("MAVLink FTP connection could not be established")
@@ -934,7 +930,44 @@ class MavLinkFTPProxy(BaseProxy):
             cancel_event
         )
         return local_path if result else None
-        
+    
+    async def clear_error_logs(self, remote_path: str):
+        """
+        Clear error logs under *remote_path* from the vehicle.
+        """
+        # Check connection and attempt to establish if needed
+        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+            self._log.warning("FTP connection not established, attempting to connect...")
+            await self.mavlink_proxy._establish_connection()
+            
+        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+            raise RuntimeError("MAVLink FTP connection could not be established")
+
+        # Initialize parser if not already done (e.g., after reconnection)
+        if not hasattr(self, '_parser') or self._parser is None:
+            await self._init_parser()
+
+        # Try to get log entries from the vehicle, but handle timeout gracefully
+        entries = {}
+        try:
+            msg_id = str(mavutil.mavlink.MAVLINK_MSG_ID_LOG_ENTRY)
+            msg = self.mavlink_proxy.build_req_msg_log_request(message_id=msg_id)
+
+            entries = await self.mavlink_proxy.get_log_entries(
+                msg_id=msg_id,
+                request_msg=msg,
+                timeout=5.0
+            )
+        except (TimeoutError, RuntimeError) as e:
+            self._log.warning(f"Failed to get log entries from vehicle: {e}")
+            self._log.info("Attempting to list files directly via FTP without log entries...")
+            entries = {}
+
+        await self._loop.run_in_executor(
+            self._exe, 
+            self._parser.clear_error_logs, 
+            remote_path
+        )
 
 # --------------------------------------------------------------------------- #
 #  helper functions                                                           #
@@ -1174,6 +1207,28 @@ class _BlockingParser:
                 # Re-raise the original exception
                 raise
 
+    # 3) clear error logs ---------------------------------------------------- #
+    def clear_error_logs(self, base: str = "fs/microsd") -> None:
+        fail_logs = self._list_fail_logs(base)
+        for log in fail_logs:
+            try:
+                self._log.info(f"Deleting error log {log.remote_path}")
+                # Check if connection is still valid before attempting operation
+                if not self.proxy.master or not self.proxy.connected:
+                    self._log.warning(f"Connection lost, skipping delete for {log.remote_path}")
+                    return
+                self._delete(log.remote_path)
+                time.sleep(0.1)  # Give some time for the delete operation to complete
+            except (OSError, socket.error) as e:
+                # Handle connection errors gracefully
+                if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
+                    self._log.warning(f"Connection lost during delete operation: {e}")
+                else:
+                    self._log.error(f"Unexpected error deleting log {log.remote_path}: {e}")
+            except Exception as e:
+                self._log.error(f"Error deleting log {log.remote_path}: {e}")
+        self._log.info("Cleared all error logs")
+
     # ---------- internal helpers ------------------------------------------- #
     def _reset_ftp_state(self):
         """Reset all FTP state to handle canceled transfers properly."""
@@ -1287,6 +1342,71 @@ class _BlockingParser:
 
         raise RuntimeError(f"ls('{path}') failed {retries}×")
 
+    def _list_fail_logs(self, base: str = "fs/microsd") -> List[ULogInfo]:
+        """
+        List all fail_*.log files under the given *base* directory. without walking
+        """
+        try:
+            entries = self._ls(base)
+            fail_logs = [
+                ULogInfo(index=i, remote_path=f"{base}/{name}", size_bytes=size, utc=0)
+                for i, (name, size, is_dir) in enumerate(entries)
+                if not is_dir and name.startswith("fail_") and name.endswith(".log")
+            ]
+            return fail_logs
+        except RuntimeError as e:
+            self._log.error(f"Failed to list fail logs in {base}: {e}")
+            return []
+
+    def _delete(self, path: str, retries=2, delay=2.0):
+        """
+        Delete a file or directory at *path* using MAVFTP.
+        Retries on failure up to *retries* times with *delay* seconds between attempts.
+        """
+        for n in range(1, retries + 1):
+            try:
+                # Check if connection is still valid before attempting operation
+                if not self.master:
+                    self._log.warning(f"Connection lost, skipping delete for {path}")
+                    return
+                
+                with self.proxy._mav_lock:
+                    ack = self.ftp.cmd_rm([path])
+                    if ack.return_code == 0:
+                        self._log.info(f"Successfully deleted {path}")
+                        return
+                    else:
+                        self._log.warning(f"FTP delete failed: {ack.return_code} (attempt {n}/{retries})")
+                        if n >= retries:
+                            raise RuntimeError(f"delete('{path}') failed after {retries} attempts: FTP return code {ack.return_code}")
+                        
+            except (OSError, socket.error) as e:
+                # Handle connection errors gracefully
+                if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
+                    self._log.warning(f"Connection lost during delete operation (attempt {n}/{retries}): {e}")
+                    # Mark proxy as disconnected so it can reconnect
+                    self.proxy.connected = False
+                    # Schedule reconnect and wait for connection
+                    awaitable = getattr(self.proxy, "_schedule_reconnect", None)
+                    if callable(awaitable):
+                        awaitable()
+                    for _ in range(10):
+                        if self.proxy.connected and self.master:
+                            break
+                        time.sleep(0.5)
+                    if n >= retries:
+                        raise RuntimeError(f"delete('{path}') failed after {retries} attempts due to connection loss")
+                else:
+                    self._log.error(f"Unexpected socket error during delete: {e}")
+                    raise
+            except Exception as e:
+                self._log.error(f"Error during delete operation (attempt {n}/{retries}): {e}")
+                if n >= retries:
+                    raise RuntimeError(f"delete('{path}') failed after {retries} attempts: {e}")
+            
+            # If we reach here, the operation failed but we can retry
+            if n < retries:
+                time.sleep(delay)
 
 # ──────────────────────────────────────────────────────────────────────────────
 class ROS1ExternalProxy(ExternalProxy):

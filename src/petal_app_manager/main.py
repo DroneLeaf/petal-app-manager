@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware  # Add this import
 from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy
 
 from .plugins.loader import load_petals
-from .api import health, proxy_info, cloud_api, bucket_api
+from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api
 from . import api
 import logging
 
@@ -154,6 +154,9 @@ def build_app(
     # Configure bucket API with proxy instances
     bucket_api._set_logger(api_logger)  # Set the logger for bucket API endpoints
     app.include_router(bucket_api.router, prefix="/test")
+    # Configure MAVLink FTP API with proxy instances
+    mavftp_api._set_logger(api_logger)  # Set the logger for MAVLink FTP API endpoints
+    app.include_router(mavftp_api.router, prefix="/mavftp")
 
     # ---------- dynamic plugins ----------
     # Set up the logger for the plugins loader
