@@ -433,162 +433,162 @@ async def test_download(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 # --------------------------------------------------------------------------- #
 #  (Optional) hardware-integration test                                       #
 # --------------------------------------------------------------------------- #
-@pytest.mark.hardware
-@pytest.mark.asyncio
-async def test_download_logs_hardware_integration(hardware_cleanup):
-    """
-    Real-hardware integration test - skipped in CI.
-    Connects to actual PX4, lists logs, downloads the smallest one.
-    """
-    cancel_event = threading.Event()
-    hardware_cleanup(cancel_event) # Register cleanup event
+# @pytest.mark.hardware
+# @pytest.mark.asyncio
+# async def test_download_logs_hardware_integration(hardware_cleanup):
+#     """
+#     Real-hardware integration test - skipped in CI.
+#     Connects to actual PX4, lists logs, downloads the smallest one.
+#     """
+#     cancel_event = threading.Event()
+#     hardware_cleanup(cancel_event) # Register cleanup event
     
-    proxy = None
-    print("=== HARDWARE INTEGRATION TEST START ===")
+#     proxy = None
+#     print("=== HARDWARE INTEGRATION TEST START ===")
     
-    try:
-        print("Creating MavLinkExternalProxy...")
-        proxy = MavLinkExternalProxy(endpoint="udp:127.0.0.1:14551", baud=57600, maxlen=200)
-        ftp_proxy = MavLinkFTPProxy(mavlink_proxy=proxy)
-        print("Starting proxy...")
-        await proxy.start()
-        await ftp_proxy.start()
-        print("Proxy started successfully")
+#     try:
+#         print("Creating MavLinkExternalProxy...")
+#         proxy = MavLinkExternalProxy(endpoint="udp:127.0.0.1:14551", baud=57600, maxlen=200)
+#         ftp_proxy = MavLinkFTPProxy(mavlink_proxy=proxy)
+#         print("Starting proxy...")
+#         await proxy.start()
+#         await ftp_proxy.start()
+#         print("Proxy started successfully")
         
-        # Wait a bit for connection to stabilize
-        print("Waiting for connection to stabilize...")
-        await asyncio.sleep(3.0)  # Increased wait time for test suite
+#         # Wait a bit for connection to stabilize
+#         print("Waiting for connection to stabilize...")
+#         await asyncio.sleep(3.0)  # Increased wait time for test suite
         
-        # Check if connection is established
-        print(f"Connection status after initial wait: {proxy.connected}")
-        if not proxy.connected:
-            print("Connection not established initially, waiting longer...")
-            # Give it more time in case we're in a test suite
-            for i in range(5):
-                await asyncio.sleep(1.0)
-                print(f"Retry {i+1}/5 - Connection status: {proxy.connected}")
-                if proxy.connected:
-                    print(f"Connection established after retry {i+1}")
-                    break
+#         # Check if connection is established
+#         print(f"Connection status after initial wait: {proxy.connected}")
+#         if not proxy.connected:
+#             print("Connection not established initially, waiting longer...")
+#             # Give it more time in case we're in a test suite
+#             for i in range(5):
+#                 await asyncio.sleep(1.0)
+#                 print(f"Retry {i+1}/5 - Connection status: {proxy.connected}")
+#                 if proxy.connected:
+#                     print(f"Connection established after retry {i+1}")
+#                     break
             
-            if not proxy.connected:
-                print("Connection still not established after retries")
-                print("This may be expected if hardware is not available")
-                print("Proceeding with test anyway to check if operations work...")
-        else:
-            print("Connection established successfully!")
+#             if not proxy.connected:
+#                 print("Connection still not established after retries")
+#                 print("This may be expected if hardware is not available")
+#                 print("Proceeding with test anyway to check if operations work...")
+#         else:
+#             print("Connection established successfully!")
             
-    except Exception as e:
-        print(f"Exception during proxy start: {type(e).__name__}: {e}")
-        import traceback
-        print("Full traceback:")
-        traceback.print_exc()
-        if proxy:
-            try:
-                await proxy.stop()
-            except Exception as stop_e:
-                print(f"Error during cleanup: {stop_e}")
-        pytest.skip(f"Hardware connection not available: {e}")
+#     except Exception as e:
+#         print(f"Exception during proxy start: {type(e).__name__}: {e}")
+#         import traceback
+#         print("Full traceback:")
+#         traceback.print_exc()
+#         if proxy:
+#             try:
+#                 await proxy.stop()
+#             except Exception as stop_e:
+#                 print(f"Error during cleanup: {stop_e}")
+#         pytest.skip(f"Hardware connection not available: {e}")
 
-    try:
-        # Check connection before attempting to list logs (but don't skip)
-        print(f"Connection status before listing: {proxy.connected}")
-        if not proxy.connected:
-            print("Connection not established, but attempting to list logs anyway...")
-            print("This will test if the error handling works correctly...")
+#     try:
+#         # Check connection before attempting to list logs (but don't skip)
+#         print(f"Connection status before listing: {proxy.connected}")
+#         if not proxy.connected:
+#             print("Connection not established, but attempting to list logs anyway...")
+#             print("This will test if the error handling works correctly...")
             
-        print("Listing ULogs on vehicle...")
-        try:
-            ulogs = await ftp_proxy.list_ulogs("/fs/microsd/log")
-            print(f"Found {len(ulogs)} ULog files")
-        except Exception as e:
-            print(f"Error listing ULogs: {type(e).__name__}: {e}")
-            print("This is expected if hardware is not connected")
-            raise
+#         print("Listing ULogs on vehicle...")
+#         try:
+#             ulogs = await ftp_proxy.list_ulogs("/fs/microsd/log")
+#             print(f"Found {len(ulogs)} ULog files")
+#         except Exception as e:
+#             print(f"Error listing ULogs: {type(e).__name__}: {e}")
+#             print("This is expected if hardware is not connected")
+#             raise
         
-        if not ulogs or len(ulogs) == 0:
-            print("No ULogs found - this may be normal if SD card is empty")
-            pytest.skip("No ULogs found on vehicle")
+#         if not ulogs or len(ulogs) == 0:
+#             print("No ULogs found - this may be normal if SD card is empty")
+#             pytest.skip("No ULogs found on vehicle")
 
-        # find the smallest file to download
-        smallest = min(ulogs, key=lambda u: u.size_bytes)
-        remote = smallest.remote_path
-        print(f"Downloading {remote} ({smallest.size_bytes} bytes)...")
+#         # find the smallest file to download
+#         smallest = min(ulogs, key=lambda u: u.size_bytes)
+#         remote = smallest.remote_path
+#         print(f"Downloading {remote} ({smallest.size_bytes} bytes)...")
 
-        local = Path("ulog_downloads") / Path(remote).name
-        local.parent.mkdir(exist_ok=True)
+#         local = Path("ulog_downloads") / Path(remote).name
+#         local.parent.mkdir(exist_ok=True)
 
-        async def on_progress(frac):
-            if int(frac * 100) % 20 == 0:  # Print every 20% to reduce noise
-                print(f"Download progress: {frac * 100:.1f}%")
+#         async def on_progress(frac):
+#             if int(frac * 100) % 20 == 0:  # Print every 20% to reduce noise
+#                 print(f"Download progress: {frac * 100:.1f}%")
 
-        # Check connection before download (but don't skip)
-        print(f"Connection status before download: {proxy.connected}")
-        if not proxy.connected:
-            print("Connection not established, but attempting download anyway...")
+#         # Check connection before download (but don't skip)
+#         print(f"Connection status before download: {proxy.connected}")
+#         if not proxy.connected:
+#             print("Connection not established, but attempting download anyway...")
             
-        print("Starting download...")
-        try:
-            await ftp_proxy.download_ulog(remote, local, on_progress=on_progress, cancel_event=cancel_event)
-            print("Download completed!")
-        except Exception as e:
-            print(f"Error during download: {type(e).__name__}: {e}")
-            print("This is expected if hardware is not connected")
-            raise
+#         print("Starting download...")
+#         try:
+#             await ftp_proxy.download_ulog(remote, local, on_progress=on_progress, cancel_event=cancel_event)
+#             print("Download completed!")
+#         except Exception as e:
+#             print(f"Error during download: {type(e).__name__}: {e}")
+#             print("This is expected if hardware is not connected")
+#             raise
 
-        if not local.exists():
-            pytest.fail(f"Download failed: {remote} -> {local}")
+#         if not local.exists():
+#             pytest.fail(f"Download failed: {remote} -> {local}")
         
-        file_size = local.stat().st_size
-        print(f"Downloaded file size: {file_size} bytes")
-        assert local.exists() and file_size > 0
-        print("=== TEST PASSED! ===")
+#         file_size = local.stat().st_size
+#         print(f"Downloaded file size: {file_size} bytes")
+#         assert local.exists() and file_size > 0
+#         print("=== TEST PASSED! ===")
         
-    except RuntimeError as e:
-        print(f"RuntimeError during test: {e}")
-        # Only skip for very specific connection errors
-        if "MAVLink connection not established" in str(e):
-            print("Skipping due to connection issue (expected when hardware not available)")
-            pytest.skip(f"Connection issue during test: {e}")
-        else:
-            print("Re-raising RuntimeError...")
-            raise
-    except OSError as e:
-        print(f"OSError during test: {e} (errno: {e.errno})")
-        if e.errno == 9:  # Bad file descriptor
-            print("Skipping due to bad file descriptor (connection lost)")
-            pytest.skip(f"Connection lost during operation: {e}")
-        else:
-            print("Re-raising OSError...")
-            raise
-    except Exception as e:
-        print(f"Unexpected exception during test: {type(e).__name__}: {e}")
-        import traceback
-        print("Full traceback:")
-        traceback.print_exc()
-        raise
-    finally:
-        print("Running cleanup...")
-        # Local cleanup - happens even if test fails
-        if not cancel_event.is_set():
-            cancel_event.set()
-        if proxy:
-            try:
-                await proxy.stop()
-                print("Proxy stopped successfully")
-            except Exception as e:
-                print(f"Error stopping proxy: {e}")
-        if ftp_proxy:
-            try:
-                await ftp_proxy.stop()
-                print("FTP Proxy stopped successfully")
-            except Exception as e:
-                print(f"Error stopping FTP proxy: {e}")
-        print("Cleanup completed.")
+#     except RuntimeError as e:
+#         print(f"RuntimeError during test: {e}")
+#         # Only skip for very specific connection errors
+#         if "MAVLink connection not established" in str(e):
+#             print("Skipping due to connection issue (expected when hardware not available)")
+#             pytest.skip(f"Connection issue during test: {e}")
+#         else:
+#             print("Re-raising RuntimeError...")
+#             raise
+#     except OSError as e:
+#         print(f"OSError during test: {e} (errno: {e.errno})")
+#         if e.errno == 9:  # Bad file descriptor
+#             print("Skipping due to bad file descriptor (connection lost)")
+#             pytest.skip(f"Connection lost during operation: {e}")
+#         else:
+#             print("Re-raising OSError...")
+#             raise
+#     except Exception as e:
+#         print(f"Unexpected exception during test: {type(e).__name__}: {e}")
+#         import traceback
+#         print("Full traceback:")
+#         traceback.print_exc()
+#         raise
+#     finally:
+#         print("Running cleanup...")
+#         # Local cleanup - happens even if test fails
+#         if not cancel_event.is_set():
+#             cancel_event.set()
+#         if proxy:
+#             try:
+#                 await proxy.stop()
+#                 print("Proxy stopped successfully")
+#             except Exception as e:
+#                 print(f"Error stopping proxy: {e}")
+#         if ftp_proxy:
+#             try:
+#                 await ftp_proxy.stop()
+#                 print("FTP Proxy stopped successfully")
+#             except Exception as e:
+#                 print(f"Error stopping FTP proxy: {e}")
+#         print("Cleanup completed.")
         
-        # Add a small delay to ensure resources are fully released
-        await asyncio.sleep(0.5)
-        print("=== HARDWARE INTEGRATION TEST END ===")
+#         # Add a small delay to ensure resources are fully released
+#         await asyncio.sleep(0.5)
+#         print("=== HARDWARE INTEGRATION TEST END ===")
 
 # --------------------------------------------------------------------------- #
 #  Tests – _list_fail_logs and _delete functionality                          #

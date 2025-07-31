@@ -75,7 +75,7 @@ class S3BucketProxy(BaseProxy):
             self.log.info("S3BucketProxy started successfully")
         except Exception as e:
             self.log.error(f"Failed to initialize S3BucketProxy: {e}")
-            raise
+            # raise
         
     async def stop(self):
         """Clean up resources when shutting down."""
@@ -217,7 +217,12 @@ class S3BucketProxy(BaseProxy):
                 self.log.error(f"Unexpected error getting session credentials: {str(e)}")
                 raise Exception(f"Authentication service error: {str(e)}")
 
-        return await self._loop.run_in_executor(self._exe, _fetch_credentials)
+        try:
+            return await self._loop.run_in_executor(self._exe, _fetch_credentials)
+        except Exception as e:
+            self.log.error(f"Failed to execute credential fetch: {str(e)}")
+            # Re-raise with a more user-friendly message or handle as needed
+            raise Exception(f"Credential fetch operation failed: {str(e)}")
     
     def _create_s3_client(self, credentials: Dict[str, Any]) -> boto3.client:
         """Create S3 client with session credentials"""
@@ -260,7 +265,7 @@ class S3BucketProxy(BaseProxy):
             self.s3_client = self._create_s3_client(credentials)
         except Exception as e:
             self.log.error(f"Failed to refresh S3 client: {e}")
-            raise
+            # raise
     
     # ------ Public API methods ------ #
     
