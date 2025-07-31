@@ -49,6 +49,33 @@ import os
 
 import dotenv
 
+
+def setup_file_only_logger(name: str, log_file: str, level: str = "INFO") -> logging.Logger:
+    """Setup a logger that only writes to files, not console."""
+    logger = logging.getLogger(name)
+    logger.setLevel(getattr(logging, level.upper()))
+    
+    # Clear any existing handlers to avoid console output
+    logger.handlers.clear()
+    
+    # Create file handler
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(getattr(logging, level.upper()))
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s — %(name)s — %(levelname)s — %(message)s'
+    )
+    file_handler.setFormatter(formatter)
+    
+    # Add handler to logger
+    logger.addHandler(file_handler)
+    
+    # Prevent propagation to root logger (which might log to console)
+    logger.propagate = False
+    
+    return logger
+
 dotenv.load_dotenv()
 
 MAVLINK_WORKER_SLEEP_MS = os.getenv("MAVLINK_WORKER_SLEEP_MS", 0)
@@ -385,7 +412,10 @@ class MavLinkExternalProxy(ExternalProxy):
         self.endpoint = endpoint
         self.baud = baud
         self.master: mavutil.mavfile | None = None
-        self._log = logging.getLogger("MavLinkExternalProxy")
+        
+        # Set up file-only logging
+        self._log = setup_file_only_logger("MavLinkExternalProxy", "app-mavlinkexternalproxy.log", "INFO")
+        
         self._loop: asyncio.AbstractEventLoop | None = None
         self._exe = ThreadPoolExecutor(max_workers=1)
         self.connected = False
@@ -397,6 +427,45 @@ class MavLinkExternalProxy(ExternalProxy):
         self._connection_monitor_task = None
         self._reconnect_pending = False
         self._mav_lock = threading.Lock()
+        
+        # Rate limiting for logging
+        self._last_log_time = {}
+        self._log_interval = {
+            'HEARTBEAT': 10.0,        # Log heartbeats every 10 seconds max
+            'MISSION_CURRENT': 5.0,   # Log mission current every 5 seconds max
+            'ATTITUDE': 30.0,         # Log attitude every 30 seconds max
+            'POSITION': 30.0,         # Log position every 30 seconds max
+            'DEFAULT': 2.0            # Default interval for other messages
+        }
+        
+        # Messages to suppress completely (only show at DEBUG level)
+        self._suppress_messages = {
+            'SERVO_OUTPUT_RAW',
+            'ACTUATOR_MOTORS',
+            'ATTITUDE_QUATERNION',
+            'LOCAL_POSITION_NED',
+            'GLOBAL_POSITION_INT'
+        }
+        
+    def _should_log_message(self, msg_type: str) -> bool:
+        """Determine if a message should be logged based on rate limiting"""
+        import time
+        current_time = time.time()
+        
+        # Suppress high-frequency messages completely at INFO level
+        if msg_type in self._suppress_messages:
+            return False
+        
+        # Get the appropriate interval for this message type
+        interval = self._log_interval.get(msg_type, self._log_interval['DEFAULT'])
+        
+        # Check if enough time has passed since last log
+        last_log = self._last_log_time.get(msg_type, 0.0)
+        if current_time - last_log >= interval:
+            self._last_log_time[msg_type] = current_time
+            return True
+            
+        return False
         
 
     @property
@@ -621,9 +690,17 @@ class MavLinkExternalProxy(ExternalProxy):
                     msg = self.master.recv_match(blocking=True, timeout=timeout)
                     if msg is None:
                         break
+                    
+                    msg_type = msg.get_type()
+                    msg_id = msg.get_msgId()
+                    
+                    # Only log if rate limiting allows
+                    if self._should_log_message(msg_type):
+                        self._log.info(f"📥 MAVLink RX: {msg_type} (ID: {msg_id}) - {msg}")
+                    
                     out.append(("mav", msg))
-                    out.append((str(msg.get_msgId()), msg))
-                    out.append((msg.get_type(), msg))
+                    out.append((str(msg_id), msg))
+                    out.append((msg_type, msg))
 
         except (OSError, socket.error) as e:
             # Handle connection errors gracefully
@@ -647,8 +724,14 @@ class MavLinkExternalProxy(ExternalProxy):
             for msg in msgs:
                 with self._mav_lock:
                     try:
+                        msg_type = msg.get_type() if hasattr(msg, 'get_type') else 'UNKNOWN'
+                        msg_id = msg.get_msgId() if hasattr(msg, 'get_msgId') else 'N/A'
+                        
+                        # Only log if rate limiting allows
+                        if self._should_log_message(msg_type):
+                            self._log.info(f"📤 MAVLink TX: {msg_type} (ID: {msg_id}) - {msg}")
+                        
                         self.master.mav.send(msg)
-                        self._log.debug("Sent MAVLink message %s: %s", key, msg)
                     except (OSError, socket.error) as e:
                         if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
                             self._log.debug(f"MAVLink connection lost during write: {e}")

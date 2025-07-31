@@ -17,6 +17,33 @@ import redis
 from .base import BaseProxy
 
 
+def setup_file_only_logger(name: str, log_file: str, level: str = "INFO") -> logging.Logger:
+    """Setup a logger that only writes to files, not console."""
+    logger = logging.getLogger(name)
+    logger.setLevel(getattr(logging, level.upper()))
+    
+    # Clear any existing handlers to avoid console output
+    logger.handlers.clear()
+    
+    # Create file handler
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(getattr(logging, level.upper()))
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s — %(name)s — %(levelname)s — %(message)s'
+    )
+    file_handler.setFormatter(formatter)
+    
+    # Add handler to logger
+    logger.addHandler(file_handler)
+    
+    # Prevent propagation to root logger (which might log to console)
+    logger.propagate = False
+    
+    return logger
+
+
 class RedisProxy(BaseProxy):
     """
     Simple Redis proxy for pub/sub messaging and key-value operations.
@@ -44,7 +71,9 @@ class RedisProxy(BaseProxy):
         self._pubsub = None
         self._loop = None
         self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=4)
-        self.log = logging.getLogger("RedisProxy")
+        
+        # Set up file-only logging
+        self.log = setup_file_only_logger("RedisProxy", "app-redisproxy.log", "INFO")
         
         # Store active subscriptions
         self._subscriptions = {}
@@ -163,10 +192,13 @@ class RedisProxy(BaseProxy):
             return None
             
         try:
-            return await self._loop.run_in_executor(
+            result = await self._loop.run_in_executor(
                 self._exe, 
                 lambda: self._client.get(key)
             )
+            # 📥 Log key reads
+            self.log.debug(f"📥 Redis GET: {key} = {result}")
+            return result
         except Exception as e:
             self.log.error(f"Error getting key {key}: {e}")
             return None
@@ -178,10 +210,13 @@ class RedisProxy(BaseProxy):
             return False
             
         try:
-            return await self._loop.run_in_executor(
+            result = await self._loop.run_in_executor(
                 self._exe, 
                 lambda: bool(self._client.set(key, value, ex=ex))
             )
+            # 📤 Log key writes
+            self.log.info(f"📤 Redis SET: {key} = {value} (ex={ex}) -> {result}")
+            return result
         except Exception as e:
             self.log.error(f"Error setting key {key}: {e}")
             return False
@@ -230,6 +265,7 @@ class RedisProxy(BaseProxy):
             #     self._exe, 
             #     lambda: self._client.publish(channel, message)
             # )
+            self.log.info(f"📤 Redis TX: {channel} - {message}")
             self._client.publish(channel, message)
         except Exception as e:
             self.log.error(f"Error publishing to channel {channel}: {e}")
@@ -251,6 +287,11 @@ class RedisProxy(BaseProxy):
             #     lambda: self._pubsub.subscribe(channel)
             # )
             self._pubsub.subscribe(channel)
+            
+            # 📥 Log subscription with callback info
+            callback_name = getattr(callback, '__name__', str(callback))
+            self.log.info(f"📥 Redis SUBSCRIBE: {channel} -> {callback_name}")
+
             # Start listening if not already started
             if not self._subscription_task:
                 self._loop.run_in_executor(
