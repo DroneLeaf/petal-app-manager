@@ -62,7 +62,6 @@ async def scan_table(request: ScanTableRequest) -> Dict[str, Any]:
     proxies = get_proxies()
     logger = get_logger()
 
-    local_db_proxy: LocalDBProxy = proxies["db"]
     cloud_proxy: CloudDBProxy = proxies["cloud"]
 
     # get table name from request data
@@ -80,7 +79,6 @@ async def scan_table(request: ScanTableRequest) -> Dict[str, Any]:
         # Use the filters from request - robot_instance_id filtering is handled automatically by the proxy
         result = await cloud_proxy.scan_items(
             table_name=table_name, 
-            machine_id=local_db_proxy.machine_id,
             filters=request.filters
         )
 
@@ -96,7 +94,7 @@ async def scan_table(request: ScanTableRequest) -> Dict[str, Any]:
 
         logger.info(
             f"Retrieved {len(records)} records from cloud table {table_name} "
-            f"for machine {local_db_proxy.machine_id}"
+            f"for machine {cloud_proxy._get_machine_id()}"
         )
 
         # Process and return the records
@@ -122,7 +120,6 @@ async def get_item(request: GetItemRequest) -> Dict[str, Any]:
     proxies = get_proxies()
     logger = get_logger()
 
-    local_db_proxy: LocalDBProxy = proxies["db"]
     cloud_proxy: CloudDBProxy = proxies["cloud"]
 
     if not request.table_name or not request.key_name or not request.key_value:
@@ -137,8 +134,7 @@ async def get_item(request: GetItemRequest) -> Dict[str, Any]:
         result = await cloud_proxy.get_item(
             table_name=request.table_name,
             partition_key=request.key_name,
-            partition_value=request.key_value,
-            machine_id=local_db_proxy.machine_id
+            partition_value=request.key_value
         )
 
         if "error" in result:
@@ -183,7 +179,6 @@ async def set_item(request: SetItemRequest) -> Dict[str, Any]:
     proxies = get_proxies()
     logger = get_logger()
 
-    local_db_proxy: LocalDBProxy = proxies["db"]
     cloud_proxy: CloudDBProxy = proxies["cloud"]
 
     if not request.table_name or not request.item_data:
@@ -202,8 +197,7 @@ async def set_item(request: SetItemRequest) -> Dict[str, Any]:
             table_name=request.table_name,
             filter_key="id",  # Use id as the primary key instead of organization_id
             filter_value=item_data.get("id", ""),  # Get id from item_data
-            data=item_data,
-            machine_id=local_db_proxy.machine_id
+            data=item_data
         )
 
         if "error" in result:
@@ -239,7 +233,6 @@ async def update_item(request: UpdateItemRequest) -> Dict[str, Any]:
     proxies = get_proxies()
     logger = get_logger()
 
-    local_db_proxy: LocalDBProxy = proxies["db"]
     cloud_proxy: CloudDBProxy = proxies["cloud"]
 
     if not request.table_name or not request.key_name or not request.key_value or not request.update_data:
@@ -255,8 +248,7 @@ async def update_item(request: UpdateItemRequest) -> Dict[str, Any]:
             table_name=request.table_name,
             filter_key=request.key_name,
             filter_value=request.key_value,
-            data=request.update_data,
-            machine_id=local_db_proxy.machine_id
+            data=request.update_data
         )
  
         if "error" in result:
@@ -293,7 +285,6 @@ async def delete_item(request: GetItemRequest) -> Dict[str, Any]:
     proxies = get_proxies()
     logger = get_logger()
 
-    local_db_proxy: LocalDBProxy = proxies["db"]
     cloud_proxy: CloudDBProxy = proxies["cloud"]
 
     if not request.table_name or not request.key_name or not request.key_value:
@@ -308,8 +299,7 @@ async def delete_item(request: GetItemRequest) -> Dict[str, Any]:
         result = await cloud_proxy.delete_item(
             table_name=request.table_name,
             filter_key=request.key_name,
-            filter_value=request.key_value,
-            machine_id=local_db_proxy.machine_id
+            filter_value=request.key_value
         )
 
         if "error" in result:

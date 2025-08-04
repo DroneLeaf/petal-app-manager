@@ -17,8 +17,37 @@ import redis
 from .base import BaseProxy
 
 
+def setup_file_only_logger(name: str, log_file: str, level: str = "INFO") -> logging.Logger:
+    """Setup a logger that only writes to files, not console."""
+    logger = logging.getLogger(name)
+    logger.setLevel(getattr(logging, level.upper()))
+    
+    # Clear any existing handlers to avoid console output
+    logger.handlers.clear()
+    
+    # Create file handler
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(getattr(logging, level.upper()))
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s — %(name)s — %(levelname)s — %(message)s'
+    )
+    file_handler.setFormatter(formatter)
+    
+    # Add handler to logger
+    logger.addHandler(file_handler)
+    
+    # Prevent propagation to root logger (which might log to console)
+    logger.propagate = False
+    
+    return logger
+
+
 class RedisProxy(BaseProxy):
     """
+    Simple Redis proxy for pub/sub messaging and key-value operations.
+    Supports Unix socket connections.
     Simple Redis proxy for pub/sub messaging and key-value operations.
     Supports Unix socket connections.
     """
@@ -54,8 +83,15 @@ class RedisProxy(BaseProxy):
         self._pattern_callbacks = {}  # channel: callback for pattern subpub
         self._pattern_subscription_task = None
         self._current_pattern = None
+        # Set up file-only logging
+        self.log = setup_file_only_logger("RedisProxy", "app-redisproxy.log", "INFO")
+        
+        # Store active subscriptions
+        self._subscriptions = {}
+        self._subscription_task = None
         
     async def start(self):
+        """Initialize the connection to Redis."""
         """Initialize the connection to Redis."""
         self._loop = asyncio.get_running_loop()
         
@@ -171,24 +207,30 @@ class RedisProxy(BaseProxy):
                 self.log.error(f"Error closing Redis pub/sub connection: {e}")
         
         # Shutdown the executor
+        # Shutdown the executor
         if self._exe:
             self._exe.shutdown(wait=True)
             
         self.log.info("RedisProxy stopped")
         
     # ------ Key-Value Operations ------ #
+    # ------ Key-Value Operations ------ #
     
     async def get(self, key: str) -> Optional[str]:
+        """Get a value from Redis."""
         """Get a value from Redis."""
         if not self._client:
             self.log.error("Redis client not initialized")
             return None
             
         try:
-            return await self._loop.run_in_executor(
+            result = await self._loop.run_in_executor(
                 self._exe, 
                 lambda: self._client.get(key)
             )
+            # 📥 Log key reads
+            self.log.debug(f"📥 Redis GET: {key} = {result}")
+            return result
         except Exception as e:
             self.log.error(f"Error getting key {key}: {e}")
             return None
@@ -200,10 +242,13 @@ class RedisProxy(BaseProxy):
             return False
             
         try:
-            return await self._loop.run_in_executor(
+            result = await self._loop.run_in_executor(
                 self._exe, 
                 lambda: bool(self._client.set(key, value, ex=ex))
             )
+            # 📤 Log key writes
+            self.log.info(f"📤 Redis SET: {key} = {value} (ex={ex}) -> {result}")
+            return result
         except Exception as e:
             self.log.error(f"Error setting key {key}: {e}")
             return False
@@ -222,8 +267,17 @@ class RedisProxy(BaseProxy):
         except Exception as e:
             self.log.error(f"Error deleting key {key}: {e}")
             return 0
+        try:
+            return await self._loop.run_in_executor(
+                self._exe, 
+                lambda: self._client.delete(key)
+            )
+        except Exception as e:
+            self.log.error(f"Error deleting key {key}: {e}")
+            return 0
     
     async def exists(self, key: str) -> bool:
+        """Check if a key exists in Redis."""
         """Check if a key exists in Redis."""
         if not self._client:
             self.log.error("Redis client not initialized")
@@ -231,11 +285,15 @@ class RedisProxy(BaseProxy):
             
         try:
             result = await self._loop.run_in_executor(
+            result = await self._loop.run_in_executor(
                 self._exe, 
+                lambda: self._client.exists(key)
                 lambda: self._client.exists(key)
             )
             return bool(result)
+            return bool(result)
         except Exception as e:
+            self.log.error(f"Error checking existence of key {key}: {e}")
             self.log.error(f"Error checking existence of key {key}: {e}")
             return False
     
@@ -384,6 +442,24 @@ class RedisProxy(BaseProxy):
 
                 message = self._pubsub.get_message(timeout=1.0)
                 if message and message['type'] == 'message':
+                    channel = message['channel']
+                    data = message['data']
+                    self.log.info(f"Received at channel: {channel}, with data: {data}")
+                    
+                    # Call the registered callback
+                    if channel in self._subscriptions:
+                        callback = self._subscriptions[channel]
+                        try:
+                            callback(channel, data)
+                            self.log.info(f"Callback executed for channel: {channel}")  
+                        except Exception as e:
+                            self.log.error(f"Error in callback for channel {channel}: {e}")
+                            
+            except Exception as e:
+                if "timeout" not in str(e).lower():
+                    self.log.error(f"Error listening for messages: {e}")
+                
+
                     channel = message['channel']
                     data = message['data']
                     self.log.info(f"Received at channel: {channel}, with data: {data}")
