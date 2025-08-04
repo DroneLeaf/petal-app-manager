@@ -285,15 +285,11 @@ class RedisProxy(BaseProxy):
             
         try:
             result = await self._loop.run_in_executor(
-            result = await self._loop.run_in_executor(
                 self._exe, 
-                lambda: self._client.exists(key)
                 lambda: self._client.exists(key)
             )
             return bool(result)
-            return bool(result)
         except Exception as e:
-            self.log.error(f"Error checking existence of key {key}: {e}")
             self.log.error(f"Error checking existence of key {key}: {e}")
             return False
     
