@@ -13,6 +13,7 @@ import concurrent.futures
 import logging
 
 import redis
+import time
 
 from .base import BaseProxy
 
@@ -432,44 +433,75 @@ class RedisProxy(BaseProxy):
                     self.log.error(f"Error listening for pattern messages: {e}")
     
     def _listen_for_messages(self):
-        """Listen for messages from subscribed channels."""
+        """Listen for PubSub messages and auto-reconnect on errors."""
         while True:
             try:
-
                 message = self._pubsub.get_message(timeout=1.0)
-                if message and message['type'] == 'message':
+                # Only care about real published messages
+                if message and message.get('type') == 'message':
+                    # Decode bytes to str if needed
                     channel = message['channel']
+                    if isinstance(channel, bytes):
+                        channel = channel.decode('utf-8', 'ignore')
                     data = message['data']
-                    self.log.info(f"Received at channel: {channel}, with data: {data}")
-                    
-                    # Call the registered callback
-                    if channel in self._subscriptions:
-                        callback = self._subscriptions[channel]
-                        try:
-                            callback(channel, data)
-                            self.log.info(f"Callback executed for channel: {channel}")  
-                        except Exception as e:
-                            self.log.error(f"Error in callback for channel {channel}: {e}")
-                            
-            except Exception as e:
-                if "timeout" not in str(e).lower():
-                    self.log.error(f"Error listening for messages: {e}")
-                
+                    if isinstance(data, bytes):
+                        data = data.decode('utf-8', 'ignore')
 
-                    channel = message['channel']
-                    data = message['data']
                     self.log.info(f"Received at channel: {channel}, with data: {data}")
-                    
-                    # Call the registered callback
-                    if channel in self._subscriptions:
-                        callback = self._subscriptions[channel]
+
+                    # Invoke callback
+                    callback = self._subscriptions.get(channel)
+                    if callback:
                         try:
                             callback(channel, data)
-                            self.log.info(f"Callback executed for channel: {channel}")  
-                        except Exception as e:
-                            self.log.error(f"Error in callback for channel {channel}: {e}")
-                            
+                            self.log.info(f"Callback executed for channel: {channel}")
+                        except Exception as cb_err:
+                            self.log.error(f"Error in callback for channel {channel}: {cb_err}")
+
+            except redis.exceptions.ConnectionError as conn_err:
+                self.log.error(f"Connection lost: {conn_err!r}; reconnecting in 1s")
+                time.sleep(1)
+                self._reconnect_pubsub()
+
+            except (IOError, OSError) as io_err:
+                self.log.error(f"I/O error on PubSub socket: {io_err!r}; reconnecting in 1s")
+                time.sleep(1)
+                self._reconnect_pubsub()
+
+            except IndexError as idx_err:
+                # Defensive: swallow stray indexing bugs and keep going
+                self.log.error(f"Unexpected indexing error: {idx_err!r}; continuing")
+
             except Exception as e:
-                if "timeout" not in str(e).lower():
-                    self.log.error(f"Error listening for messages: {e}")
+                # Anything else that isn’t just a timeout
+                msg = str(e).lower()
+                if "timeout" not in msg:
+                    self.log.error(f"Error listening for messages: {e!r}")
+
+
+
+    def _reconnect_pubsub(self):
+        """Tear down the old PubSub and re-subscribe to all channels."""
+        try:
+            self._pubsub.close()
+        except Exception:
+            pass
+
+        # Reopen Redis & PubSub (use the same socket/lib_name flags you originally used)
+        self._redis = redis.Redis(
+            unix_socket_path=self.socket_path,
+            lib_name=None,        # if you still need to suppress SETINFO
+            lib_version=None,
+            connection_pool=redis.ConnectionPool(
+                connection_class=redis.UnixDomainSocketConnection,
+                path=self.socket_path,
+                lib_name=None,
+                lib_version=None,
+                health_check_interval=30,  # proactively verify connections
+            )
+        )
+        ps = self._redis.pubsub(ignore_subscribe_messages=True)
+        for ch in self._subscriptions:
+            ps.subscribe(ch)
+        self._pubsub = ps
                 
