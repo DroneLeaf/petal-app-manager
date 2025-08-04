@@ -42,13 +42,18 @@ class RedisProxy(BaseProxy):
         self._client = None
         self._pubsub_client = None
         self._pubsub = None
+        self._pubsub_pattern = None
         self._loop = None
         self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         self.log = logging.getLogger("RedisProxy")
         
         # Store active subscriptions
-        self._subscriptions = {}
+        self._subscriptions = {}  # normal channel subscriptions
         self._subscription_task = None
+        # Pattern subscription state
+        self._pattern_callbacks = {}  # channel: callback for pattern subpub
+        self._pattern_subscription_task = None
+        self._current_pattern = None
         
     async def start(self):
         """Initialize the connection to Redis."""
@@ -78,6 +83,7 @@ class RedisProxy(BaseProxy):
                         decode_responses=True
                     )
                 )
+                
             else:
                 self.log.info("Initializing Redis connection to %s:%s db=%s", self.host, self.port, self.db)
                 self._client = await self._loop.run_in_executor(
@@ -113,6 +119,9 @@ class RedisProxy(BaseProxy):
                 self.log.info("Redis connection established successfully")
                 # Initialize pub/sub
                 self._pubsub = self._pubsub_client.pubsub()
+                # Initialize pattern pub/sub (separate client for patterns)
+                self._pubsub_pattern = self._pubsub_client.pubsub()
+                self.subscribe_pattern()
             else:
                 self.log.warning("Redis ping returned unexpected result")
         except Exception as e:
@@ -120,11 +129,18 @@ class RedisProxy(BaseProxy):
             
     async def stop(self):
         """Close the Redis connection and clean up resources."""
-        # Stop subscription task
+        # Stop subscription tasks
         if self._subscription_task and not self._subscription_task.done():
             self._subscription_task.cancel()
             try:
                 await self._subscription_task
+            except asyncio.CancelledError:
+                pass
+                
+        if self._pattern_subscription_task and not self._pattern_subscription_task.done():
+            self._pattern_subscription_task.cancel()
+            try:
+                await self._pattern_subscription_task
             except asyncio.CancelledError:
                 pass
         
@@ -134,6 +150,12 @@ class RedisProxy(BaseProxy):
                 await self._loop.run_in_executor(self._exe, self._pubsub.close)
             except Exception as e:
                 self.log.error(f"Error closing Redis pub/sub: {e}")
+                
+        if self._pubsub_pattern:
+            try:
+                await self._loop.run_in_executor(self._exe, self._pubsub_pattern.close)
+            except Exception as e:
+                self.log.error(f"Error closing Redis pattern pub/sub: {e}")
         
         # Close Redis connections
         if self._client:
@@ -277,6 +299,83 @@ class RedisProxy(BaseProxy):
             self.log.info(f"Unsubscribed from channel: {channel}")
         except Exception as e:
             self.log.error(f"Error unsubscribing from channel {channel}: {e}")
+    
+    def subscribe_pattern(self, pattern: str = "/petal-*"):
+        """Subscribe to channels matching a pattern. Only one pattern at a time."""
+        if not self._pubsub_pattern:
+            self.log.error("Redis pattern pub/sub not initialized")
+            return
+        # Only support one pattern at a time
+        if self._current_pattern and self._current_pattern != pattern:
+            self.log.warning(f"Switching from pattern '{self._current_pattern}' to '{pattern}'")
+            self.unsubscribe_pattern(self._current_pattern)
+        self._current_pattern = pattern
+        try:
+            self._pubsub_pattern.psubscribe(pattern)
+            # Start listening if not already started
+            if not self._pattern_subscription_task:
+                self._pattern_subscription_task = self._loop.run_in_executor(
+                    self._exe,
+                    self._listen_for_pattern_messages
+                )
+            self.log.info(f"Subscribed to pattern: {pattern}")
+        except Exception as e:
+            self.log.error(f"Error subscribing to pattern {pattern}: {e}")
+
+    def register_pattern_channel_callback(self, channel: str, callback: Callable[[str, str], Awaitable[None]]):
+        """Register a callback for a specific channel for pattern subscriptions."""
+        self._pattern_callbacks[channel] = callback
+        self.log.info(f"Registered pattern callback for channel: {channel}")
+
+    def unregister_pattern_channel_callback(self, channel: str):
+        """Unregister a callback for a specific channel for pattern subscriptions."""
+        if channel in self._pattern_callbacks:
+            del self._pattern_callbacks[channel]
+            self.log.info(f"Unregistered pattern callback for channel: {channel}")
+        else:
+            self.log.warning(f"No pattern callback registered for channel: {channel}")
+
+    def unsubscribe_pattern(self, pattern: str = None):
+        """Unsubscribe from the current pattern."""
+        if not self._pubsub_pattern:
+            self.log.error("Redis pattern pub/sub not initialized")
+            return
+        # Use current pattern if none specified
+        if pattern is None:
+            pattern = self._current_pattern
+        if not pattern:
+            self.log.warning("No pattern to unsubscribe from")
+            return
+        try:
+            self._pubsub_pattern.punsubscribe(pattern)
+            if pattern == self._current_pattern:
+                self._current_pattern = None
+            self._pattern_callbacks.clear()
+            self.log.info(f"Unsubscribed from pattern: {pattern}")
+        except Exception as e:
+            self.log.error(f"Error unsubscribing from pattern {pattern}: {e}")
+    
+    def _listen_for_pattern_messages(self):
+        """Listen for messages from pattern subscriptions."""
+        while True:
+            try:
+                message = self._pubsub_pattern.get_message(timeout=1.0)
+                if message and message['type'] == 'pmessage':
+                    channel = message['channel']
+                    pattern = message['pattern']
+                    data = message['data']
+                    self.log.info(f"Received pattern message at channel: {channel} (pattern: {pattern}) with data: {data}")
+                    # Check for channel callback in pattern_callbacks
+                    if channel in self._pattern_callbacks:
+                        callback = self._pattern_callbacks[channel]
+                        try:
+                            callback(channel, data)
+                            self.log.info(f"Pattern callback executed for channel: {channel}")
+                        except Exception as e:
+                            self.log.error(f"Error in pattern callback for channel {channel}: {e}")
+            except Exception as e:
+                if "timeout" not in str(e).lower():
+                    self.log.error(f"Error listening for pattern messages: {e}")
     
     def _listen_for_messages(self):
         """Listen for messages from subscribed channels."""
