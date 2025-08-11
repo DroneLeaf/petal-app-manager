@@ -157,7 +157,7 @@ class RedisProxy(BaseProxy):
                 self._pubsub = self._pubsub_client.pubsub()
                 # Initialize pattern pub/sub (separate client for patterns)
                 self._pubsub_pattern = self._pubsub_client.pubsub()
-                # Don't automatically subscribe to patterns - let users do it explicitly
+                self._subscribe_pattern("/petal-*")  # Default pattern
             else:
                 self.log.warning("Redis ping returned unexpected result")
         except Exception as e:
@@ -352,7 +352,7 @@ class RedisProxy(BaseProxy):
         except Exception as e:
             self.log.error(f"Error unsubscribing from channel {channel}: {e}")
     
-    def subscribe_pattern(self, pattern: str = "/petal-*"):
+    def _subscribe_pattern(self, pattern: str = "/petal-*"):
         """Subscribe to channels matching a pattern. Only one pattern at a time."""
         if not self._pubsub_pattern:
             self.log.error("Redis pattern pub/sub not initialized")
@@ -360,7 +360,7 @@ class RedisProxy(BaseProxy):
         # Only support one pattern at a time
         if self._current_pattern and self._current_pattern != pattern:
             self.log.warning(f"Switching from pattern '{self._current_pattern}' to '{pattern}'")
-            self.unsubscribe_pattern(self._current_pattern)
+            self._unsubscribe_pattern(self._current_pattern)
         self._current_pattern = pattern
         try:
             self._pubsub_pattern.psubscribe(pattern)
@@ -384,7 +384,7 @@ class RedisProxy(BaseProxy):
         else:
             self.log.warning(f"No pattern callback registered for channel: {channel}")
 
-    def unsubscribe_pattern(self, pattern: str = None):
+    def _unsubscribe_pattern(self, pattern: str = None):
         """Unsubscribe from the current pattern."""
         if not self._pubsub_pattern:
             self.log.error("Redis pattern pub/sub not initialized")
