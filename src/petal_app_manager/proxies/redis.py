@@ -87,9 +87,8 @@ class RedisProxy(BaseProxy):
         # Set up file-only logging
         self.log = setup_file_only_logger("RedisProxy", "app-redisproxy.log", "INFO")
         
-        # Store active subscriptions
-        self._subscriptions = {}
-        self._subscription_task = None
+        # Shutdown flag to control infinite loops
+        self._shutdown_flag = False
         
     async def start(self):
         """Initialize the connection to Redis."""
@@ -158,7 +157,7 @@ class RedisProxy(BaseProxy):
                 self._pubsub = self._pubsub_client.pubsub()
                 # Initialize pattern pub/sub (separate client for patterns)
                 self._pubsub_pattern = self._pubsub_client.pubsub()
-                self.subscribe_pattern()
+                # Don't automatically subscribe to patterns - let users do it explicitly
             else:
                 self.log.warning("Redis ping returned unexpected result")
         except Exception as e:
@@ -166,6 +165,11 @@ class RedisProxy(BaseProxy):
             
     async def stop(self):
         """Close the Redis connection and clean up resources."""
+        self.log.info("Stopping RedisProxy...")
+        
+        # Set shutdown flag to stop infinite loops
+        self._shutdown_flag = True
+        
         # Stop subscription tasks
         if self._subscription_task and not self._subscription_task.done():
             self._subscription_task.cancel()
@@ -207,10 +211,9 @@ class RedisProxy(BaseProxy):
             except Exception as e:
                 self.log.error(f"Error closing Redis pub/sub connection: {e}")
         
-        # Shutdown the executor
-        # Shutdown the executor
+        # Shutdown the executor with a timeout
         if self._exe:
-            self._exe.shutdown(wait=True)
+            self._exe.shutdown(wait=False)  # Don't wait for infinite loops
             
         self.log.info("RedisProxy stopped")
         
@@ -303,11 +306,8 @@ class RedisProxy(BaseProxy):
             return 0
             
         try:
-            # return self._loop.run_in_executor(
-            #     self._exe, 
-            #     lambda: self._client.publish(channel, message)
-            # )
-            self._client.publish(channel, message)
+            result = self._client.publish(channel, message)
+            return result
         except Exception as e:
             self.log.error(f"Error publishing to channel {channel}: {e}")
             return 0
@@ -330,10 +330,7 @@ class RedisProxy(BaseProxy):
             self._pubsub.subscribe(channel)
             # Start listening if not already started
             if not self._subscription_task:
-                self._loop.run_in_executor(
-                    self._exe,
-                    self._listen_for_messages
-                )
+                self._subscription_task = asyncio.create_task(self._listen_for_messages())
                 
             self.log.info(f"Subscribed to channel: {channel}")
         except Exception as e:
@@ -369,10 +366,7 @@ class RedisProxy(BaseProxy):
             self._pubsub_pattern.psubscribe(pattern)
             # Start listening if not already started
             if not self._pattern_subscription_task:
-                self._pattern_subscription_task = self._loop.run_in_executor(
-                    self._exe,
-                    self._listen_for_pattern_messages
-                )
+                self._pattern_subscription_task = asyncio.create_task(self._listen_for_pattern_messages())
             self.log.info(f"Subscribed to pattern: {pattern}")
         except Exception as e:
             self.log.error(f"Error subscribing to pattern {pattern}: {e}")
@@ -410,11 +404,14 @@ class RedisProxy(BaseProxy):
         except Exception as e:
             self.log.error(f"Error unsubscribing from pattern {pattern}: {e}")
     
-    def _listen_for_pattern_messages(self):
+    async def _listen_for_pattern_messages(self):
         """Listen for messages from pattern subscriptions."""
-        while True:
+        while not self._shutdown_flag:
             try:
-                message = self._pubsub_pattern.get_message(timeout=1.0)
+                message = await self._loop.run_in_executor(
+                    self._exe,
+                    lambda: self._pubsub_pattern.get_message(timeout=1.0)
+                )
                 if message and message['type'] == 'pmessage':
                     channel = message['channel']
                     pattern = message['pattern']
@@ -424,19 +421,22 @@ class RedisProxy(BaseProxy):
                     if channel in self._pattern_callbacks:
                         callback = self._pattern_callbacks[channel]
                         try:
-                            callback(channel, data)
+                            await callback(channel, data)
                             self.log.info(f"Pattern callback executed for channel: {channel}")
                         except Exception as e:
                             self.log.error(f"Error in pattern callback for channel {channel}: {e}")
             except Exception as e:
-                if "timeout" not in str(e).lower():
+                if "timeout" not in str(e).lower() and not self._shutdown_flag:
                     self.log.error(f"Error listening for pattern messages: {e}")
     
-    def _listen_for_messages(self):
+    async def _listen_for_messages(self):
         """Listen for PubSub messages and auto-reconnect on errors."""
-        while True:
+        while not self._shutdown_flag:
             try:
-                message = self._pubsub.get_message(timeout=1.0)
+                message = await self._loop.run_in_executor(
+                    self._exe,
+                    lambda: self._pubsub.get_message(timeout=1.0)
+                )
                 # Only care about real published messages
                 if message and message.get('type') == 'message':
                     # Decode bytes to str if needed
@@ -453,20 +453,22 @@ class RedisProxy(BaseProxy):
                     callback = self._subscriptions.get(channel)
                     if callback:
                         try:
-                            callback(channel, data)
+                            await callback(channel, data)
                             self.log.info(f"Callback executed for channel: {channel}")
                         except Exception as cb_err:
                             self.log.error(f"Error in callback for channel {channel}: {cb_err}")
 
             except redis.exceptions.ConnectionError as conn_err:
-                self.log.error(f"Connection lost: {conn_err!r}; reconnecting in 1s")
-                time.sleep(1)
-                self._reconnect_pubsub()
+                if not self._shutdown_flag:
+                    self.log.error(f"Connection lost: {conn_err!r}; reconnecting in 1s")
+                    await asyncio.sleep(1)
+                    await self._reconnect_pubsub()
 
             except (IOError, OSError) as io_err:
-                self.log.error(f"I/O error on PubSub socket: {io_err!r}; reconnecting in 1s")
-                time.sleep(1)
-                self._reconnect_pubsub()
+                if not self._shutdown_flag:
+                    self.log.error(f"I/O error on PubSub socket: {io_err!r}; reconnecting in 1s")
+                    await asyncio.sleep(1)
+                    await self._reconnect_pubsub()
 
             except IndexError as idx_err:
                 # Defensive: swallow stray indexing bugs and keep going
@@ -482,26 +484,5 @@ class RedisProxy(BaseProxy):
 
     def _reconnect_pubsub(self):
         """Tear down the old PubSub and re-subscribe to all channels."""
-        try:
-            self._pubsub.close()
-        except Exception:
-            pass
-
-        # Reopen Redis & PubSub (use the same socket/lib_name flags you originally used)
-        self._redis = redis.Redis(
-            unix_socket_path=self.socket_path,
-            lib_name=None,        # if you still need to suppress SETINFO
-            lib_version=None,
-            connection_pool=redis.ConnectionPool(
-                connection_class=redis.UnixDomainSocketConnection,
-                path=self.socket_path,
-                lib_name=None,
-                lib_version=None,
-                health_check_interval=30,  # proactively verify connections
-            )
-        )
-        ps = self._redis.pubsub(ignore_subscribe_messages=True)
-        for ch in self._subscriptions:
-            ps.subscribe(ch)
-        self._pubsub = ps
+        self.log.warning("_reconnect_pubsub method is deprecated - Redis connections should be properly managed")
                 
