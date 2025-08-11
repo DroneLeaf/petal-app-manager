@@ -267,7 +267,7 @@ async def test_subscribe(proxy: RedisProxy):
     # Define a test callback
     messages_received = []
     
-    async def test_callback(channel: str, message: str):
+    def test_callback(channel: str, message: str):
         messages_received.append((channel, message))
     
     # Subscribe to the channel
@@ -288,7 +288,7 @@ async def test_unsubscribe(proxy: RedisProxy):
     proxy._mock_pubsub.subscribe.return_value = None
     proxy._mock_pubsub.unsubscribe.return_value = None
     
-    async def test_callback(channel: str, message: str):
+    def test_callback(channel: str, message: str):
         pass
     
     # Subscribe first
@@ -331,7 +331,7 @@ async def test_message_listening():
         # Track received messages
         received_messages = []
         
-        async def test_callback(channel: str, message: str):
+        def test_callback(channel: str, message: str):
             received_messages.append((channel, message))
         
         try:
@@ -415,7 +415,7 @@ async def test_pubsub_not_initialized():
         proxy._pubsub_client = None
         proxy._pubsub = None
         
-        async def test_callback(channel: str, message: str):
+        def test_callback(channel: str, message: str):
             pass
         
         # Try to subscribe - should handle gracefully
