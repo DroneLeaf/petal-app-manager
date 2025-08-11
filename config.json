@@ -9,5 +9,27 @@
         "http://localhost:80",
         "http://localhost",
         "*"
-    ]
+    ],
+    "logging": {
+        "level_outputs": {
+            "DEBUG": [
+                "file"
+            ],
+            "INFO": [
+                "file"
+            ],
+            "WARNING": [
+                "terminal",
+                "file"
+            ],
+            "ERROR": [
+                "terminal",
+                "file"
+            ],
+            "CRITICAL": [
+                "terminal",
+                "file"
+            ]
+        }
+    }
 }

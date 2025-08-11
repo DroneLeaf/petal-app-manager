@@ -8,6 +8,43 @@ class Config:
     # General configuration
     PETAL_LOG_LEVEL=os.environ.get("PETAL_LOG_LEVEL", "INFO").upper()
     PETAL_LOG_TO_FILE=os.environ.get("PETAL_LOG_TO_FILE", "true").lower() in ("true", "1", "yes")
+    
+    # Per-level logging output configuration
+    # Read from config.json file in the project root
+    @staticmethod
+    def get_log_level_outputs():
+        import json
+        from pathlib import Path
+        
+        try:
+            config_path = Path(__file__).parent.parent.parent / "config.json"
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+                logging_config = config.get("logging", {})
+                level_outputs = logging_config.get("level_outputs")
+                
+                if level_outputs:
+                    # Validate and normalize the configuration
+                    normalized = {}
+                    for level, output in level_outputs.items():
+                        if isinstance(output, list):
+                            # Validate list format
+                            valid_outputs = [o for o in output if o in ("terminal", "file")]
+                            if valid_outputs:
+                                normalized[level] = valid_outputs
+                        elif isinstance(output, str):
+                            # Handle legacy string format
+                            if output == "both":
+                                normalized[level] = ["terminal", "file"]
+                            elif output in ("terminal", "file"):
+                                normalized[level] = [output]
+                    
+                    return normalized if normalized else None
+        except (json.JSONDecodeError, FileNotFoundError, KeyError):
+            pass
+        
+        return None
+    
     # MAVLink configuration
     MAVLINK_ENDPOINT=os.environ.get("MAVLINK_ENDPOINT", "udp:127.0.0.1:14551")
     MAVLINK_BAUD=int(os.environ.get("MAVLINK_BAUD", 115200))

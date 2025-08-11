@@ -224,30 +224,44 @@ class ExternalProxy(BaseProxy):
                 # Schedule burst with intervals using a background task
                 if self._loop is not None:
                     try:
-                        # Try to create task in current loop if available
-                        task = asyncio.create_task(
-                            self._send_burst(key, msg, burst_count, burst_interval)
-                        )
-                        # Store the task reference to prevent garbage collection
-                        if not hasattr(self, '_burst_tasks'):
-                            self._burst_tasks = set()
-                        self._burst_tasks.add(task)
-                        task.add_done_callback(self._burst_tasks.discard)
-                    except RuntimeError:
-                        # No running event loop in current thread, schedule on proxy's loop
-                        self._log.debug("No running event loop in current thread, scheduling on proxy's loop")
-                        future = asyncio.run_coroutine_threadsafe(
-                            self._send_burst(key, msg, burst_count, burst_interval),
-                            self._loop
-                        )
-                        # Store the future reference to prevent garbage collection
-                        if not hasattr(self, '_burst_futures'):
-                            self._burst_futures = set()
-                        self._burst_futures.add(future)
-                        # Add callback to clean up future when done
-                        def cleanup_future(f):
-                            self._burst_futures.discard(f)
-                        future.add_done_callback(cleanup_future)
+                        # Check if we're in the same thread as the event loop
+                        current_loop = None
+                        try:
+                            current_loop = asyncio.get_running_loop()
+                        except RuntimeError:
+                            current_loop = None
+                        
+                        if current_loop is self._loop:
+                            # We're in the event loop thread, create task directly
+                            task = asyncio.create_task(
+                                self._send_burst(key, msg, burst_count, burst_interval)
+                            )
+                            # Store the task reference to prevent garbage collection
+                            if not hasattr(self, '_burst_tasks'):
+                                self._burst_tasks = set()
+                            self._burst_tasks.add(task)
+                            task.add_done_callback(self._burst_tasks.discard)
+                        else:
+                            # We're in a different thread, schedule on proxy's loop
+                            def schedule_burst():
+                                try:
+                                    task = asyncio.create_task(
+                                        self._send_burst(key, msg, burst_count, burst_interval)
+                                    )
+                                    if not hasattr(self, '_burst_tasks'):
+                                        self._burst_tasks = set()
+                                    self._burst_tasks.add(task)
+                                    task.add_done_callback(self._burst_tasks.discard)
+                                except Exception as e:
+                                    self._log.error(f"Failed to schedule burst task: {e}")
+                            
+                            self._loop.call_soon_threadsafe(schedule_burst)
+                    except Exception as e:
+                        # If task creation fails, fall back to immediate send
+                        self._log.warning(f"Failed to create burst task: {e}, sending immediately")
+                        send_queue = self._send.setdefault(key, deque(maxlen=self._maxlen))
+                        for _ in range(burst_count):
+                            send_queue.append(msg)
                 else:
                     # If no loop is available, fall back to immediate send
                     self._log.warning("No event loop available for burst with interval, sending immediately")
@@ -271,7 +285,6 @@ class ExternalProxy(BaseProxy):
         """Create the worker thread and begin polling/writing."""
         self._loop = asyncio.get_running_loop()
         self._burst_tasks = set()  # Initialize burst tasks tracking
-        self._burst_futures = set()  # Initialize burst futures tracking
         self._running.set()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -289,13 +302,6 @@ class ExternalProxy(BaseProxy):
             if self._burst_tasks:
                 await asyncio.gather(*self._burst_tasks, return_exceptions=True)
                 self._burst_tasks.clear()
-        
-        # Cancel any pending burst futures
-        if hasattr(self, '_burst_futures'):
-            for future in self._burst_futures.copy():
-                if not future.done():
-                    future.cancel()
-            self._burst_futures.clear()
         
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=5)
@@ -696,7 +702,7 @@ class MavLinkExternalProxy(ExternalProxy):
                     
                     # Only log if rate limiting allows
                     if self._should_log_message(msg_type):
-                        self._log.info(f"📥 MAVLink RX: {msg_type} (ID: {msg_id}) - {msg}")
+                        self._log.debug(f"📥 MAVLink RX: {msg_type} (ID: {msg_id}) - {msg}")
                     
                     out.append(("mav", msg))
                     out.append((str(msg_id), msg))

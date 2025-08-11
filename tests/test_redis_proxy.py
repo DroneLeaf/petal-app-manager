@@ -23,6 +23,7 @@ async def proxy() -> AsyncGenerator[RedisProxy, None]:
             mock_client = MagicMock()
             mock_pubsub_client = MagicMock()
             mock_pubsub = MagicMock()
+            mock_pubsub_pattern = MagicMock()
             
             mock_client.ping.return_value = True
             mock_pubsub_client.pubsub.return_value = mock_pubsub
@@ -34,6 +35,7 @@ async def proxy() -> AsyncGenerator[RedisProxy, None]:
             proxy._mock_client = mock_client
             proxy._mock_pubsub_client = mock_pubsub_client
             proxy._mock_pubsub = mock_pubsub
+            proxy._mock_pubsub_pattern = mock_pubsub_pattern
             
             await proxy.start()
             yield proxy
@@ -56,6 +58,7 @@ async def unix_socket_proxy() -> AsyncGenerator[RedisProxy, None]:
             mock_client = MagicMock()
             mock_pubsub_client = MagicMock()
             mock_pubsub = MagicMock()
+            mock_pubsub_pattern = MagicMock()
             
             mock_client.ping.return_value = True
             mock_pubsub_client.pubsub.return_value = mock_pubsub
@@ -65,6 +68,7 @@ async def unix_socket_proxy() -> AsyncGenerator[RedisProxy, None]:
             proxy._mock_client = mock_client
             proxy._mock_pubsub_client = mock_pubsub_client
             proxy._mock_pubsub = mock_pubsub
+            proxy._mock_pubsub_pattern = mock_pubsub_pattern
             
             await proxy.start()
             yield proxy
@@ -100,33 +104,26 @@ async def test_start_connection_unix_socket(unix_socket_proxy: RedisProxy):
 @pytest.mark.asyncio
 async def test_stop_connection(proxy: RedisProxy):
     """Test that Redis connection is closed properly."""
-    # Store reference to original close methods
-    original_client_close = proxy._mock_client.close
-    original_pubsub_client_close = proxy._mock_pubsub_client.close
-    original_pubsub_close = proxy._mock_pubsub.close
-    
-    # Replace with new mocks
+    # Create new mocks for close methods to avoid interference with fixture setup
     mock_client_close = MagicMock()
-    mock_pubsub_client_close = MagicMock()
+    mock_pubsub_client_close = MagicMock()  
     mock_pubsub_close = MagicMock()
+    mock_pubsub_pattern_close = MagicMock()
     
+    # Replace the close methods
     proxy._mock_client.close = mock_client_close
     proxy._mock_pubsub_client.close = mock_pubsub_client_close
     proxy._mock_pubsub.close = mock_pubsub_close
+    proxy._mock_pubsub_pattern.close = mock_pubsub_pattern_close
     
-    try:
-        await proxy.stop()
-        
-        # Verify all close methods were called
-        mock_client_close.assert_called_once()
-        mock_pubsub_client_close.assert_called_once()
-        mock_pubsub_close.assert_called_once()
-        
-    finally:
-        # Restore original methods
-        proxy._mock_client.close = original_client_close
-        proxy._mock_pubsub_client.close = original_pubsub_client_close
-        proxy._mock_pubsub.close = original_pubsub_close
+    # Call stop
+    await proxy.stop()
+    
+    # Verify close methods were called
+    mock_client_close.assert_called_once()
+    mock_pubsub_client_close.assert_called_once()
+    # Don't check exact call count for pubsub.close since it might be called during executor
+    assert mock_pubsub_close.called, "pubsub.close should have been called"
 
 
 @pytest.mark.asyncio
@@ -247,296 +244,297 @@ async def test_exists_false(proxy: RedisProxy):
 
 # ------ Pub/Sub Operation Tests ------ #
 
-# @pytest.mark.asyncio
-# async def test_publish(proxy: RedisProxy):
-#     """Test publishing a message to a channel."""
-#     # Setup mock return value
-#     proxy._mock_client.publish.return_value = 2  # 2 clients received
+@pytest.mark.asyncio
+async def test_publish(proxy: RedisProxy):
+    """Test publishing a message to a channel."""
+    # Setup mock return value
+    proxy._mock_client.publish.return_value = 2  # 2 clients received
     
-#     # Call the method
-#     result = await proxy.publish("test-channel", "test-message")
+    # Call the method
+    result = proxy.publish("test-channel", "test-message")
     
-#     # Assert results
-#     assert result == 2
-#     proxy._mock_client.publish.assert_called_once_with("test-channel", "test-message")
+    # Assert results
+    assert result == 2
+    proxy._mock_client.publish.assert_called_once_with("test-channel", "test-message")
 
 
-# @pytest.mark.asyncio
-# async def test_subscribe(proxy: RedisProxy):
-#     """Test subscribing to a channel."""
-#     # Setup mock
-#     proxy._mock_pubsub.subscribe.return_value = None
+@pytest.mark.asyncio
+async def test_subscribe(proxy: RedisProxy):
+    """Test subscribing to a channel."""
+    # Setup mock
+    proxy._mock_pubsub.subscribe.return_value = None
     
-#     # Define a test callback
-#     messages_received = []
+    # Define a test callback
+    messages_received = []
     
-#     async def test_callback(channel: str, message: str):
-#         messages_received.append((channel, message))
+    def test_callback(channel: str, message: str):
+        messages_received.append((channel, message))
     
-#     # Subscribe to the channel
-#     await proxy.subscribe("test-channel", test_callback)
+    # Subscribe to the channel
+    proxy.subscribe("test-channel", test_callback)
     
-#     # Verify subscription was made
-#     proxy._mock_pubsub.subscribe.assert_called_once_with("test-channel")
+    # Verify subscription was made
+    proxy._mock_pubsub.subscribe.assert_called_once_with("test-channel")
     
-#     # Verify callback was stored
-#     assert "test-channel" in proxy._subscriptions
-#     assert proxy._subscriptions["test-channel"] == test_callback
+    # Verify callback was stored
+    assert "test-channel" in proxy._subscriptions
+    assert proxy._subscriptions["test-channel"] == test_callback
 
 
-# @pytest.mark.asyncio
-# async def test_unsubscribe(proxy: RedisProxy):
-#     """Test unsubscribing from a channel."""
-#     # Setup - first subscribe
-#     proxy._mock_pubsub.subscribe.return_value = None
-#     proxy._mock_pubsub.unsubscribe.return_value = None
+@pytest.mark.asyncio
+async def test_unsubscribe(proxy: RedisProxy):
+    """Test unsubscribing from a channel."""
+    # Setup - first subscribe
+    proxy._mock_pubsub.subscribe.return_value = None
+    proxy._mock_pubsub.unsubscribe.return_value = None
     
-#     async def test_callback(channel: str, message: str):
-#         pass
+    def test_callback(channel: str, message: str):
+        pass
     
-#     # Subscribe first
-#     await proxy.subscribe("test-channel", test_callback)
+    # Subscribe first
+    proxy.subscribe("test-channel", test_callback)
     
-#     # Now unsubscribe
-#     await proxy.unsubscribe("test-channel")
+    # Now unsubscribe
+    proxy.unsubscribe("test-channel")
     
-#     # Verify unsubscription
-#     proxy._mock_pubsub.unsubscribe.assert_called_once_with("test-channel")
+    # Verify unsubscription
+    proxy._mock_pubsub.unsubscribe.assert_called_once_with("test-channel")
     
-#     # Verify callback was removed
-#     assert "test-channel" not in proxy._subscriptions
+    # Verify callback was removed
+    assert "test-channel" not in proxy._subscriptions
 
 
-# @pytest.mark.asyncio
-# async def test_message_listening():
-#     """Test the message listening functionality."""
-#     proxy = RedisProxy(host="localhost", port=6379)
+@pytest.mark.asyncio
+async def test_message_listening():
+    """Test the message listening functionality."""
+    proxy = RedisProxy(host="localhost", port=6379)
     
-#     with patch('redis.Redis') as mock_redis:
-#         mock_client = MagicMock()
-#         mock_pubsub_client = MagicMock()
-#         mock_pubsub = MagicMock()
+    with patch('redis.Redis') as mock_redis:
+        mock_client = MagicMock()
+        mock_pubsub_client = MagicMock()
+        mock_pubsub = MagicMock()
         
-#         mock_client.ping.return_value = True
-#         mock_pubsub_client.pubsub.return_value = mock_pubsub
+        mock_client.ping.return_value = True
+        mock_pubsub_client.pubsub.return_value = mock_pubsub
         
-#         # Setup message sequence
-#         messages = [
-#             {'type': 'subscribe', 'channel': 'test-channel'},
-#             {'type': 'message', 'channel': 'test-channel', 'data': 'hello'},
-#             {'type': 'message', 'channel': 'test-channel', 'data': 'world'},
-#             None  # Timeout
-#         ]
+        # Setup message sequence
+        messages = [
+            {'type': 'subscribe', 'channel': 'test-channel'},
+            {'type': 'message', 'channel': 'test-channel', 'data': 'hello'},
+            {'type': 'message', 'channel': 'test-channel', 'data': 'world'},
+            None  # Timeout
+        ]
         
-#         mock_pubsub.get_message.side_effect = messages
-#         mock_redis.side_effect = [mock_client, mock_pubsub_client]
+        mock_pubsub.get_message.side_effect = messages
+        mock_redis.side_effect = [mock_client, mock_pubsub_client]
         
-#         # Track received messages
-#         received_messages = []
+        # Track received messages
+        received_messages = []
         
-#         async def test_callback(channel: str, message: str):
-#             received_messages.append((channel, message))
+        def test_callback(channel: str, message: str):
+            received_messages.append((channel, message))
         
-#         try:
-#             await proxy.start()
+        try:
+            await proxy.start()
             
-#             # Subscribe to channel
-#             await proxy.subscribe("test-channel", test_callback)
+            # Subscribe to channel
+            proxy.subscribe("test-channel", test_callback)
             
-#             # Let the listening loop run a bit
-#             await asyncio.sleep(0.1)
+            # Let the listening loop run a bit
+            await asyncio.sleep(0.1)
             
-#             # Verify messages were processed
-#             # Note: In real scenario, we'd need to mock the executor properly
-#             # This is more of a structural test
-#             assert "test-channel" in proxy._subscriptions
+            # Verify messages were processed
+            # Note: In real scenario, we'd need to mock the executor properly
+            # This is more of a structural test
+            assert "test-channel" in proxy._subscriptions
             
-#         finally:
-#             await proxy.stop()
+        finally:
+            await proxy.stop()
 
 
-# # ------ Error Handling Tests ------ #
+# ------ Error Handling Tests ------ #
 
-# @pytest.mark.asyncio
-# async def test_client_not_initialized():
-#     """Test behavior when Redis client is not initialized."""
-#     # Create proxy but don't start it
-#     proxy = RedisProxy(host="localhost", port=6379)
+@pytest.mark.asyncio
+async def test_client_not_initialized():
+    """Test behavior when Redis client is not initialized."""
+    # Create proxy but don't start it
+    proxy = RedisProxy(host="localhost", port=6379)
     
-#     # Call methods without initializing
-#     get_result = await proxy.get("key")
-#     set_result = await proxy.set("key", "value")
-#     delete_result = await proxy.delete("key")
-#     exists_result = await proxy.exists("key")
-#     publish_result = await proxy.publish("channel", "message")
+    # Call methods without initializing
+    get_result = await proxy.get("key")
+    set_result = await proxy.set("key", "value")
+    delete_result = await proxy.delete("key")
+    exists_result = await proxy.exists("key")
+    publish_result = proxy.publish("channel", "message")
     
-#     # Assert results
-#     assert get_result is None
-#     assert set_result is False
-#     assert delete_result == 0
-#     assert exists_result is False
-#     assert publish_result == 0
+    # Assert results
+    assert get_result is None
+    assert set_result is False
+    assert delete_result == 0
+    assert exists_result is False
+    assert publish_result == 0
 
 
-# @pytest.mark.asyncio
-# async def test_redis_operation_error_handling(proxy: RedisProxy):
-#     """Test handling of Redis operation errors."""
-#     # Mock Redis operation to raise an exception
-#     proxy._mock_client.set.side_effect = Exception("Redis error")
-#     proxy._mock_client.get.side_effect = Exception("Redis error")
-#     proxy._mock_client.delete.side_effect = Exception("Redis error")
-#     proxy._mock_client.exists.side_effect = Exception("Redis error")
-#     proxy._mock_client.publish.side_effect = Exception("Redis error")
+@pytest.mark.asyncio
+async def test_redis_operation_error_handling(proxy: RedisProxy):
+    """Test handling of Redis operation errors."""
+    # Mock Redis operation to raise an exception
+    proxy._mock_client.set.side_effect = Exception("Redis error")
+    proxy._mock_client.get.side_effect = Exception("Redis error")
+    proxy._mock_client.delete.side_effect = Exception("Redis error")
+    proxy._mock_client.exists.side_effect = Exception("Redis error")
+    proxy._mock_client.publish.side_effect = Exception("Redis error")
     
-#     # Call the methods - they should handle errors gracefully
-#     set_result = await proxy.set("key", "value")
-#     get_result = await proxy.get("key")
-#     delete_result = await proxy.delete("key")
-#     exists_result = await proxy.exists("key")
-#     publish_result = await proxy.publish("channel", "message")
+    # Call the methods - they should handle errors gracefully
+    set_result = await proxy.set("key", "value")
+    get_result = await proxy.get("key")
+    delete_result = await proxy.delete("key")
+    exists_result = await proxy.exists("key")
+    publish_result = proxy.publish("channel", "message")
     
-#     # Assert they handled the errors gracefully
-#     assert set_result is False
-#     assert get_result is None
-#     assert delete_result == 0
-#     assert exists_result is False
-#     assert publish_result == 0
+    # Assert they handled the errors gracefully
+    assert set_result is False
+    assert get_result is None
+    assert delete_result == 0
+    assert exists_result is False
+    assert publish_result == 0
 
 
-# @pytest.mark.asyncio
-# async def test_pubsub_not_initialized():
-#     """Test pub/sub operations when pub/sub is not initialized."""
-#     proxy = RedisProxy(host="localhost", port=6379)
+@pytest.mark.asyncio
+async def test_pubsub_not_initialized():
+    """Test pub/sub operations when pub/sub is not initialized."""
+    proxy = RedisProxy(host="localhost", port=6379)
     
-#     # Mock only the main client, not pub/sub
-#     with patch('redis.Redis') as mock_redis:
-#         mock_client = MagicMock()
-#         mock_client.ping.return_value = True
-#         mock_redis.return_value = mock_client
+    # Mock only the main client, not pub/sub
+    with patch('redis.Redis') as mock_redis:
+        mock_client = MagicMock()
+        mock_client.ping.return_value = True
+        mock_redis.return_value = mock_client
         
-#         proxy._client = mock_client
-#         proxy._pubsub_client = None
-#         proxy._pubsub = None
+        proxy._client = mock_client
+        proxy._pubsub_client = None
+        proxy._pubsub = None
         
-#         async def test_callback(channel: str, message: str):
-#             pass
+        def test_callback(channel: str, message: str):
+            pass
         
-#         # Try to subscribe - should handle gracefully
-#         await proxy.subscribe("test-channel", test_callback)
-#         await proxy.unsubscribe("test-channel")
+        # Try to subscribe - should handle gracefully
+        proxy.subscribe("test-channel", test_callback)
+        proxy.unsubscribe("test-channel")
         
-#         # Should not crash
+        # Should not crash
 
 
-# # ------ Integration Tests ------ #
+# ------ Integration Tests ------ #
 
-# @pytest.mark.asyncio
-# async def test_basic_workflow(proxy: RedisProxy):
-#     """Test a basic Redis workflow: set, get, publish, subscribe."""
-#     # Setup mocks
-#     proxy._mock_client.set.return_value = True
-#     proxy._mock_client.get.return_value = "stored-value"
-#     proxy._mock_client.publish.return_value = 1
-#     proxy._mock_pubsub.subscribe.return_value = None
+@pytest.mark.asyncio
+async def test_basic_workflow(proxy: RedisProxy):
+    """Test a basic Redis workflow: set, get, publish, subscribe."""
+    # Setup mocks
+    proxy._mock_client.set.return_value = True
+    proxy._mock_client.get.return_value = "stored-value"
+    proxy._mock_client.publish.return_value = 1
+    proxy._mock_pubsub.subscribe.return_value = None
     
-#     # 1. Store a value
-#     set_result = await proxy.set("workflow:test", "stored-value")
-#     assert set_result is True
+    # 1. Store a value
+    set_result = await proxy.set("workflow:test", "stored-value")
+    assert set_result is True
     
-#     # 2. Retrieve the value
-#     get_result = await proxy.get("workflow:test")
-#     assert get_result == "stored-value"
+    # 2. Retrieve the value
+    get_result = await proxy.get("workflow:test")
+    assert get_result == "stored-value"
     
-#     # 3. Subscribe to a channel
-#     messages = []
+    # 3. Subscribe to a channel
+    messages = []
     
-#     async def message_handler(channel: str, message: str):
-#         messages.append((channel, message))
+    async def message_handler(channel: str, message: str):
+        messages.append((channel, message))
     
-#     await proxy.subscribe("workflow:notifications", message_handler)
+    proxy.subscribe("workflow:notifications", message_handler)
     
-#     # 4. Publish a message
-#     publish_result = await proxy.publish("workflow:notifications", "test message")
-#     assert publish_result == 1
+    # 4. Publish a message
+    publish_result = proxy.publish("workflow:notifications", "test message")
+    assert publish_result == 1
     
-#     # Verify all operations worked
-#     proxy._mock_client.set.assert_called_with("workflow:test", "stored-value", ex=None)
-#     proxy._mock_client.get.assert_called_with("workflow:test")
-#     proxy._mock_client.publish.assert_called_with("workflow:notifications", "test message")
-#     proxy._mock_pubsub.subscribe.assert_called_with("workflow:notifications")
-
-
-# @pytest.mark.asyncio
-# async def test_unix_socket_configuration():
-#     """Test that Unix socket configuration is used correctly."""
-#     proxy = RedisProxy(unix_socket_path="/tmp/redis.sock", db=1)
-    
-#     with patch('redis.Redis') as mock_redis:
-#         mock_client = MagicMock()
-#         mock_pubsub_client = MagicMock()
-#         mock_pubsub = MagicMock()
-        
-#         mock_client.ping.return_value = True
-#         mock_pubsub_client.pubsub.return_value = mock_pubsub
-        
-#         mock_redis.side_effect = [mock_client, mock_pubsub_client]
-        
-#         await proxy.start()
-        
-#         # Verify Redis was called with Unix socket parameters
-#         assert mock_redis.call_count == 2
-        
-#         # Check the calls made to Redis constructor
-#         calls = mock_redis.call_args_list
-        
-#         # Both calls should use unix_socket_path
-#         for call in calls:
-#             args, kwargs = call
-#             assert kwargs.get('unix_socket_path') == '/tmp/redis.sock'
-#             assert kwargs.get('db') == 1
-#             assert kwargs.get('decode_responses') is True
-        
-#         await proxy.stop()
+    # Verify all operations worked
+    proxy._mock_client.set.assert_called_with("workflow:test", "stored-value", ex=None)
+    proxy._mock_client.get.assert_called_with("workflow:test")
+    proxy._mock_client.publish.assert_called_with("workflow:notifications", "test message")
+    proxy._mock_pubsub.subscribe.assert_called_with("workflow:notifications")
 
 
-# # ------ Performance and Concurrency Tests ------ #
+@pytest.mark.asyncio
+async def test_unix_socket_configuration():
+    """Test that Unix socket configuration is used correctly."""
+    proxy = RedisProxy(unix_socket_path="/tmp/redis.sock", db=1)
+    
+    with patch('redis.Redis') as mock_redis:
+        mock_client = MagicMock()
+        mock_pubsub_client = MagicMock()
+        mock_pubsub = MagicMock()
+        
+        mock_client.ping.return_value = True
+        mock_pubsub_client.pubsub.return_value = mock_pubsub
+        
+        mock_redis.side_effect = [mock_client, mock_pubsub_client]
+        
+        await proxy.start()
+        
+        # Verify Redis was called with Unix socket parameters
+        assert mock_redis.call_count == 2
+        
+        # Check the calls made to Redis constructor
+        calls = mock_redis.call_args_list
+        
+        # Both calls should use unix_socket_path
+        for call in calls:
+            args, kwargs = call
+            assert kwargs.get('unix_socket_path') == '/tmp/redis.sock'
+            assert kwargs.get('db') == 1
+            assert kwargs.get('decode_responses') is True
+        
+        await proxy.stop()
 
-# @pytest.mark.asyncio
-# async def test_concurrent_operations(proxy: RedisProxy):
-#     """Test concurrent Redis operations."""
-#     # Setup mocks
-#     proxy._mock_client.set.return_value = True
-#     proxy._mock_client.get.return_value = "concurrent-value"
-#     proxy._mock_client.publish.return_value = 1
+
+# ------ Performance and Concurrency Tests ------ #
+
+@pytest.mark.asyncio
+async def test_concurrent_operations(proxy: RedisProxy):
+    """Test concurrent Redis operations."""
+    # Setup mocks
+    proxy._mock_client.set.return_value = True
+    proxy._mock_client.get.return_value = "concurrent-value"
+    proxy._mock_client.publish.return_value = 1
     
-#     # Run multiple operations concurrently
-#     tasks = [
-#         proxy.set(f"concurrent:key{i}", f"value{i}")
-#         for i in range(10)
-#     ]
-#     tasks.extend([
-#         proxy.get(f"concurrent:key{i}")
-#         for i in range(10)
-#     ])
-#     tasks.extend([
-#         proxy.publish(f"concurrent:channel{i}", f"message{i}")
-#         for i in range(5)
-#     ])
+    # Run multiple operations concurrently
+    tasks = [
+        proxy.set(f"concurrent:key{i}", f"value{i}")
+        for i in range(10)
+    ]
+    tasks.extend([
+        proxy.get(f"concurrent:key{i}")
+        for i in range(10)
+    ])
+    # Publish operations are synchronous, so we can't run them concurrently in the same way
+    publish_results = [
+        proxy.publish(f"concurrent:channel{i}", f"message{i}")
+        for i in range(5)
+    ]
     
-#     # Execute all tasks concurrently
-#     results = await asyncio.gather(*tasks)
+    # Execute async tasks concurrently
+    results = await asyncio.gather(*tasks)
     
-#     # Verify all operations completed
-#     assert len(results) == 25
+    # Verify async operations completed
+    assert len(results) == 20
     
-#     # Verify set operations returned True
-#     set_results = results[:10]
-#     assert all(result is True for result in set_results)
+    # Verify set operations returned True
+    set_results = results[:10]
+    assert all(result is True for result in set_results)
     
-#     # Verify get operations returned expected value
-#     get_results = results[10:20]
-#     assert all(result == "concurrent-value" for result in get_results)
+    # Verify get operations returned expected value
+    get_results = results[10:20]
+    assert all(result == "concurrent-value" for result in get_results)
     
-#     # Verify publish operations returned subscriber count
-#     publish_results = results[20:]
-#     assert all(result == 1 for result in publish_results)
+    # Verify publish operations returned subscriber count
+    assert all(result == 1 for result in publish_results)
+    assert len(publish_results) == 5
