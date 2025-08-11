@@ -329,8 +329,8 @@ class RedisProxy(BaseProxy):
             # )
             self._pubsub.subscribe(channel)
             # Start listening if not already started
-            if not self._subscription_task:
-                self._subscription_task = asyncio.create_task(self._listen_for_messages())
+            if not self._subscription_task and self._loop:
+                self._subscription_task = self._loop.create_task(self._listen_for_messages())
                 
             self.log.info(f"Subscribed to channel: {channel}")
         except Exception as e:
@@ -365,8 +365,8 @@ class RedisProxy(BaseProxy):
         try:
             self._pubsub_pattern.psubscribe(pattern)
             # Start listening if not already started
-            if not self._pattern_subscription_task:
-                self._pattern_subscription_task = asyncio.create_task(self._listen_for_pattern_messages())
+            if not self._pattern_subscription_task and self._loop:
+                self._pattern_subscription_task = self._loop.create_task(self._listen_for_pattern_messages())
             self.log.info(f"Subscribed to pattern: {pattern}")
         except Exception as e:
             self.log.error(f"Error subscribing to pattern {pattern}: {e}")
