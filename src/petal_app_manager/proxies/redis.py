@@ -18,33 +18,6 @@ import time
 from .base import BaseProxy
 
 
-def setup_file_only_logger(name: str, log_file: str, level: str = "INFO") -> logging.Logger:
-    """Setup a logger that only writes to files, not console."""
-    logger = logging.getLogger(name)
-    logger.setLevel(getattr(logging, level.upper()))
-    
-    # Clear any existing handlers to avoid console output
-    logger.handlers.clear()
-    
-    # Create file handler
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setLevel(getattr(logging, level.upper()))
-    
-    # Create formatter
-    formatter = logging.Formatter(
-        '%(asctime)s — %(name)s — %(levelname)s — %(message)s'
-    )
-    file_handler.setFormatter(formatter)
-    
-    # Add handler to logger
-    logger.addHandler(file_handler)
-    
-    # Prevent propagation to root logger (which might log to console)
-    logger.propagate = False
-    
-    return logger
-
-
 class RedisProxy(BaseProxy):
     """
     Simple Redis proxy for pub/sub messaging and key-value operations.
@@ -85,7 +58,7 @@ class RedisProxy(BaseProxy):
         self._pattern_subscription_task = None
         self._current_pattern = None
         # Set up file-only logging
-        self.log = setup_file_only_logger("RedisProxy", "app-redisproxy.log", "INFO")
+        self.log = logging.getLogger("RedisProxy")
         
         # Shutdown flag to control infinite loops
         self._shutdown_flag = False
@@ -421,7 +394,7 @@ class RedisProxy(BaseProxy):
                     if channel in self._pattern_callbacks:
                         callback = self._pattern_callbacks[channel]
                         try:
-                            await callback(channel, data)
+                            callback(channel, data)
                             self.log.info(f"Pattern callback executed for channel: {channel}")
                         except Exception as e:
                             self.log.error(f"Error in pattern callback for channel {channel}: {e}")
@@ -453,7 +426,7 @@ class RedisProxy(BaseProxy):
                     callback = self._subscriptions.get(channel)
                     if callback:
                         try:
-                            await callback(channel, data)
+                            callback(channel, data)
                             self.log.info(f"Callback executed for channel: {channel}")
                         except Exception as cb_err:
                             self.log.error(f"Error in callback for channel {channel}: {cb_err}")

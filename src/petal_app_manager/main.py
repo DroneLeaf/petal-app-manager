@@ -71,6 +71,7 @@ def build_app(
             "leafsdk",              # leaf-SDK core
         ),
         log_to_file=log_to_file,
+        level_outputs=Config.get_log_level_outputs(),
     )
     logger.info("Starting Petal App Manager")
     
