@@ -350,8 +350,7 @@ class S3BucketProxy(BaseProxy):
         
         # Ensure we have a valid S3 client
         try:
-            if not self.s3_client:
-                await self._refresh_s3_client()
+            await self._refresh_s3_client()
             return await self._loop.run_in_executor(self._exe, _upload)
         except Exception as e:
             return {"error": f"Client initialization failed: {str(e)}"}
@@ -420,8 +419,7 @@ class S3BucketProxy(BaseProxy):
         
         # Ensure we have a valid S3 client
         try:
-            if not self.s3_client:
-                await self._refresh_s3_client()
+            await self._refresh_s3_client()
             return await self._loop.run_in_executor(self._exe, _list)
         except Exception as e:
             return {"error": f"Client initialization failed: {str(e)}"}
@@ -478,8 +476,7 @@ class S3BucketProxy(BaseProxy):
         
         # Ensure we have a valid S3 client
         try:
-            if not self.s3_client:
-                await self._refresh_s3_client()
+            await self._refresh_s3_client()
             return await self._loop.run_in_executor(self._exe, _download)
         except Exception as e:
             return {"error": f"Client initialization failed: {str(e)}"}
@@ -523,8 +520,7 @@ class S3BucketProxy(BaseProxy):
         
         # Ensure we have a valid S3 client
         try:
-            if not self.s3_client:
-                await self._refresh_s3_client()
+            await self._refresh_s3_client()
             return await self._loop.run_in_executor(self._exe, _delete)
         except Exception as e:
             return {"error": f"Client initialization failed: {str(e)}"}
