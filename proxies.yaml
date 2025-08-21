@@ -1,0 +1,28 @@
+
+enabled_proxies:
+  - redis
+  - db
+  - bucket
+  - cloud
+  - ext_mavlink
+  - ftp_mavlink
+
+
+enabled_petals:
+  - petal_warehouse
+  - flight_records
+  - mission_planner
+
+petal_dependencies:
+  petal_warehouse:
+    - redis
+    - ext_mavlink
+  flight_records:
+    - redis
+    - cloud
+  mission_planner:
+    - redis
+    - ext_mavlink
+
+# To disable a proxy, remove it from the list or comment it out.
+# Your UI can update this file and trigger a reload in the backend.

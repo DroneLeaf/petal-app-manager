@@ -13,6 +13,7 @@ import os
 import dotenv
 
 import json
+import yaml
 
 from contextlib import asynccontextmanager
 from . import Config
@@ -89,23 +90,31 @@ def build_app(
         allow_methods=["*"],  # Allow all methods
         allow_headers=["*"],  # Allow all headers
     )
+    # ---------- load enabled proxies from YAML ----------
+    proxies_yaml_path = os.path.join(Path(__file__).parent.parent.parent, "proxies.yaml")
+    with open(proxies_yaml_path, "r") as f:
+        proxies_config = yaml.safe_load(f)
+    enabled_proxies = set(proxies_config.get("enabled_proxies") or [])
 
     # ---------- start proxies ----------
-    # Create LocalDBProxy first since S3BucketProxy depends on it
-    proxies = {
-        "ext_mavlink": MavLinkExternalProxy(
+    proxies = {}
+
+    if "ext_mavlink" in enabled_proxies:
+        proxies["ext_mavlink"] = MavLinkExternalProxy(
             endpoint=Config.MAVLINK_ENDPOINT,
             baud=Config.MAVLINK_BAUD,
             maxlen=Config.MAVLINK_MAXLEN
-        ),
-        "redis"  : RedisProxy(
+        )
+    if "redis" in enabled_proxies:
+        proxies["redis"] = RedisProxy(
             host=Config.REDIS_HOST,
             port=Config.REDIS_PORT,
             db=Config.REDIS_DB,
             password=Config.REDIS_PASSWORD,
             unix_socket_path=Config.REDIS_UNIX_SOCKET_PATH,
-        ),
-        "db" : LocalDBProxy(
+        )
+    if "db" in enabled_proxies:
+        proxies["db"] = LocalDBProxy(
             host=Config.LOCAL_DB_HOST,
             port=Config.LOCAL_DB_PORT,
             get_data_url=Config.GET_DATA_URL,
@@ -113,27 +122,28 @@ def build_app(
             update_data_url=Config.UPDATE_DATA_URL,
             set_data_url=Config.SET_DATA_URL,
         )
-    }
-
-    proxies["bucket"] = S3BucketProxy(
-        session_token_url=Config.SESSION_TOKEN_URL,
-        bucket_name=Config.S3_BUCKET_NAME,
-        local_db_proxy=proxies["db"],
-        upload_prefix="flight_logs/"
-    )
-    proxies["cloud"] = CloudDBProxy(
-        endpoint=Config.CLOUD_ENDPOINT,
-        local_db_proxy=proxies["db"],
-        access_token_url=Config.ACCESS_TOKEN_URL,
-        session_token_url=Config.SESSION_TOKEN_URL,
-        s3_bucket_name=Config.S3_BUCKET_NAME,
-        get_data_url=Config.GET_DATA_URL,
-        scan_data_url=Config.SCAN_DATA_URL,
-        update_data_url=Config.UPDATE_DATA_URL,
-        set_data_url=Config.SET_DATA_URL,
-    )
-    
-    proxies["ftp_mavlink"] = MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
+    # S3BucketProxy and CloudDBProxy depend on db
+    if "bucket" in enabled_proxies and "db" in proxies:
+        proxies["bucket"] = S3BucketProxy(
+            session_token_url=Config.SESSION_TOKEN_URL,
+            bucket_name=Config.S3_BUCKET_NAME,
+            local_db_proxy=proxies["db"],
+            upload_prefix="flight_logs/"
+        )
+    if "cloud" in enabled_proxies and "db" in proxies:
+        proxies["cloud"] = CloudDBProxy(
+            endpoint=Config.CLOUD_ENDPOINT,
+            local_db_proxy=proxies["db"],
+            access_token_url=Config.ACCESS_TOKEN_URL,
+            session_token_url=Config.SESSION_TOKEN_URL,
+            s3_bucket_name=Config.S3_BUCKET_NAME,
+            get_data_url=Config.GET_DATA_URL,
+            scan_data_url=Config.SCAN_DATA_URL,
+            update_data_url=Config.UPDATE_DATA_URL,
+            set_data_url=Config.SET_DATA_URL,
+        )
+    if "ftp_mavlink" in enabled_proxies and "ext_mavlink" in proxies:
+        proxies["ftp_mavlink"] = MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
 
     for p in proxies.values():
         app.add_event_handler("startup", p.start)

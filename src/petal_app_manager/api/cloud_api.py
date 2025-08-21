@@ -62,6 +62,13 @@ async def scan_table(request: ScanTableRequest) -> Dict[str, Any]:
     proxies = get_proxies()
     logger = get_logger()
 
+    if "cloud" not in proxies:
+        logger.error("CloudDBProxy is not enabled. Please enable 'cloud' in proxies.yaml.")
+        raise HTTPException(
+            status_code=503,
+            detail="CloudDBProxy is not enabled. Please enable 'cloud' in proxies.yaml."
+        )
+
     cloud_proxy: CloudDBProxy = proxies["cloud"]
 
     # get table name from request data
@@ -119,6 +126,13 @@ async def get_item(request: GetItemRequest) -> Dict[str, Any]:
     """Get a specific item from the cloud database."""
     proxies = get_proxies()
     logger = get_logger()
+
+    if "cloud" not in proxies:
+        logger.error("CloudDBProxy is not enabled. Please enable 'cloud' in proxies.yaml.")
+        raise HTTPException(
+            status_code=503,
+            detail="CloudDBProxy is not enabled. Please enable 'cloud' in proxies.yaml."
+        )
 
     cloud_proxy: CloudDBProxy = proxies["cloud"]
 
@@ -179,6 +193,13 @@ async def set_item(request: SetItemRequest) -> Dict[str, Any]:
     proxies = get_proxies()
     logger = get_logger()
 
+    if "cloud" not in proxies:
+        logger.error("CloudDBProxy is not enabled. Please enable 'cloud' in proxies.yaml.")
+        raise HTTPException(
+            status_code=503,
+            detail="CloudDBProxy is not enabled. Please enable 'cloud' in proxies.yaml."
+        )
+
     cloud_proxy: CloudDBProxy = proxies["cloud"]
 
     if not request.table_name or not request.item_data:
@@ -233,6 +254,13 @@ async def update_item(request: UpdateItemRequest) -> Dict[str, Any]:
     proxies = get_proxies()
     logger = get_logger()
 
+    if "cloud" not in proxies:
+        logger.error("CloudDBProxy is not enabled. Please enable 'cloud' in proxies.yaml.")
+        raise HTTPException(
+            status_code=503,
+            detail="CloudDBProxy is not enabled. Please enable 'cloud' in proxies.yaml."
+        )
+
     cloud_proxy: CloudDBProxy = proxies["cloud"]
 
     if not request.table_name or not request.key_name or not request.key_value or not request.update_data:
@@ -284,6 +312,13 @@ async def delete_item(request: GetItemRequest) -> Dict[str, Any]:
     """Delete an item from the cloud database."""
     proxies = get_proxies()
     logger = get_logger()
+
+    if "cloud" not in proxies:
+        logger.error("CloudDBProxy is not enabled. Please enable 'cloud' in proxies.yaml.")
+        raise HTTPException(
+            status_code=503,
+            detail="CloudDBProxy is not enabled. Please enable 'cloud' in proxies.yaml."
+        )
 
     cloud_proxy: CloudDBProxy = proxies["cloud"]
 
