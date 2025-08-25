@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware  # Add this import
 from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy
 
 from .plugins.loader import load_petals
-from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api
+from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, config_api
 from . import api
 import logging
 
@@ -95,55 +95,92 @@ def build_app(
     with open(proxies_yaml_path, "r") as f:
         proxies_config = yaml.safe_load(f)
     enabled_proxies = set(proxies_config.get("enabled_proxies") or [])
+    proxy_dependencies = proxies_config.get("proxy_dependencies", {})
 
     # ---------- start proxies ----------
     proxies = {}
 
-    if "ext_mavlink" in enabled_proxies:
-        proxies["ext_mavlink"] = MavLinkExternalProxy(
-            endpoint=Config.MAVLINK_ENDPOINT,
-            baud=Config.MAVLINK_BAUD,
-            maxlen=Config.MAVLINK_MAXLEN
-        )
-    if "redis" in enabled_proxies:
-        proxies["redis"] = RedisProxy(
-            host=Config.REDIS_HOST,
-            port=Config.REDIS_PORT,
-            db=Config.REDIS_DB,
-            password=Config.REDIS_PASSWORD,
-            unix_socket_path=Config.REDIS_UNIX_SOCKET_PATH,
-        )
-    if "db" in enabled_proxies:
-        proxies["db"] = LocalDBProxy(
-            host=Config.LOCAL_DB_HOST,
-            port=Config.LOCAL_DB_PORT,
-            get_data_url=Config.GET_DATA_URL,
-            scan_data_url=Config.SCAN_DATA_URL,
-            update_data_url=Config.UPDATE_DATA_URL,
-            set_data_url=Config.SET_DATA_URL,
-        )
-    # S3BucketProxy and CloudDBProxy depend on db
-    if "bucket" in enabled_proxies and "db" in proxies:
-        proxies["bucket"] = S3BucketProxy(
-            session_token_url=Config.SESSION_TOKEN_URL,
-            bucket_name=Config.S3_BUCKET_NAME,
-            local_db_proxy=proxies["db"],
-            upload_prefix="flight_logs/"
-        )
-    if "cloud" in enabled_proxies and "db" in proxies:
-        proxies["cloud"] = CloudDBProxy(
-            endpoint=Config.CLOUD_ENDPOINT,
-            local_db_proxy=proxies["db"],
-            access_token_url=Config.ACCESS_TOKEN_URL,
-            session_token_url=Config.SESSION_TOKEN_URL,
-            s3_bucket_name=Config.S3_BUCKET_NAME,
-            get_data_url=Config.GET_DATA_URL,
-            scan_data_url=Config.SCAN_DATA_URL,
-            update_data_url=Config.UPDATE_DATA_URL,
-            set_data_url=Config.SET_DATA_URL,
-        )
-    if "ftp_mavlink" in enabled_proxies and "ext_mavlink" in proxies:
-        proxies["ftp_mavlink"] = MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
+    # Helper function to check if proxy dependencies are met
+    def can_load_proxy(proxy_name, loaded_proxies, dependencies):
+        required_deps = dependencies.get(proxy_name, [])
+        return all(dep in loaded_proxies for dep in required_deps)
+
+    # Load proxies in dependency order
+    remaining_proxies = enabled_proxies.copy()
+    max_iterations = len(remaining_proxies) * 2  # Prevent infinite loop
+    iteration = 0
+    
+    while remaining_proxies and iteration < max_iterations:
+        iteration += 1
+        loaded_this_iteration = []
+        
+        for proxy_name in list(remaining_proxies):
+            if can_load_proxy(proxy_name, proxies, proxy_dependencies):
+                if proxy_name == "ext_mavlink":
+                    proxies["ext_mavlink"] = MavLinkExternalProxy(
+                        endpoint=Config.MAVLINK_ENDPOINT,
+                        baud=Config.MAVLINK_BAUD,
+                        maxlen=Config.MAVLINK_MAXLEN
+                    )
+                elif proxy_name == "redis":
+                    proxies["redis"] = RedisProxy(
+                        host=Config.REDIS_HOST,
+                        port=Config.REDIS_PORT,
+                        db=Config.REDIS_DB,
+                        password=Config.REDIS_PASSWORD,
+                        unix_socket_path=Config.REDIS_UNIX_SOCKET_PATH,
+                    )
+                elif proxy_name == "cloud":
+                    proxies["cloud"] = CloudDBProxy(
+                        endpoint=Config.CLOUD_ENDPOINT,
+                        local_db_proxy=proxies.get("db"),  # May be None if db not loaded
+                        access_token_url=Config.ACCESS_TOKEN_URL,
+                        session_token_url=Config.SESSION_TOKEN_URL,
+                        s3_bucket_name=Config.S3_BUCKET_NAME,
+                        get_data_url=Config.GET_DATA_URL,
+                        scan_data_url=Config.SCAN_DATA_URL,
+                        update_data_url=Config.UPDATE_DATA_URL,
+                        set_data_url=Config.SET_DATA_URL,
+                    )
+                elif proxy_name == "db" and "cloud" in proxies:
+                    proxies["db"] = LocalDBProxy(
+                        host=Config.LOCAL_DB_HOST,
+                        port=Config.LOCAL_DB_PORT,
+                        get_data_url=Config.GET_DATA_URL,
+                        scan_data_url=Config.SCAN_DATA_URL,
+                        update_data_url=Config.UPDATE_DATA_URL,
+                        set_data_url=Config.SET_DATA_URL,
+                    )
+                elif proxy_name == "bucket" and "cloud" in proxies:
+                    proxies["bucket"] = S3BucketProxy(
+                        session_token_url=Config.SESSION_TOKEN_URL,
+                        bucket_name=Config.S3_BUCKET_NAME,
+                        local_db_proxy=proxies.get("db"),  # May be None if db not loaded
+                        upload_prefix="flight_logs/"
+                    )
+                elif proxy_name == "ftp_mavlink" and "ext_mavlink" in proxies:
+                    proxies["ftp_mavlink"] = MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
+                
+                loaded_this_iteration.append(proxy_name)
+                logger.info(f"Loaded proxy: {proxy_name}")
+        
+        # Remove loaded proxies from remaining list
+        for proxy_name in loaded_this_iteration:
+            remaining_proxies.discard(proxy_name)
+        
+        # If no proxies were loaded this iteration, we're stuck
+        if not loaded_this_iteration:
+            break
+    
+    # Log any proxies that couldn't be loaded due to missing dependencies
+    if remaining_proxies:
+        for proxy_name in remaining_proxies:
+            required_deps = proxy_dependencies.get(proxy_name, [])
+            missing_deps = [dep for dep in required_deps if dep not in proxies]
+            if missing_deps:
+                logger.error(f"Cannot load {proxy_name}: missing proxy dependencies {missing_deps}")
+            else:
+                logger.warning(f"Cannot load {proxy_name}: unknown proxy type or circular dependency")
 
     for p in proxies.values():
         app.add_event_handler("startup", p.start)
@@ -168,6 +205,10 @@ def build_app(
     # Configure MAVLink FTP API with proxy instances
     mavftp_api._set_logger(api_logger)  # Set the logger for MAVLink FTP API endpoints
     app.include_router(mavftp_api.router, prefix="/mavftp")
+    
+    # Configure configuration management API
+    config_api._set_logger(api_logger)  # Set the logger for configuration API endpoints
+    app.include_router(config_api.router)
 
     # ---------- dynamic plugins ----------
     # Set up the logger for the plugins loader
