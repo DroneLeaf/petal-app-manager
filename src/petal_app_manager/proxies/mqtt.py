@@ -322,6 +322,73 @@ class MQTTProxy(BaseProxy):
         import fnmatch
         return fnmatch.fnmatch(topic, pattern)
 
+    async def _subscribe_to_topic(self, topic: str, callback: Optional[Callable[[str, Dict[str, Any]], Awaitable[None]]] = None) -> bool:
+        """Subscribe to an MQTT topic via TypeScript client."""            
+        try:
+            request_data = {
+                "topic": topic,
+                "callbackUrl": self.callback_url if self.enable_callbacks else None
+            }
+            
+            result = await self._make_ts_request("POST", "/subscribe", request_data)
+            
+            if "error" in result:
+                self.log.error(f"Failed to subscribe to {topic}: {result['error']}")
+                return False
+            
+            # Store callback if provided
+            if callback:
+                self._subscriptions[topic] = callback
+            
+            self.subscribed_topics.add(topic)
+
+            self.log.info(f"Subscribed to topic: {topic}")
+            return True
+            
+        except Exception as e:
+            self.log.error(f"Error subscribing to {topic}: {e}")
+            return False
+
+    async def _subscribe_to_device_topics(self):
+        """Subscribe to common device topics automatically."""
+        if not self.organization_id or not self.device_id:
+            self.log.warning("Cannot subscribe to device topics: missing org or device ID")
+            return
+
+        # Default topics to subscribe to
+        topics = [
+            f"org/{self.organization_id}/device/{self.device_id}/command",
+            f"org/{self.organization_id}/device/{self.device_id}/response",
+        ]
+
+        for topic in topics:
+            success = await self._subscribe_to_topic(topic, self._default_message_handler)
+            if success:
+                self.log.info(f"Auto-subscribed to device topic: {topic}")
+
+    async def _default_message_handler(self, topic: str, payload: Dict[str, Any]):
+        """Default message handler for device topics."""
+        self.log.info(f"Received message on {topic}: {payload}")
+        
+        # Handle command messages
+        if topic.endswith('/command'):
+            await self._process_command(topic, payload)
+        
+    async def _process_command(self, topic: str, payload: Dict[str, Any]):
+        """Enhanced command processing."""
+        command_type = payload.get('command')
+        message_id = payload.get('messageId', 'unknown')
+
+        # Log command for audit
+        self.log.info(f"Processing command: {payload}")
+
+        # Send response back
+        response_topic = topic.replace('/command', '/response')
+        await self.send_command_response(response_topic, message_id, {
+            'status': 'success',
+            'timestamp': datetime.now().isoformat()
+        })
+
     # ------ Public API methods ------ #
     
     async def publish_message(self, topic: str, payload: Dict[str, Any], qos: int = 1) -> bool:
@@ -349,33 +416,6 @@ class MQTTProxy(BaseProxy):
             
         except Exception as e:
             self.log.error(f"Error publishing message to {topic}: {e}")
-            return False
-
-    async def _subscribe_to_topic(self, topic: str, callback: Optional[Callable[[str, Dict[str, Any]], Awaitable[None]]] = None) -> bool:
-        """Subscribe to an MQTT topic via TypeScript client."""            
-        try:
-            request_data = {
-                "topic": topic,
-                "callbackUrl": self.callback_url if self.enable_callbacks else None
-            }
-            
-            result = await self._make_ts_request("POST", "/subscribe", request_data)
-            
-            if "error" in result:
-                self.log.error(f"Failed to subscribe to {topic}: {result['error']}")
-                return False
-            
-            # Store callback if provided
-            if callback:
-                self._subscriptions[topic] = callback
-            
-            self.subscribed_topics.add(topic)
-
-            self.log.info(f"Subscribed to topic: {topic}")
-            return True
-            
-        except Exception as e:
-            self.log.error(f"Error subscribing to {topic}: {e}")
             return False
 
     async def subscribe_to_topic(self, topic: str, callback: Optional[Callable[[str, Dict[str, Any]], Awaitable[None]]] = None) -> bool:
@@ -421,46 +461,6 @@ class MQTTProxy(BaseProxy):
         if pattern in self._subscription_patterns:
             del self._subscription_patterns[pattern]
             self.log.info(f"Removed pattern subscription: {pattern}")
-
-    async def _subscribe_to_device_topics(self):
-        """Subscribe to common device topics automatically."""
-        if not self.organization_id or not self.device_id:
-            self.log.warning("Cannot subscribe to device topics: missing org or device ID")
-            return
-
-        # Default topics to subscribe to
-        topics = [
-            f"org/{self.organization_id}/device/{self.device_id}/command",
-            f"org/{self.organization_id}/device/{self.device_id}/response",
-        ]
-
-        for topic in topics:
-            success = await self._subscribe_to_topic(topic, self._default_message_handler)
-            if success:
-                self.log.info(f"Auto-subscribed to device topic: {topic}")
-
-    async def _default_message_handler(self, topic: str, payload: Dict[str, Any]):
-        """Default message handler for device topics."""
-        self.log.info(f"Received message on {topic}: {payload}")
-        
-        # Handle command messages
-        if topic.endswith('/command'):
-            await self._process_command(topic, payload)
-        
-    async def _process_command(self, topic: str, payload: Dict[str, Any]):
-        """Enhanced command processing."""
-        command_type = payload.get('command')
-        message_id = payload.get('messageId', 'unknown')
-
-        # Log command for audit
-        self.log.info(f"Processing command: {payload}")
-
-        # Send response back
-        response_topic = topic.replace('/command', '/response')
-        await self.send_command_response(response_topic, message_id, {
-            'status': 'success',
-            'timestamp': datetime.now().isoformat()
-        })
 
     async def send_command_response(self, response_topic: str, message_id: str, response_data: Dict[str, Any]) -> bool:
         """Send a command response."""
