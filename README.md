@@ -74,13 +74,42 @@ uvicorn petal_app_manager.main:app --port 9000
 > create a `.env` file and place it in the project root directory
 > Below is a list of some other useful parameters
 > ```ini
+> # .env file for Petal App Manager configuration
+> # General configuration
 > PETAL_LOG_LEVEL=INFO
 > PETAL_LOG_TO_FILE=true
+> # MAVLink configuration
 > MAVLINK_ENDPOINT=udp:127.0.0.1:14551
 > MAVLINK_BAUD=115200
 > MAVLINK_MAXLEN=200
-> MAVLINK_WORKER_SLEEP_MS=None
+> MAVLINK_WORKER_SLEEP_MS=1
 > MAVLINK_HEARTBEAT_SEND_FREQUENCY=5.0
+> # Cloud configuration
+> ACCESS_TOKEN_URL=http://localhost:3001/session-manager/access-token
+> SESSION_TOKEN_URL=http://localhost:3001/session-manager/session-token
+> S3_BUCKET_NAME=devhube21f2631b51e4fa69c771b1e8107b21cb431a-dev
+> CLOUD_ENDPOINT=https://api.droneleaf.io
+> # Local database configuration
+> LOCAL_DB_HOST=localhost
+> LOCAL_DB_PORT=3000
+> # Redis configuration
+> REDIS_HOST=localhost
+> REDIS_PORT=6379
+> REDIS_DB=0
+> REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis-server.sock
+> # Data operations URLs
+> GET_DATA_URL=/drone/onBoard/config/getData
+> SCAN_DATA_URL=/drone/onBoard/config/scanData
+> UPDATE_DATA_URL=/drone/onBoard/config/updateData
+> SET_DATA_URL=/drone/onBoard/config/setData
+> # MQTT client
+> TS_CLIENT_HOST=localhost
+> TS_CLIENT_PORT=3004
+> CALLBACK_HOST=localhost
+> CALLBACK_PORT=3005
+> LOG_LEVEL=INFO
+> POLL_INTERVAL=1.0
+> ENABLE_CALLBACKS=true
 > ```
 
 ### Development Installation (recommended for developers)

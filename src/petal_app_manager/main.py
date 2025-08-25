@@ -64,6 +64,7 @@ def build_app(
             "mavlinkftpproxy",        # also covers mavlinkftpproxy.blockingparser
             "redisproxy",
             "clouddbproxy",
+            "mqttproxy",
             "s3bucketproxy",
             "pluginsloader",
             # external “petal_*” plug-ins and friends
