@@ -9,6 +9,7 @@ from ..proxies.localdb import LocalDBProxy
 from ..proxies.external import MavLinkExternalProxy
 from ..proxies.cloud import CloudDBProxy
 from ..proxies.bucket import S3BucketProxy
+from ..proxies.mqtt import MQTTProxy
 from ..api import get_proxies
 
 router = APIRouter(tags=["health"])
@@ -144,6 +145,23 @@ async def detailed_health_check():
                 "status": "error",
                 "error": str(e),
                 "details": "Failed to check S3 Bucket proxy status"
+            }
+            overall_healthy = False
+    
+    # Check MQTT proxy
+    if "mqtt" in proxies:
+        mqtt_proxy = proxies["mqtt"]
+        try:
+            mqtt_status = await _check_mqtt_proxy(mqtt_proxy)
+            health_status["proxies"]["mqtt"] = mqtt_status
+            if mqtt_status["status"] != "healthy":
+                overall_healthy = False
+        except Exception as e:
+            logger.error(f"Error checking MQTT proxy health: {e}")
+            health_status["proxies"]["mqtt"] = {
+                "status": "error",
+                "error": str(e),
+                "details": "Failed to check MQTT proxy status"
             }
             overall_healthy = False
     
@@ -508,4 +526,40 @@ async def _check_bucket_proxy(proxy: S3BucketProxy) -> Dict[str, Any]:
                 "credentials_cached": False,
                 "error": "Health check failed"
             }
+        }
+
+async def _check_mqtt_proxy(proxy: MQTTProxy) -> Dict[str, Any]:
+    """Check MQTT proxy health."""
+    logger = get_logger()
+    try:
+        # Use the proxy's built-in health check method
+        health_status = await proxy.health_check()
+        
+        if health_status.get("status") == "healthy":
+            return {
+                "status": "healthy",
+                "connection": health_status.get("connection", {}),
+                "configuration": health_status.get("configuration", {}),
+                "subscriptions": health_status.get("subscriptions", {}),
+                "device_info": health_status.get("device_info", {})
+            }
+        else:
+            return {
+                "status": "unhealthy",
+                "details": "MQTT proxy reported unhealthy status",
+                "connection": health_status.get("connection", {}),
+                "error": "Proxy health check failed"
+            }
+            
+    except Exception as e:
+        logger.error(f"Error checking MQTT proxy health: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "connection": {
+                "ts_client": False,
+                "callback_server": False,
+                "connected": False
+            },
+            "details": "Health check failed with exception"
         }

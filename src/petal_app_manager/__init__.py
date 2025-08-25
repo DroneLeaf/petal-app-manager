@@ -70,3 +70,9 @@ class Config:
     SCAN_DATA_URL = os.environ.get('SCAN_DATA_URL', '/drone/onBoard/config/scanData')
     UPDATE_DATA_URL = os.environ.get('UPDATE_DATA_URL', '/drone/onBoard/config/updateData')
     SET_DATA_URL = os.environ.get('SET_DATA_URL', '/drone/onBoard/config/setData')
+    # MQTT configuration
+    TS_CLIENT_HOST = os.environ.get('TS_CLIENT_HOST', 'localhost')
+    TS_CLIENT_PORT = int(os.environ.get('TS_CLIENT_PORT', 3004))
+    CALLBACK_HOST = os.environ.get('CALLBACK_HOST', 'localhost')
+    CALLBACK_PORT = int(os.environ.get('CALLBACK_PORT', 3005))
+    ENABLE_CALLBACKS = os.environ.get('ENABLE_CALLBACKS', 'true').lower() in ('true', '1', 'yes')
