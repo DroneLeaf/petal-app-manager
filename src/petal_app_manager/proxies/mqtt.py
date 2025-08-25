@@ -21,6 +21,7 @@ import time
 import os
 import threading
 from datetime import datetime
+import functools
 
 import requests
 from fastapi import FastAPI, HTTPException
@@ -76,6 +77,8 @@ class MQTTProxy(BaseProxy):
         self._subscriptions = {}  # topic: callback
         self._subscription_patterns = {}  # pattern: callback
         
+        self.subscribed_topics = set()
+
         # Connection state
         self.is_connected = False
         self._shutdown_flag = False
@@ -123,6 +126,9 @@ class MQTTProxy(BaseProxy):
         """Clean up resources when shutting down."""
         self.log.info("Stopping MQTTProxy...")
         
+        for topic in self.subscribed_topics:
+            await self.unsubscribe_from_topic(topic)
+
         # Set shutdown flag
         self._shutdown_flag = True
         self.is_connected = False
@@ -197,15 +203,17 @@ class MQTTProxy(BaseProxy):
         try:
             url = f"{self.ts_base_url}{endpoint}"
             
-            response = await self._loop.run_in_executor(
-                self._exe,
-                lambda: requests.request(
+            loop = asyncio.get_running_loop()
+            response = await loop.run_in_executor(
+                None,
+                functools.partial(
+                    requests.request,
                     method=method,
                     url=url,
                     json=data,
                     timeout=self.request_timeout,
-                    headers={"Content-Type": "application/json"}
-                )
+                    headers={"Content-Type": "application/json"},
+                ),
             )
             
             if response.status_code == 200:
@@ -361,6 +369,8 @@ class MQTTProxy(BaseProxy):
             if callback:
                 self._subscriptions[topic] = callback
             
+            self.subscribed_topics.add(topic)
+
             self.log.info(f"Subscribed to topic: {topic}")
             return True
             
