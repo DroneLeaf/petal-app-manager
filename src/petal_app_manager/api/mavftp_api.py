@@ -80,3 +80,46 @@ async def clear_fail_logs(
             "error": str(e),
             "message": "Failed to clear error logs from vehicle"
         }
+    
+@router.post(
+    "/list-directory",
+    summary="Lists the contents of a directory on the vehicle.",
+    description="This endpoint lists the contents of a directory on the vehicle's filesystem.",
+)
+async def list_directory(
+    request: ClearFailLogsRequest
+) -> Dict[str, Any]:
+    """Clear all fail_*.log files from the vehicle's filesystem."""
+    proxies = get_proxies()
+    logger = get_logger()
+    
+    try:
+        # Get the MAVLink FTP proxy
+        if "ftp_mavlink" not in proxies:
+            logger.error("MAVLink FTP proxy not available")
+            return {
+                "success": False,
+                "error": "MAVLink FTP proxy not configured or not available",
+                "message": "Cannot clear error logs without MAVLink FTP connection"
+            }
+        
+        mavftp_proxy: MavLinkFTPProxy = proxies["ftp_mavlink"]
+        
+        # List directory contents using the proxy
+        logger.info(f"Listing directory contents at: {request.remote_path}")
+        directory_contents = await mavftp_proxy.list_directory(request.remote_path)
+
+        logger.info("Directory contents retrieved successfully")
+        return {
+            "success": True,
+            "message": "Directory contents retrieved successfully",
+            "directory_contents": directory_contents
+        }
+        
+    except Exception as e:
+        logger.error(f"Error listing directory contents: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to list directory contents from vehicle"
+        }

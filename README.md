@@ -84,6 +84,7 @@ uvicorn petal_app_manager.main:app --port 9000
 > MAVLINK_MAXLEN=200
 > MAVLINK_WORKER_SLEEP_MS=1
 > MAVLINK_HEARTBEAT_SEND_FREQUENCY=5.0
+> ROOT_SD_PATH=fs/microsd/log
 > # Cloud configuration
 > ACCESS_TOKEN_URL=http://localhost:3001/session-manager/access-token
 > SESSION_TOKEN_URL=http://localhost:3001/session-manager/session-token
@@ -107,7 +108,6 @@ uvicorn petal_app_manager.main:app --port 9000
 > TS_CLIENT_PORT=3004
 > CALLBACK_HOST=localhost
 > CALLBACK_PORT=3005
-> LOG_LEVEL=INFO
 > POLL_INTERVAL=1.0
 > ENABLE_CALLBACKS=true
 > ```

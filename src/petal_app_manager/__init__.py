@@ -51,6 +51,7 @@ class Config:
     MAVLINK_MAXLEN=int(os.environ.get("MAVLINK_MAXLEN", 200))
     MAVLINK_WORKER_SLEEP_MS = int(os.environ.get('MAVLINK_WORKER_SLEEP_MS', 1))
     MAVLINK_HEARTBEAT_SEND_FREQUENCY = float(os.environ.get('MAVLINK_HEARTBEAT_SEND_FREQUENCY', 5.0))
+    ROOT_SD_PATH = os.environ.get('ROOT_SD_PATH', 'fs/microsd/log')
     # Cloud configuration
     ACCESS_TOKEN_URL = os.environ.get('ACCESS_TOKEN_URL', '')
     SESSION_TOKEN_URL = os.environ.get('SESSION_TOKEN_URL', '')
