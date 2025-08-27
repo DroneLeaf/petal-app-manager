@@ -1062,6 +1062,28 @@ class MavLinkFTPProxy(BaseProxy):
             remote_path
         )
 
+    async def list_directory(self, base: str = None) -> List[str]:
+        """
+        List all files and directories under *base* on the vehicle.
+        """
+        # Check connection and attempt to establish if needed
+        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+            raise RuntimeError("MAVLink FTP connection could not be established")
+
+        if base is None:
+            base = self.mavlink_proxy.root_sd_path
+
+        # Initialize parser if not already done (e.g., after reconnection)
+        if not hasattr(self, '_parser') or self._parser is None:
+            await self._init_parser()
+
+        try:
+            listing = await self._loop.run_in_executor(self._exe, self._parser.list_directory, base)
+            return listing
+        except Exception as e:
+            self._log.warning(f"Failed to list directory via FTP: {e}")
+            return []
+
 # --------------------------------------------------------------------------- #
 #  helper functions                                                           #
 # --------------------------------------------------------------------------- #
@@ -1322,6 +1344,20 @@ class _BlockingParser:
             except Exception as e:
                 self._log.error(f"Error deleting log {log.remote_path}: {e}")
         self._log.info("Cleared all error logs")
+
+    # 4) ls a directory ------------------------------------------------------ #
+    def list_directory(self, base: str = "fs/microsd") -> List[Dict[str, Any]]:
+        """List the contents of a directory on the vehicle's filesystem."""
+        try:
+            self._log.info(f"Listing directory: {base}")
+            # Check if connection is still valid before attempting operation
+            if not self.proxy.master or not self.proxy.connected:
+                self._log.warning(f"Connection lost, skipping ls for {base}")
+                return []
+            return self._ls(base)
+        except Exception as e:
+            self._log.error(f"Error listing directory {base}: {e}")
+            return []
 
     # ---------- internal helpers ------------------------------------------- #
     def _reset_ftp_state(self):
