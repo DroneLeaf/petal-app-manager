@@ -424,7 +424,7 @@ class MQTTProxy(BaseProxy):
             self.log.error("MQTT proxy is not connected")
             return False
             
-        await self._subscribe_to_topic(topic, callback)
+        return await self._subscribe_to_topic(topic, callback)
 
     async def unsubscribe_from_topic(self, topic: str) -> bool:
         """Unsubscribe from an MQTT topic."""
