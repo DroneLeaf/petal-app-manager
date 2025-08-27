@@ -44,7 +44,7 @@ jobs:
     
     - name: Run tests
       run: |
-        pdm run pytest -v -m "not hardware"
+        pdm run pytest -v
         
   build:
     needs: test

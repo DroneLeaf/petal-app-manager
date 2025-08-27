@@ -76,11 +76,6 @@ def setup_file_only_logger(name: str, log_file: str, level: str = "INFO") -> log
     
     return logger
 
-dotenv.load_dotenv()
-
-MAVLINK_WORKER_SLEEP_MS = os.getenv("MAVLINK_WORKER_SLEEP_MS", 0)
-MAVLINK_HEARTBEAT_SEND_FREQUENCY = os.getenv("MAVLINK_HEARTBEAT_SEND_FREQUENCY", "5.0")  # 5 Hz default
-
 # --------------------------------------------------------------------------- #
 #  Public dataclasses returned to petals / REST                               #
 # --------------------------------------------------------------------------- #
@@ -331,14 +326,14 @@ class ExternalProxy(BaseProxy):
         # Initialize sleep time for the worker loop
         sleep_time = 0.010  # Default 10ms
         try:
-            if MAVLINK_WORKER_SLEEP_MS is not None:
-                sleep_time_ms = int(MAVLINK_WORKER_SLEEP_MS)
+            if self.mavlink_worker_sleep_ms is not None:
+                sleep_time_ms = int(self.mavlink_worker_sleep_ms)
                 if sleep_time_ms < 0:
-                    self._log.error("MAVLINK_WORKER_SLEEP_MS must be non-negative")
+                    self._log.error("self.mavlink_worker_sleep_ms must be non-negative")
                     sleep_time_ms = 10
                 sleep_time = sleep_time_ms / 1000.0  # convert ms to seconds
         except (ValueError, TypeError) as exc:
-            self._log.error(f"Invalid MAVLINK_WORKER_SLEEP_MS: {exc}, using default 10ms")
+            self._log.error(f"Invalid self.mavlink_worker_sleep_ms: {exc}, using default 10ms")
             sleep_time = 0.010
 
         while self._running.is_set():
@@ -413,10 +408,16 @@ class MavLinkExternalProxy(ExternalProxy):
         endpoint: str,
         baud: int,
         maxlen: int,
+        mavlink_worker_sleep_ms: float = 0,
+        mavlink_heartbeat_send_frequency: float = 5.0,
+        root_sd_path: str = 'fs/microsd/log'
     ):
         super().__init__(maxlen=maxlen)
         self.endpoint = endpoint
         self.baud = baud
+        self.mavlink_worker_sleep_ms = mavlink_worker_sleep_ms
+        self.mavlink_heartbeat_send_frequency = mavlink_heartbeat_send_frequency
+        self.root_sd_path = root_sd_path
         self.master: mavutil.mavfile | None = None
         
         # Set up file-only logging
@@ -503,13 +504,13 @@ class MavLinkExternalProxy(ExternalProxy):
         self._connection_monitor_task = asyncio.create_task(self._monitor_connection())
         
         # send heartbeat at configured frequency
-        if MAVLINK_HEARTBEAT_SEND_FREQUENCY is not None:
+        if self.mavlink_heartbeat_send_frequency is not None:
             try:
-                frequency = float(MAVLINK_HEARTBEAT_SEND_FREQUENCY)
+                frequency = float(self.mavlink_heartbeat_send_frequency)
                 if frequency <= 0:
                     raise ValueError("Heartbeat frequency must be positive")
             except ValueError as exc:
-                self._log.error(f"Invalid MAVLINK_HEARTBEAT_SEND_FREQUENCY: {exc}")
+                self._log.error(f"Invalid self.mavlink_heartbeat_send_frequency: {exc}")
                 frequency = 5.0
             self._heartbeat_task = asyncio.create_task(self._send_heartbeat_periodically(frequency=frequency))
 
@@ -952,11 +953,14 @@ class MavLinkFTPProxy(BaseProxy):
         )
 
     # ------------------- exposing blocking parser methods --------- #
-    async def list_ulogs(self, base: str = "fs/microsd/log") -> List[ULogInfo]:
+    async def list_ulogs(self, base: str = None) -> List[ULogInfo]:
         """Return metadata for every *.ulg file on the vehicle."""
         # Check connection and attempt to establish if needed
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
             raise RuntimeError("MAVLink FTP connection could not be established")
+
+        if base is None:
+            base = self.mavlink_proxy.root_sd_path
 
         # Initialize parser if not already done (e.g., after reconnection)
         if not hasattr(self, '_parser') or self._parser is None:
@@ -1100,6 +1104,7 @@ class _BlockingParser:
         self._log = logger.getChild("BlockingParser")
         self.master = master
         self.proxy = mavlink_proxy
+        self.root_sd_path = self.proxy.root_sd_path
         
         self.ftp = mavftp.MAVFTP(
             self.master, self.master.target_system, self.master.target_component
@@ -1120,7 +1125,7 @@ class _BlockingParser:
     # ---------- public helpers (blocking) ----------------------------------- #
 
     # 1) list_ulogs ---------------------------------------------------------- #
-    def list_ulogs(self, entries: Dict[int, Dict[str, int]], base="fs/microsd/log") -> List[ULogInfo]:
+    def list_ulogs(self, entries: Dict[int, Dict[str, int]], base:str) -> List[ULogInfo]:
         """
         Enumerate *.ulg under the SD-card and return a list of dicts
         that can be fed directly into ULogInfo(**dict).
