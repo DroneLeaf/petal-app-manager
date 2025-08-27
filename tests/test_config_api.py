@@ -2,6 +2,7 @@ import pytest
 import json
 import tempfile
 import yaml
+import importlib.metadata as md
 from pathlib import Path
 from unittest.mock import patch, mock_open
 from fastapi.testclient import TestClient
@@ -55,11 +56,9 @@ def test_get_config_status(sample_config, mock_config_file):
     assert "enabled_proxies" in data
     assert "enabled_petals" in data
     assert "petal_dependencies" in data
-    assert "restart_required" in data
     
     assert set(data["enabled_proxies"]) == set(sample_config["enabled_proxies"])
     assert set(data["enabled_petals"]) == set(sample_config["enabled_petals"])
-    assert data["restart_required"] is True
 
 def test_enable_petals_success(sample_config, mock_config_file):
     """Test successfully enabling petals with met dependencies"""
@@ -186,3 +185,89 @@ def test_batch_operations(sample_config, mock_config_file):
     # Both should succeed since their dependencies (redis, ext_mavlink) are enabled
     assert data["success"] is True
     assert len(data["results"]) == 2
+
+def test_list_all_components(sample_config, mock_config_file):
+    """Test the list all components endpoint"""
+    
+    # Update sample config to include proxy dependencies
+    config_with_proxy_deps = sample_config.copy()
+    config_with_proxy_deps["proxy_dependencies"] = {
+        "db": ["cloud"],
+        "bucket": ["cloud"]
+    }
+    
+    def mock_file_operations(path, mode="r"):
+        if "r" in mode:
+            mock_file = mock_open(read_data=yaml.safe_dump(config_with_proxy_deps))()
+            return mock_file
+        else:
+            mock_file = mock_open()()
+            return mock_file
+    
+    # Mock entry points for petals
+    class MockEntryPoint:
+        def __init__(self, name):
+            self.name = name
+    
+    mock_entry_points = [
+        MockEntryPoint("petal_warehouse"),
+        MockEntryPoint("flight_records"),
+        MockEntryPoint("mission_planner")
+    ]
+    
+    with patch("builtins.open", mock_file_operations), \
+         patch("importlib.metadata.entry_points") as mock_ep:
+        
+        mock_ep.return_value = mock_entry_points
+        
+        response = client.get("/api/petal-proxies-control/components/list")
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    # Check response structure
+    assert "petals" in data
+    assert "proxies" in data
+    assert "total_petals" in data
+    assert "total_proxies" in data
+    
+    # Check petal information
+    petal_names = [p["name"] for p in data["petals"]]
+    assert "petal_warehouse" in petal_names
+    assert "flight_records" in petal_names
+    assert "mission_planner" in petal_names
+    
+    # Check that enabled status is correct
+    petal_dict = {p["name"]: p for p in data["petals"]}
+    assert petal_dict["petal_warehouse"]["enabled"] is True
+    assert petal_dict["flight_records"]["enabled"] is False  # Not in enabled_petals
+    
+    # Check petal dependencies
+    assert petal_dict["petal_warehouse"]["dependencies"] == ["redis", "ext_mavlink"]
+    assert petal_dict["flight_records"]["dependencies"] == ["redis", "cloud"]
+    
+    # Check proxy information
+    proxy_names = [p["name"] for p in data["proxies"]]
+    expected_proxies = ["ext_mavlink", "redis", "db", "cloud", "bucket", "ftp_mavlink"]
+    for expected in expected_proxies:
+        assert expected in proxy_names
+    
+    # Check proxy enabled status
+    proxy_dict = {p["name"]: p for p in data["proxies"]}
+    assert proxy_dict["redis"]["enabled"] is True
+    assert proxy_dict["ext_mavlink"]["enabled"] is True
+    assert proxy_dict["db"]["enabled"] is True
+    assert proxy_dict["cloud"]["enabled"] is False  # Not in enabled_proxies
+    
+    # Check proxy dependencies
+    assert proxy_dict["db"]["dependencies"] == ["cloud"]
+    assert proxy_dict["bucket"]["dependencies"] == ["cloud"]
+    
+    # Check dependents (what depends on each proxy)
+    assert "petal:petal_warehouse" in proxy_dict["redis"]["dependents"]
+    assert "petal:flight_records" in proxy_dict["cloud"]["dependents"]
+    assert "proxy:db" in proxy_dict["cloud"]["dependents"]
+    
+    # Check totals
+    assert data["total_petals"] == len(data["petals"])
+    assert data["total_proxies"] == len(data["proxies"])

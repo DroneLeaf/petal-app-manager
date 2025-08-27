@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware  # Add this import
 from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy
 
 from .plugins.loader import load_petals
-from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, config_api
+from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, config_api, admin_ui
 from . import api
 import logging
 
@@ -17,6 +17,7 @@ import yaml
 
 from contextlib import asynccontextmanager
 from . import Config
+from .config import load_proxies_config
 
 def build_app(
     log_level="INFO", 
@@ -91,9 +92,8 @@ def build_app(
         allow_headers=["*"],  # Allow all headers
     )
     # ---------- load enabled proxies from YAML ----------
-    proxies_yaml_path = os.path.join(Path(__file__).parent.parent.parent, "proxies.yaml")
-    with open(proxies_yaml_path, "r") as f:
-        proxies_config = yaml.safe_load(f)
+    proxies_yaml_path = Path(__file__).parent.parent.parent / "proxies.yaml"
+    proxies_config = load_proxies_config(proxies_yaml_path)
     enabled_proxies = set(proxies_config.get("enabled_proxies") or [])
     proxy_dependencies = proxies_config.get("proxy_dependencies", {})
 
@@ -209,6 +209,10 @@ def build_app(
     # Configure configuration management API
     config_api._set_logger(api_logger)  # Set the logger for configuration API endpoints
     app.include_router(config_api.router)
+    
+    # Configure admin UI (separate from FastAPI docs)
+    admin_ui._set_logger(api_logger)  # Set the logger for admin UI endpoints
+    app.include_router(admin_ui.router)
 
     # ---------- dynamic plugins ----------
     # Set up the logger for the plugins loader

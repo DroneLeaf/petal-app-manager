@@ -15,11 +15,11 @@ from ..plugins.base import Petal
 
 def load_petals(app: FastAPI, proxies: dict, logger: logging.Logger) -> List[Petal]:
     from pathlib import Path
+    from ..config import load_proxies_config
 
-    # Load petal dependencies from proxies.yaml
+    # Load petal dependencies from proxies.yaml (auto-creates if missing)
     proxies_yaml_path = Path(__file__).parent.parent.parent.parent / "proxies.yaml"
-    with open(proxies_yaml_path, "r") as f:
-        proxies_config = yaml.safe_load(f) or {}
+    proxies_config = load_proxies_config(proxies_yaml_path)
     enabled_petals = set(proxies_config.get("enabled_petals") or [])
     enabled_proxies = set(proxies_config.get("enabled_proxies") or [])
     petal_dependencies = proxies_config.get("petal_dependencies", {})

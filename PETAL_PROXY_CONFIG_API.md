@@ -29,7 +29,65 @@ Returns the current configuration including enabled proxies, petals, and their d
 }
 ```
 
-### 2. Control Petals (Enable/Disable)
+### 2. List All Components
+```bash
+GET /api/petal-proxies-control/components/list
+```
+
+Returns a comprehensive list of all available petals and proxies, regardless of their enabled/disabled state. This includes their dependencies, dependents, and current status.
+
+**Response:**
+```json
+{
+  "petals": [
+    {
+      "name": "flight_records",
+      "enabled": false,
+      "dependencies": ["redis", "cloud"]
+    },
+    {
+      "name": "petal_warehouse", 
+      "enabled": true,
+      "dependencies": ["redis", "ext_mavlink"]
+    },
+    {
+      "name": "mission_planner",
+      "enabled": true,
+      "dependencies": ["redis", "ext_mavlink"]
+    }
+  ],
+  "proxies": [
+    {
+      "name": "bucket",
+      "enabled": false,
+      "dependencies": ["cloud"],
+      "dependents": []
+    },
+    {
+      "name": "cloud",
+      "enabled": true,
+      "dependencies": [],
+      "dependents": ["petal:flight_records", "proxy:bucket", "proxy:db"]
+    },
+    {
+      "name": "redis",
+      "enabled": true,
+      "dependencies": [],
+      "dependents": ["petal:flight_records", "petal:petal_warehouse", "petal:mission_planner"]
+    }
+  ],
+  "total_petals": 3,
+  "total_proxies": 6
+}
+```
+
+**Use this endpoint to:**
+- See all available components in the system
+- Check dependency relationships
+- Understand what would be affected by enabling/disabling a component
+- Get a complete overview before making configuration changes
+
+### 3. Control Petals (Enable/Disable)
 ```bash
 POST /api/petal-proxies-control/petals/control
 ```
@@ -64,7 +122,7 @@ curl -X POST "http://localhost:8000/api/petal-proxies-control/petals/control" \
      }'
 ```
 
-### 3. Control Proxies (Enable/Disable)
+### 4. Control Proxies (Enable/Disable)
 ```bash
 POST /api/petal-proxies-control/proxies/control
 ```
@@ -99,7 +157,7 @@ curl -X POST "http://localhost:8000/api/petal-proxies-control/proxies/control" \
      }'
 ```
 
-### 4. Server Restart Control
+### 5. Server Restart Control
 ```bash
 POST /api/petal-proxies-control/restart
 GET /api/petal-proxies-control/restart-status
