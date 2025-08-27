@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware  # Add this import
-from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy
+from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy, MQTTProxy
 
 from .plugins.loader import load_petals
-from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api
+from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, mqtt_api
 from . import api
 import logging
 
@@ -64,6 +64,7 @@ def build_app(
             "mavlinkftpproxy",        # also covers mavlinkftpproxy.blockingparser
             "redisproxy",
             "clouddbproxy",
+            "mqttproxy",
             "s3bucketproxy",
             "pluginsloader",
             # external “petal_*” plug-ins and friends
@@ -134,6 +135,16 @@ def build_app(
     )
     
     proxies["ftp_mavlink"] = MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
+    
+    # Add MQTT proxy - depends on LocalDBProxy for organization and device IDs
+    proxies["mqtt"] = MQTTProxy(
+        local_db_proxy=proxies["db"],
+        ts_client_host=Config.TS_CLIENT_HOST,
+        ts_client_port=Config.TS_CLIENT_PORT,
+        callback_host=Config.CALLBACK_HOST,
+        callback_port=Config.CALLBACK_PORT,
+        enable_callbacks=Config.ENABLE_CALLBACKS,
+    )
 
     for p in proxies.values():
         app.add_event_handler("startup", p.start)
@@ -158,6 +169,9 @@ def build_app(
     # Configure MAVLink FTP API with proxy instances
     mavftp_api._set_logger(api_logger)  # Set the logger for MAVLink FTP API endpoints
     app.include_router(mavftp_api.router, prefix="/mavftp")
+    # Configure MQTT API with proxy instances
+    mqtt_api._set_logger(api_logger)  # Set the logger for MQTT API endpoints
+    app.include_router(mqtt_api.router, prefix="/mqtt")
 
     # ---------- dynamic plugins ----------
     # Set up the logger for the plugins loader
