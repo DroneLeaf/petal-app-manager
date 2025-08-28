@@ -36,9 +36,10 @@ cicd = [
 ]
 prod = [
     "leaf-pymavlink>=0.1.7",
-    "petal-flight-log @ git+https://github.com/DroneLeaf/petal-flight-log.git@v0.1.5",
+    "petal-flight-log @ git+https://github.com/DroneLeaf/petal-flight-log.git@v0.1.6",
     "petal-warehouse @ git+https://github.com/DroneLeaf/petal-warehouse.git@v0.1.5",
     "petal-leafsdk @ git+https://github.com/DroneLeaf/petal-leafsdk.git@v0.1.10",
+    "petal-user-journey-coordinator @ git+https://github.com/DroneLeaf/petal-user-journey-coordinator.git@v0.1.0",
 ]
 dev = [
     "pytest>=8.4.0",
@@ -47,6 +48,7 @@ dev = [
     "pytest-cov>=6.2.1",
     "leaf-pymavlink @ file:///${PROJECT_ROOT}/../mavlink/pymavlink",
     "-e file:///${PROJECT_ROOT}/../petal-flight-log/#egg=petal-flight-log",
+    "-e file:///${PROJECT_ROOT}/../petal-user-journey-coordinator/#egg=petal-user-journey-coordinator",
     "-e file:///${PROJECT_ROOT}/../petal-leafsdk/#egg=petal-leafsdk",
     "-e file:///${PROJECT_ROOT}/../petal-warehouse/#egg=petal-warehouse",
     "-e file:///${PROJECT_ROOT}/../LeafSDK/#egg=LeafSDK",

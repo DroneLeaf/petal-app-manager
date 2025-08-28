@@ -822,6 +822,192 @@ class MavLinkExternalProxy(ExternalProxy):
 
         return cmd
 
+    def build_param_request_read(self, name: str, index: int = -1):
+        """
+        Build MAVLink PARAM_REQUEST_READ for a named or indexed parameter.
+        If index == -1, the 'name' is used; otherwise PX4 will ignore name.
+        """
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        # pymavlink will pad/trim to 16 chars; PX4 expects ASCII
+        return self.master.mav.param_request_read_encode(
+            self.master.target_system,
+            self.master.target_component,
+            name.encode("ascii"),
+            index
+        )
+
+    def build_param_request_list(self):
+        """Build MAVLink PARAM_REQUEST_LIST to fetch the full table."""
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+        return self.master.mav.param_request_list_encode(
+            self.master.target_system,
+            self.master.target_component
+        )
+
+    def build_param_set(self, name: str, value: float, param_type: int):
+        """Build MAVLink PARAM_SET for setting a parameter."""
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+        return self.master.mav.param_set_encode(
+            self.master.target_system,
+            self.master.target_component,
+            name.encode("ascii"),
+            float(value),                 # on-wire is always float32
+            param_type                    # mavutil.mavlink.MAV_PARAM_TYPE_*
+        )
+
+    async def get_param(self, name: str, timeout: float = 3.0) -> Dict[str, Any]:
+        """
+        Request a single PARAM_VALUE for `name` and return a dict:
+        {"name": str, "value": Union[int,float], "raw": float, "type": int, "count": int, "index": int}
+        Raises TimeoutError if no reply within timeout.
+        """
+        if not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        req = self.build_param_request_read(name, index=-1)
+
+        result = {"got": False, "data": None}
+        int_types = {
+            mavutil.mavlink.MAV_PARAM_TYPE_UINT8,
+            mavutil.mavlink.MAV_PARAM_TYPE_INT8,
+            mavutil.mavlink.MAV_PARAM_TYPE_UINT16,
+            mavutil.mavlink.MAV_PARAM_TYPE_INT16,
+            mavutil.mavlink.MAV_PARAM_TYPE_UINT32,
+            mavutil.mavlink.MAV_PARAM_TYPE_INT32,
+        }
+
+        def _collector(pkt) -> bool:
+            # Ensure we only process PARAM_VALUE
+            if pkt.get_type() != "PARAM_VALUE":
+                return False
+
+            # param_id is a fixed 16-char field with NUL padding
+            pkt_name = (pkt.param_id if isinstance(pkt.param_id, str) else pkt.param_id.decode("ascii")).rstrip("\x00")
+            if pkt_name != name:
+                return False
+
+            val = pkt.param_value
+            if pkt.param_type in int_types:
+                # PX4 encodes as float32 on-wire; cast when type says integer
+                try:
+                    val = int(val)
+                except (ValueError, TypeError):
+                    pass
+
+            result["got"] = True
+            result["data"] = {
+                "name": pkt_name,
+                "value": val,
+                "raw": float(pkt.param_value),
+                "type": pkt.param_type,
+                "count": pkt.param_count,
+                "index": pkt.param_index,
+            }
+            return True
+
+        # You dispatch by both msg ID string and type; using type keeps it readable.
+        await self.send_and_wait(
+            match_key="PARAM_VALUE",
+            request_msg=req,
+            collector=_collector,
+            timeout=timeout,
+        )
+
+        if not result["got"]:
+            raise TimeoutError(f"No PARAM_VALUE received for {name}")
+
+        return result["data"]
+
+    async def get_all_params(self, timeout: float = 10.0):
+        """
+        Request entire parameter list and return:
+        { "<NAME>": {"value": int|float, "raw": float, "type": int, "index": int, "count": int}, ... }
+        """
+        if not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        req = self.build_param_request_list()
+        params = {}
+        seen = set()
+        expected_total = {"val": None}
+
+        int_types = {
+            mavutil.mavlink.MAV_PARAM_TYPE_UINT8,
+            mavutil.mavlink.MAV_PARAM_TYPE_INT8,
+            mavutil.mavlink.MAV_PARAM_TYPE_UINT16,
+            mavutil.mavlink.MAV_PARAM_TYPE_INT16,
+            mavutil.mavlink.MAV_PARAM_TYPE_UINT32,
+            mavutil.mavlink.MAV_PARAM_TYPE_INT32,
+        }
+
+        def _collector(pkt) -> bool:
+            if pkt.get_type() != "PARAM_VALUE":
+                return False
+
+            if expected_total["val"] is None:
+                expected_total["val"] = pkt.param_count
+
+            name = (pkt.param_id if isinstance(pkt.param_id, str) else pkt.param_id.decode("ascii")).rstrip("\x00")
+
+            if (name, pkt.param_index) in seen:
+                # duplicate frame—ignore; can happen with lossy links
+                pass
+            else:
+                seen.add((name, pkt.param_index))
+                val = pkt.param_value
+                if pkt.param_type in int_types:
+                    try:
+                        val = int(val)
+                    except (ValueError, TypeError):
+                        pass
+
+                params[name] = {
+                    "value": val,
+                    "raw": float(pkt.param_value),
+                    "type": pkt.param_type,
+                    "index": pkt.param_index,
+                    "count": pkt.param_count,
+                }
+
+            # Stop when we've collected all expected params
+            return (expected_total["val"] is not None) and (len(params) >= expected_total["val"])
+
+        await self.send_and_wait(
+            match_key="PARAM_VALUE",
+            request_msg=req,
+            collector=_collector,
+            timeout=timeout,
+        )
+        return params
+
+    async def set_param(self, name: str, value, timeout: float = 3.0) -> Dict[str, Any]:
+        """
+        Set a parameter and confirm by reading back. `value` can be int or float.
+        Returns the confirmed PARAM_VALUE dict (same shape as get_param()).
+        """
+        # Pick a MAV_PARAM_TYPE based on Python type (simple heuristic)
+        if isinstance(value, int):
+            ptype = mavutil.mavlink.MAV_PARAM_TYPE_INT32
+            wire = float(value)
+        else:
+            ptype = mavutil.mavlink.MAV_PARAM_TYPE_REAL32
+            wire = float(value)
+
+        req = self.build_param_set(name, wire, ptype)
+
+        # We can just send and then read back with get_param()
+        self.send("mav", req)
+        # Some firmwares echo a PARAM_VALUE immediately; others need a separate read
+        try:
+            return await self.get_param(name, timeout=timeout)
+        except TimeoutError:
+            # Fall back to an explicit read if the echo was missed
+            return await self.get_param(name, timeout=timeout)
+
     async def send_and_wait(
         self,
         *,
