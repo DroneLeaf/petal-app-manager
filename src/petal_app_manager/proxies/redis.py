@@ -205,10 +205,8 @@ class RedisProxy(BaseProxy):
         self.log.info("RedisProxy stopped")
         
     # ------ Key-Value Operations ------ #
-    # ------ Key-Value Operations ------ #
     
     async def get(self, key: str) -> Optional[str]:
-        """Get a value from Redis."""
         """Get a value from Redis."""
         if not self._client:
             self.log.error("Redis client not initialized")
@@ -268,7 +266,6 @@ class RedisProxy(BaseProxy):
             return 0
     
     async def exists(self, key: str) -> bool:
-        """Check if a key exists in Redis."""
         """Check if a key exists in Redis."""
         if not self._client:
             self.log.error("Redis client not initialized")
@@ -493,8 +490,6 @@ class RedisProxy(BaseProxy):
                 msg = str(e).lower()
                 if "timeout" not in msg:
                     self.log.error(f"Error listening for messages: {e!r}")
-
-
 
     def _reconnect_pubsub(self):
         """Tear down the old PubSub and re-subscribe to all channels."""

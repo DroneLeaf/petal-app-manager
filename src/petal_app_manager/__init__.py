@@ -51,6 +51,7 @@ class Config:
     MAVLINK_MAXLEN=int(os.environ.get("MAVLINK_MAXLEN", 200))
     MAVLINK_WORKER_SLEEP_MS = int(os.environ.get('MAVLINK_WORKER_SLEEP_MS', 1))
     MAVLINK_HEARTBEAT_SEND_FREQUENCY = float(os.environ.get('MAVLINK_HEARTBEAT_SEND_FREQUENCY', 5.0))
+    ROOT_SD_PATH = os.environ.get('ROOT_SD_PATH', 'fs/microsd/log')
     # Cloud configuration
     ACCESS_TOKEN_URL = os.environ.get('ACCESS_TOKEN_URL', '')
     SESSION_TOKEN_URL = os.environ.get('SESSION_TOKEN_URL', '')
@@ -70,3 +71,9 @@ class Config:
     SCAN_DATA_URL = os.environ.get('SCAN_DATA_URL', '/drone/onBoard/config/scanData')
     UPDATE_DATA_URL = os.environ.get('UPDATE_DATA_URL', '/drone/onBoard/config/updateData')
     SET_DATA_URL = os.environ.get('SET_DATA_URL', '/drone/onBoard/config/setData')
+    # MQTT configuration
+    TS_CLIENT_HOST = os.environ.get('TS_CLIENT_HOST', 'localhost')
+    TS_CLIENT_PORT = int(os.environ.get('TS_CLIENT_PORT', 3004))
+    CALLBACK_HOST = os.environ.get('CALLBACK_HOST', 'localhost')
+    CALLBACK_PORT = int(os.environ.get('CALLBACK_PORT', 3005))
+    ENABLE_CALLBACKS = os.environ.get('ENABLE_CALLBACKS', 'true').lower() in ('true', '1', 'yes')

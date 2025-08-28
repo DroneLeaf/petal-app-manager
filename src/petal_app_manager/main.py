@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware  # Add this import
-from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy
+from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy, MQTTProxy
 
 from .plugins.loader import load_petals
-from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, config_api, admin_ui
+from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, mqtt_api, config_api, admin_ui
 from . import api
 import logging
 
@@ -66,6 +66,7 @@ def build_app(
             "mavlinkftpproxy",        # also covers mavlinkftpproxy.blockingparser
             "redisproxy",
             "clouddbproxy",
+            "mqttproxy",
             "s3bucketproxy",
             "pluginsloader",
             # external “petal_*” plug-ins and friends
@@ -161,6 +162,19 @@ def build_app(
                 elif proxy_name == "ftp_mavlink" and "ext_mavlink" in proxies:
                     proxies["ftp_mavlink"] = MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
                 
+                elif proxy_name == "mqtt" and "db" in proxies:
+                    proxies["mqtt"] = MQTTProxy(
+                        local_db_proxy=proxies["db"],
+                        ts_client_host=Config.TS_CLIENT_HOST,
+                        ts_client_port=Config.TS_CLIENT_PORT,
+                        callback_host=Config.CALLBACK_HOST,
+                        callback_port=Config.CALLBACK_PORT,
+                        enable_callbacks=Config.ENABLE_CALLBACKS,
+                    )
+                else:
+                    logger.warning(f"Unknown proxy type or missing dependencies for: {proxy_name}")
+                    continue
+
                 loaded_this_iteration.append(proxy_name)
                 logger.info(f"Loaded proxy: {proxy_name}")
         
@@ -213,6 +227,9 @@ def build_app(
     # Configure admin UI (separate from FastAPI docs)
     admin_ui._set_logger(api_logger)  # Set the logger for admin UI endpoints
     app.include_router(admin_ui.router)
+    # Configure MQTT API with proxy instances
+    mqtt_api._set_logger(api_logger)  # Set the logger for MQTT API endpoints
+    app.include_router(mqtt_api.router, prefix="/mqtt")
 
     # ---------- dynamic plugins ----------
     # Set up the logger for the plugins loader
