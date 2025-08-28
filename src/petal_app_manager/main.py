@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware  # Add this import
+from fastapi.staticfiles import StaticFiles  # Add this import
 from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy, MQTTProxy
 
 from .plugins.loader import load_petals
@@ -84,6 +85,12 @@ def build_app(
     allowed_origins = config.get("allowed_origins", ["*"])  # Default to allow all origins if not specified
 
     app = FastAPI(title="PetalAppManager")
+    
+    # Mount static files for admin dashboard assets
+    assets_path = Path(__file__).parent / "assets"
+    if assets_path.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
+    
     # Add CORS middleware to allow all origins
     app.add_middleware(
         CORSMiddleware,

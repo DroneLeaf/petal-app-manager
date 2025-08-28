@@ -182,9 +182,11 @@ async def control_petals(request: PetalControlRequest) -> Dict[str, Any]:
         logger.info(f"Configuration updated successfully with {len(results)} changes")
         if errors:
             logger.warning(f"Request completed with {len(errors)} errors: {errors}")
-        
+
+        success = all(p in enabled_petals for p in request.petals)
+
         response = {
-            "success": len(results) > 0,
+            "success": success,
             "action": action,
             "processed_petals": request.petals,
             "results": results,

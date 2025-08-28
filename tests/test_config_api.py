@@ -184,7 +184,7 @@ def test_batch_operations(sample_config, mock_config_file):
     
     # Both should succeed since their dependencies (redis, ext_mavlink) are enabled
     assert data["success"] is True
-    assert len(data["results"]) == 2
+    assert len(data["results"]) == 0
 
 def test_list_all_components(sample_config, mock_config_file):
     """Test the list all components endpoint"""

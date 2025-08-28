@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Petal App Manager - Admin Dashboard</title>
+    <link rel="stylesheet" href="/assets/css/admin-dashboard.css">
+</head>
+<body>
+    <div class="petals-proxies-page">
+        <!-- Header Section -->
+        <section class="header-section">
+            <h1>🌸 Petal App Manager - Admin Dashboard</h1>
+            <p>Control and monitor your distributed inference systems and proxy configurations</p>
+        </section>
+
+        <!-- Quick Status Section -->
+        <section class="status-section">
+            <div class="section-header">
+                <h2>📊 System Status</h2>
+                <div class="action-buttons">
+                    <button class="btn-primary" onclick="loadStatus()">
+                        <span class="icon">🔄</span>
+                        Refresh Status
+                    </button>
+                    <button class="btn-warning" onclick="showAllComponentsView()">
+                        <span class="icon">📋</span>
+                        All Components
+                    </button>
+                </div>
+            </div>
+            <div id="status" class="status info">Click "Refresh Status" to load current configuration...</div>
+        </section>
+
+        <!-- All Components Section -->
+        <section class="all-components-section" id="all-components-section">
+            <div class="section-header">
+                <h2>📋 All Components Overview</h2>
+                <div class="action-buttons">
+                    <button class="btn-secondary" onclick="hideAllComponentsView()">
+                        <span class="icon">❌</span>
+                        Hide
+                    </button>
+                </div>
+            </div>
+            <div class="all-components-display">
+                <p>Complete list of all proxies and petals in the system:</p>
+                <div id="all-components-display"></div>
+            </div>
+        </section>
+
+        <!-- Proxy Controls Section -->
+        <section class="control-section">
+            <div class="section-header">
+                <h2>🔧 Proxy Controls</h2>
+                <div class="action-buttons">
+                    <button class="btn-primary" onclick="loadProxyControls()">
+                        <span class="icon">🔄</span>
+                        Refresh Proxies
+                    </button>
+                    <button class="btn-success" onclick="applyChanges()">
+                        <span class="icon">✅</span>
+                        Apply Changes
+                    </button>
+                </div>
+            </div>
+            <p>Enable or disable proxies dynamically:</p>
+            <div id="proxy-controls" class="controls-grid">
+                <div class="control-card">
+                    <div class="card-content">
+                        <p>Click "Refresh Proxies" to load available proxy configurations.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Petal Controls Section -->
+        <section class="control-section">
+            <div class="section-header">
+                <h2>🌸 Petal Controls</h2>
+                <div class="action-buttons">
+                    <button class="btn-primary" onclick="loadPetalControls()">
+                        <span class="icon">🔄</span>
+                        Refresh Petals
+                    </button>
+                    <button class="btn-success" onclick="applyChanges()">
+                        <span class="icon">✅</span>
+                        Apply Changes
+                    </button>
+                </div>
+            </div>
+            <p>Enable or disable petals dynamically:</p>
+            <div id="petal-controls" class="controls-grid">
+                <div class="control-card">
+                    <div class="card-content">
+                        <p>Click "Refresh Petals" to load available petal configurations.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Real-time Logs Section -->
+        <section class="logs-section">
+            <div class="section-header">
+                <h2>📋 Real-time Application Logs</h2>
+                <div class="logs-controls">
+                    <div class="connection-status">
+                        <div class="status-dot disconnected" id="log-connection-status"></div>
+                        <span class="status-text" id="log-status-text">Disconnected</span>
+                    </div>
+                    <select class="log-level-filter" id="log-level-filter" onchange="onLogLevelChange()">
+                        <option value="ALL">All Levels</option>
+                        <option value="DEBUG">Debug</option>
+                        <option value="INFO">Info</option>
+                        <option value="WARNING">Warning</option>
+                        <option value="ERROR">Error</option>
+                        <option value="CRITICAL">Critical</option>
+                    </select>
+                    <button class="btn-primary" onclick="toggleLogStream()" id="log-stream-btn">Connect</button>
+                    <button class="btn-warning" onclick="clearLogs()">Clear</button>
+                    <button class="btn-secondary" onclick="loadRecentLogs()">Load Recent</button>
+                </div>
+            </div>
+            <div class="logs-container" id="logs-container">
+                <div class="log-entry">
+                    <span class="log-message welcome">
+                        📡 Real-time log streaming ready. Click "Connect" to start or "Load Recent" to see historical logs.
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Additional Resources -->
+        <section class="resources-section">
+            <h2>🔗 Additional Resources</h2>
+            <div class="resource-links">
+                <a href="/docs" target="_blank">
+                    <span class="icon">📖</span>
+                    API Documentation
+                </a>
+                <a href="/api/petal-proxies-control/status" target="_blank">
+                    <span class="icon">🔍</span>
+                    Raw Status API
+                </a>
+                <a href="/health/detailed" target="_blank">
+                    <span class="icon">❤️</span>
+                    Health Check
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <script src="/assets/js/admin-dashboard.js"></script>
+</body>
+</html>
