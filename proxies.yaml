@@ -1,0 +1,31 @@
+enabled_petals:
+- flight_records
+- petal_warehouse
+- mission_planner
+enabled_proxies:
+- mqtt
+- db
+- ftp_mavlink
+- bucket
+- ext_mavlink
+- redis
+- cloud
+petal_dependencies:
+  flight_records:
+  - redis
+  - cloud
+  mission_planner:
+  - redis
+  - ext_mavlink
+  petal_warehouse:
+  - redis
+  - ext_mavlink
+proxy_dependencies:
+  bucket:
+  - db
+  cloud:
+  - db
+  ftp_mavlink:
+  - ext_mavlink
+  mqtt:
+  - db

@@ -40,6 +40,13 @@ async def upload_file_test(
     proxies = get_proxies()
     logger = get_logger()
 
+    if "bucket" not in proxies:
+        logger.error("S3BucketProxy is not enabled. Please enable 'bucket' in proxies.yaml.")
+        raise HTTPException(
+            status_code=503,
+            detail="S3BucketProxy is not enabled. Please enable 'bucket' in proxies.yaml."
+        )
+
     bucket_proxy: S3BucketProxy = proxies["bucket"]
 
     if not file.filename:
@@ -104,6 +111,13 @@ async def list_files_test(
     proxies = get_proxies()
     logger = get_logger()
 
+    if "bucket" not in proxies:
+        logger.error("S3BucketProxy is not enabled. Please enable 'bucket' in proxies.yaml.")
+        raise HTTPException(
+            status_code=503,
+            detail="S3BucketProxy is not enabled. Please enable 'bucket' in proxies.yaml."
+        )
+
     bucket_proxy: S3BucketProxy = proxies["bucket"]
 
     try:
@@ -152,6 +166,13 @@ async def download_file_test(
     """Download a flight log file from S3 bucket for testing."""
     proxies = get_proxies()
     logger = get_logger()
+
+    if "bucket" not in proxies:
+        logger.error("S3BucketProxy is not enabled. Please enable 'bucket' in proxies.yaml.")
+        raise HTTPException(
+            status_code=503,
+            detail="S3BucketProxy is not enabled. Please enable 'bucket' in proxies.yaml."
+        )
 
     bucket_proxy: S3BucketProxy = proxies["bucket"]
 
@@ -214,6 +235,13 @@ async def delete_file_test(s3_key: str) -> Dict[str, Any]:
     proxies = get_proxies()
     logger = get_logger()
 
+    if "bucket" not in proxies:
+        logger.error("S3BucketProxy is not enabled. Please enable 'bucket' in proxies.yaml.")
+        raise HTTPException(
+            status_code=503,
+            detail="S3BucketProxy is not enabled. Please enable 'bucket' in proxies.yaml."
+        )
+
     bucket_proxy: S3BucketProxy = proxies["bucket"]
 
     if not s3_key:
@@ -249,7 +277,15 @@ async def delete_file_test(s3_key: str) -> Dict[str, Any]:
 async def get_info() -> Dict[str, Any]:
     """Get S3 bucket proxy information."""
     proxies = get_proxies()
-    
+    logger = get_logger()
+
+    if "bucket" not in proxies:
+        logger.error("S3BucketProxy is not enabled. Please enable 'bucket' in proxies.yaml.")
+        raise HTTPException(
+            status_code=503,
+            detail="S3BucketProxy is not enabled. Please enable 'bucket' in proxies.yaml."
+        )
+
     try:
         bucket_proxy: S3BucketProxy = proxies["bucket"]
         
@@ -271,7 +307,9 @@ async def get_info() -> Dict[str, Any]:
         }
 
     except Exception as e:
+        logger.error(f"Info error: {e}")
         return {
             "success": False,
             "error": f"Failed to get proxy info: {str(e)}"
         }
+

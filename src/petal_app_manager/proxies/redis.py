@@ -50,6 +50,12 @@ class RedisProxy(BaseProxy):
         self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         self.log = logging.getLogger("RedisProxy")
         
+        # Communication and health check attributes
+        self.app_id = f"redis-proxy-{id(self)}"  # Unique app identifier
+        self._is_listening = False  # Whether actively listening for messages
+        self._message_handlers = {}  # Active message handlers
+        self._subscription_tasks = {}  # Active subscription tasks
+        
         # Store active subscriptions
         self._subscriptions = {}  # normal channel subscriptions
         self._subscription_task = None
@@ -57,8 +63,6 @@ class RedisProxy(BaseProxy):
         self._pattern_callbacks = {}  # channel: callback for pattern subpub
         self._pattern_subscription_task = None
         self._current_pattern = None
-        # Set up file-only logging
-        self.log = logging.getLogger("RedisProxy")
         
         # Shutdown flag to control infinite loops
         self._shutdown_flag = False
@@ -131,6 +135,10 @@ class RedisProxy(BaseProxy):
                 # Initialize pattern pub/sub (separate client for patterns)
                 self._pubsub_pattern = self._pubsub_client.pubsub()
                 self._subscribe_pattern("/petal-*")  # Default pattern
+                
+                # Set listening state to True after successful connection and pub/sub setup
+                self._is_listening = True
+                self.log.info(f"RedisProxy {self.app_id} is now listening for messages")
             else:
                 self.log.warning("Redis ping returned unexpected result")
         except Exception as e:
@@ -142,6 +150,8 @@ class RedisProxy(BaseProxy):
         
         # Set shutdown flag to stop infinite loops
         self._shutdown_flag = True
+        # Stop listening state
+        self._is_listening = False
         
         # Stop subscription tasks
         if self._subscription_task and not self._subscription_task.done():
@@ -157,6 +167,10 @@ class RedisProxy(BaseProxy):
                 await self._pattern_subscription_task
             except asyncio.CancelledError:
                 pass
+        
+        # Clear handlers and tasks
+        self._message_handlers.clear()
+        self._subscription_tasks.clear()
         
         # Close pub/sub
         if self._pubsub:
@@ -267,6 +281,26 @@ class RedisProxy(BaseProxy):
             self.log.error(f"Error checking existence of key {key}: {e}")
             return False
     
+    async def list_online_applications(self) -> List[str]:
+        """List online applications by checking Redis keys for app registrations."""
+        if not self._client:
+            self.log.error("Redis client not initialized")
+            return []
+            
+        try:
+            # Look for keys that match application registration pattern
+            # This is a simple implementation - can be customized based on your app registration pattern
+            result = await self._loop.run_in_executor(
+                self._exe, 
+                lambda: self._client.keys("app:*:online")
+            )
+            # Extract app names from keys like "app:myapp:online"
+            apps = [key.split(':')[1] for key in result if ':' in key and len(key.split(':')) >= 3]
+            return apps
+        except Exception as e:
+            self.log.error(f"Error listing online applications: {e}")
+            return []
+    
     # ------ Pub/Sub Operations ------ #
     
     def publish(self, channel: str, message: str) -> int:
@@ -288,8 +322,9 @@ class RedisProxy(BaseProxy):
             self.log.error("Redis pub/sub not initialized")
             return
         
-        # Store the callback
+        # Store the callback in both tracking dictionaries
         self._subscriptions[channel] = callback
+        self._message_handlers[channel] = callback
         
         # Subscribe to the channel
         try:
@@ -301,6 +336,8 @@ class RedisProxy(BaseProxy):
             # Start listening if not already started
             if not self._subscription_task and self._loop:
                 self._subscription_task = self._loop.create_task(self._listen_for_messages())
+                # Track this task
+                self._subscription_tasks[channel] = self._subscription_task
                 
             self.log.info(f"Subscribed to channel: {channel}")
         except Exception as e:
@@ -314,9 +351,13 @@ class RedisProxy(BaseProxy):
         
         try:
             self._pubsub.unsubscribe(channel)
-            # Remove callback
+            # Remove callback from both tracking dictionaries
             if channel in self._subscriptions:
                 del self._subscriptions[channel]
+            if channel in self._message_handlers:
+                del self._message_handlers[channel]
+            if channel in self._subscription_tasks:
+                del self._subscription_tasks[channel]
                 
             self.log.info(f"Unsubscribed from channel: {channel}")
         except Exception as e:
