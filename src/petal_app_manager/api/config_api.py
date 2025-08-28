@@ -183,7 +183,10 @@ async def control_petals(request: PetalControlRequest) -> Dict[str, Any]:
         if errors:
             logger.warning(f"Request completed with {len(errors)} errors: {errors}")
 
-        success = all(p in enabled_petals for p in request.petals)
+        if enable_petals:
+            success = all(p in enabled_petals for p in request.petals)
+        else:
+            success = all(p not in enabled_petals for p in request.petals)
 
         response = {
             "success": success,
