@@ -249,16 +249,10 @@ async def _check_localdb_proxy(proxy: LocalDBProxy) -> Dict[str, Any]:
     logger = get_logger()
 
     try:
+
         # Basic connection test - try to make a simple request
-        test_response = await proxy._loop.run_in_executor(
-            proxy._exe,
-            lambda: proxy._remote_file_request(
-                {"test": "health_check"}, 
-                "/health", 
-                "GET"
-            )
-        )
-        
+        test_response = await proxy._get_current_instance()
+
         # Even if the endpoint doesn't exist, we should get a response structure
         # indicating the service is reachable
         connection_ok = "error" in test_response or "data" in test_response

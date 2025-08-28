@@ -3,12 +3,13 @@ enabled_petals:
 - petal_warehouse
 - mission_planner
 enabled_proxies:
-- ext_mavlink
-- cloud
-- redis
+- mqtt
 - db
 - ftp_mavlink
 - bucket
+- ext_mavlink
+- redis
+- cloud
 petal_dependencies:
   flight_records:
   - redis
@@ -21,6 +22,10 @@ petal_dependencies:
   - ext_mavlink
 proxy_dependencies:
   bucket:
-  - cloud
-  db:
-  - cloud
+  - db
+  cloud:
+  - db
+  ftp_mavlink:
+  - ext_mavlink
+  mqtt:
+  - db

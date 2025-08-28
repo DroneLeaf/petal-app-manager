@@ -131,7 +131,25 @@ def build_app(
                         password=Config.REDIS_PASSWORD,
                         unix_socket_path=Config.REDIS_UNIX_SOCKET_PATH,
                     )
-                elif proxy_name == "cloud":
+                elif proxy_name == "db":
+                    proxies["db"] = LocalDBProxy(
+                        host=Config.LOCAL_DB_HOST,
+                        port=Config.LOCAL_DB_PORT,
+                        get_data_url=Config.GET_DATA_URL,
+                        scan_data_url=Config.SCAN_DATA_URL,
+                        update_data_url=Config.UPDATE_DATA_URL,
+                        set_data_url=Config.SET_DATA_URL,
+                    )
+                elif proxy_name == "mqtt" and "db" in proxies:
+                    proxies["mqtt"] = MQTTProxy(
+                        local_db_proxy=proxies.get("db"),  # May be None if db not loaded
+                        ts_client_host=Config.TS_CLIENT_HOST,
+                        ts_client_port=Config.TS_CLIENT_PORT,
+                        callback_host=Config.CALLBACK_HOST,
+                        callback_port=Config.CALLBACK_PORT,
+                        enable_callbacks=Config.ENABLE_CALLBACKS,
+                    )
+                elif proxy_name == "cloud" and "db" in proxies:
                     proxies["cloud"] = CloudDBProxy(
                         endpoint=Config.CLOUD_ENDPOINT,
                         local_db_proxy=proxies.get("db"),  # May be None if db not loaded
@@ -143,16 +161,7 @@ def build_app(
                         update_data_url=Config.UPDATE_DATA_URL,
                         set_data_url=Config.SET_DATA_URL,
                     )
-                elif proxy_name == "db" and "cloud" in proxies:
-                    proxies["db"] = LocalDBProxy(
-                        host=Config.LOCAL_DB_HOST,
-                        port=Config.LOCAL_DB_PORT,
-                        get_data_url=Config.GET_DATA_URL,
-                        scan_data_url=Config.SCAN_DATA_URL,
-                        update_data_url=Config.UPDATE_DATA_URL,
-                        set_data_url=Config.SET_DATA_URL,
-                    )
-                elif proxy_name == "bucket" and "cloud" in proxies:
+                elif proxy_name == "bucket" and "db" in proxies:
                     proxies["bucket"] = S3BucketProxy(
                         session_token_url=Config.SESSION_TOKEN_URL,
                         bucket_name=Config.S3_BUCKET_NAME,
@@ -161,16 +170,6 @@ def build_app(
                     )
                 elif proxy_name == "ftp_mavlink" and "ext_mavlink" in proxies:
                     proxies["ftp_mavlink"] = MavLinkFTPProxy(mavlink_proxy=proxies["ext_mavlink"])
-                
-                elif proxy_name == "mqtt" and "db" in proxies:
-                    proxies["mqtt"] = MQTTProxy(
-                        local_db_proxy=proxies["db"],
-                        ts_client_host=Config.TS_CLIENT_HOST,
-                        ts_client_port=Config.TS_CLIENT_PORT,
-                        callback_host=Config.CALLBACK_HOST,
-                        callback_port=Config.CALLBACK_PORT,
-                        enable_callbacks=Config.ENABLE_CALLBACKS,
-                    )
                 else:
                     logger.warning(f"Unknown proxy type or missing dependencies for: {proxy_name}")
                     continue
