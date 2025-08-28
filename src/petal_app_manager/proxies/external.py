@@ -43,6 +43,7 @@ from .base import BaseProxy
 from pymavlink import mavutil, mavftp
 from pymavlink.mavftp_op import FTP_OP
 from pymavlink.dialects.v20 import all as mavlink_dialect
+import numpy as np
 
 import os
 # import rospy   # ← uncomment in ROS-enabled environments
@@ -992,7 +993,7 @@ class MavLinkExternalProxy(ExternalProxy):
         # Pick a MAV_PARAM_TYPE based on Python type (simple heuristic)
         if isinstance(value, int):
             ptype = mavutil.mavlink.MAV_PARAM_TYPE_INT32
-            wire = float(value)
+            wire = np.int32(value)
         else:
             ptype = mavutil.mavlink.MAV_PARAM_TYPE_REAL32
             wire = float(value)

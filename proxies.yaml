@@ -2,6 +2,7 @@ enabled_petals:
 - flight_records
 - petal_warehouse
 - mission_planner
+- petal_user_journey_coordinator
 enabled_proxies:
 - mqtt
 - db
