@@ -43,7 +43,6 @@ from .base import BaseProxy
 from pymavlink import mavutil, mavftp
 from pymavlink.mavftp_op import FTP_OP
 from pymavlink.dialects.v20 import all as mavlink_dialect
-import numpy as np
 
 import os
 # import rospy   # ← uncomment in ROS-enabled environments
@@ -985,18 +984,39 @@ class MavLinkExternalProxy(ExternalProxy):
         )
         return params
 
-    async def set_param(self, name: str, value, timeout: float = 3.0) -> Dict[str, Any]:
+    async def set_param(self, name: str, value: Any, ptype: Optional[int] = None, timeout: float = 3.0) -> Dict[str, Any]:
         """
         Set a parameter and confirm by reading back. `value` can be int or float.
         Returns the confirmed PARAM_VALUE dict (same shape as get_param()).
+
+        ["MAV_PARAM_TYPE"] = {
+            [1] = "MAV_PARAM_TYPE_UINT8",
+            [2] = "MAV_PARAM_TYPE_INT8",
+            [3] = "MAV_PARAM_TYPE_UINT16",
+            [4] = "MAV_PARAM_TYPE_INT16",
+            [5] = "MAV_PARAM_TYPE_UINT32",
+            [6] = "MAV_PARAM_TYPE_INT32",
+            [7] = "MAV_PARAM_TYPE_UINT64",
+            [8] = "MAV_PARAM_TYPE_INT64",
+            [9] = "MAV_PARAM_TYPE_REAL32",
+            [10] = "MAV_PARAM_TYPE_REAL64",
+        },
+
         """
         # Pick a MAV_PARAM_TYPE based on Python type (simple heuristic)
-        if isinstance(value, int):
-            ptype = mavutil.mavlink.MAV_PARAM_TYPE_INT32
-            wire = np.int32(value)
+
+        if ptype is None:
+            if isinstance(value, int):
+                ptype = mavutil.mavlink.MAV_PARAM_TYPE_INT32
+                wire = int(value)
+            elif isinstance(value, float):
+                ptype = mavutil.mavlink.MAV_PARAM_TYPE_REAL32
+                wire = float(value)
+            else:
+                self._log.warning(f"Unsupported parameter type for {name}: {type(value)}")
+                return
         else:
-            ptype = mavutil.mavlink.MAV_PARAM_TYPE_REAL32
-            wire = float(value)
+            wire = value
 
         req = self.build_param_set(name, wire, ptype)
 
