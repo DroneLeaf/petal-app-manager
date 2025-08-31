@@ -33,6 +33,13 @@ class Petal(ABC):
         logger.info(f"Shutting down petal {self.name} ({self.version})")
         pass
 
+    async def async_startup(self) -> None:
+        """
+        Called after startup to handle async operations like MQTT subscriptions.
+        """
+        logger.info(f"Starting async operations for petal {self.name} ({self.version})")
+        pass
+
     def inject_proxies(self, proxies: Mapping[str, BaseProxy]) -> None:
         for name, proxy in proxies.items():
             if not isinstance(proxy, BaseProxy):          # no tuple needed

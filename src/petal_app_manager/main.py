@@ -7,6 +7,7 @@ from .plugins.loader import load_petals
 from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, mqtt_api, config_api, admin_ui
 from . import api
 import logging
+import asyncio
 
 from .logger import setup_logging
 from pathlib import Path
@@ -243,11 +244,27 @@ def build_app(
     # ---------- dynamic plugins ----------
     # Set up the logger for the plugins loader
     loader_logger = logging.getLogger("pluginsloader")
-    petals = load_petals(app, proxies, logger=loader_logger)
-
-    for petal in petals:
-        # Register the petal's shutdown methods
-        app.add_event_handler("shutdown", petal.shutdown)
+   
+    # Store petals list to manage them during startup/shutdown
+    petals = []
+    
+    async def load_petals_on_startup():
+        """Load petals after proxies have been started"""
+        nonlocal petals
+        petals.extend(load_petals(app, proxies, logger=loader_logger))
+        
+        # Call async_startup method for petals that support it
+        for petal in petals:
+            async_startup_method = getattr(petal, 'async_startup', None)
+            if async_startup_method and asyncio.iscoroutinefunction(async_startup_method):
+                await async_startup_method()
+        
+        # Register shutdown handlers for the petals
+        for petal in petals:
+            app.add_event_handler("shutdown", petal.shutdown)
+    
+    # Schedule petal loading to happen after proxy startup
+    app.add_event_handler("startup", load_petals_on_startup)
 
     return app
 
