@@ -18,6 +18,7 @@ import threading
 import time
 import socket
 import errno
+import struct
 from abc import abstractmethod
 from collections import defaultdict, deque
 from typing import (
@@ -454,6 +455,40 @@ class MavLinkExternalProxy(ExternalProxy):
             'GLOBAL_POSITION_INT'
         }
         
+    def _norm_name(self, x):
+        """Normalize parameter name by removing null padding."""
+        try:
+            return x.decode("ascii").rstrip("\x00")
+        except AttributeError:
+            return str(x).rstrip("\x00")
+
+    def _decode_param_value(self, msg):
+        """
+        Decode a PARAM_VALUE message.
+        If type==INT32, reinterpret the float bits as int32.
+        """
+        name = self._norm_name(msg.param_id)
+        if msg.param_type == mavutil.mavlink.MAV_PARAM_TYPE_INT32:
+            # Decode float32 bits back to int32
+            raw_bytes = struct.pack("<f", msg.param_value)
+            val = struct.unpack("<i", raw_bytes)[0]
+        else:
+            val = msg.param_value
+        return name, val
+
+    def _encode_param_value(self, value: Any, param_type: int) -> float:
+        """
+        Encode a parameter value for transmission.
+        For INT32 types, encode the int32 bits as float32 for wire transmission.
+        """
+        if param_type == mavutil.mavlink.MAV_PARAM_TYPE_INT32:
+            # Encode int32 value as float32 bits for wire transmission
+            raw_bytes = struct.pack("<i", int(value))
+            spoofed_float = struct.unpack("<f", raw_bytes)[0]
+            return spoofed_float
+        else:
+            return float(value)
+        
     def _should_log_message(self, msg_type: str) -> bool:
         """Determine if a message should be logged based on rate limiting"""
         import time
@@ -847,16 +882,23 @@ class MavLinkExternalProxy(ExternalProxy):
             self.master.target_component
         )
 
-    def build_param_set(self, name: str, value: float, param_type: int):
-        """Build MAVLink PARAM_SET for setting a parameter."""
+    def build_param_set(self, name: str, value: Any, param_type: int):
+        """
+        Build MAVLink PARAM_SET for setting a parameter.
+        Handles INT32 encoding where int32 values are encoded as float32 bits for wire transmission.
+        """
         if not self.master or not self.connected:
             raise RuntimeError("MAVLink connection not established")
+        
+        # Use the encoding method for proper INT32 handling
+        encoded_value = self._encode_param_value(value, param_type)
+        
         return self.master.mav.param_set_encode(
             self.master.target_system,
             self.master.target_component,
             name.encode("ascii"),
-            float(value),                 # on-wire is always float32
-            param_type                    # mavutil.mavlink.MAV_PARAM_TYPE_*
+            encoded_value,               # properly encoded value
+            param_type                   # mavutil.mavlink.MAV_PARAM_TYPE_*
         )
 
     async def get_param(self, name: str, timeout: float = 3.0) -> Dict[str, Any]:
@@ -871,37 +913,21 @@ class MavLinkExternalProxy(ExternalProxy):
         req = self.build_param_request_read(name, index=-1)
 
         result = {"got": False, "data": None}
-        int_types = {
-            mavutil.mavlink.MAV_PARAM_TYPE_UINT8,
-            mavutil.mavlink.MAV_PARAM_TYPE_INT8,
-            mavutil.mavlink.MAV_PARAM_TYPE_UINT16,
-            mavutil.mavlink.MAV_PARAM_TYPE_INT16,
-            mavutil.mavlink.MAV_PARAM_TYPE_UINT32,
-            mavutil.mavlink.MAV_PARAM_TYPE_INT32,
-        }
 
         def _collector(pkt) -> bool:
             # Ensure we only process PARAM_VALUE
             if pkt.get_type() != "PARAM_VALUE":
                 return False
 
-            # param_id is a fixed 16-char field with NUL padding
-            pkt_name = (pkt.param_id if isinstance(pkt.param_id, str) else pkt.param_id.decode("ascii")).rstrip("\x00")
+            # Use the decoding method for proper INT32 handling
+            pkt_name, decoded_value = self._decode_param_value(pkt)
             if pkt_name != name:
                 return False
-
-            val = pkt.param_value
-            if pkt.param_type in int_types:
-                # PX4 encodes as float32 on-wire; cast when type says integer
-                try:
-                    val = int(val)
-                except (ValueError, TypeError):
-                    pass
 
             result["got"] = True
             result["data"] = {
                 "name": pkt_name,
-                "value": val,
+                "value": decoded_value,
                 "raw": float(pkt.param_value),
                 "type": pkt.param_type,
                 "count": pkt.param_count,
@@ -935,15 +961,6 @@ class MavLinkExternalProxy(ExternalProxy):
         seen = set()
         expected_total = {"val": None}
 
-        int_types = {
-            mavutil.mavlink.MAV_PARAM_TYPE_UINT8,
-            mavutil.mavlink.MAV_PARAM_TYPE_INT8,
-            mavutil.mavlink.MAV_PARAM_TYPE_UINT16,
-            mavutil.mavlink.MAV_PARAM_TYPE_INT16,
-            mavutil.mavlink.MAV_PARAM_TYPE_UINT32,
-            mavutil.mavlink.MAV_PARAM_TYPE_INT32,
-        }
-
         def _collector(pkt) -> bool:
             if pkt.get_type() != "PARAM_VALUE":
                 return False
@@ -951,22 +968,17 @@ class MavLinkExternalProxy(ExternalProxy):
             if expected_total["val"] is None:
                 expected_total["val"] = pkt.param_count
 
-            name = (pkt.param_id if isinstance(pkt.param_id, str) else pkt.param_id.decode("ascii")).rstrip("\x00")
+            # Use the decoding method for proper INT32 handling
+            name, decoded_value = self._decode_param_value(pkt)
 
             if (name, pkt.param_index) in seen:
                 # duplicate frame—ignore; can happen with lossy links
                 pass
             else:
                 seen.add((name, pkt.param_index))
-                val = pkt.param_value
-                if pkt.param_type in int_types:
-                    try:
-                        val = int(val)
-                    except (ValueError, TypeError):
-                        pass
 
                 params[name] = {
-                    "value": val,
+                    "value": decoded_value,
                     "raw": float(pkt.param_value),
                     "type": pkt.param_type,
                     "index": pkt.param_index,
@@ -988,6 +1000,8 @@ class MavLinkExternalProxy(ExternalProxy):
         """
         Set a parameter and confirm by reading back. `value` can be int or float.
         Returns the confirmed PARAM_VALUE dict (same shape as get_param()).
+        
+        Uses proper INT32 encoding where int32 values are encoded as float32 bits for wire transmission.
 
         ["MAV_PARAM_TYPE"] = {
             [1] = "MAV_PARAM_TYPE_UINT8",
@@ -1004,25 +1018,22 @@ class MavLinkExternalProxy(ExternalProxy):
 
         """
         # Pick a MAV_PARAM_TYPE based on Python type (simple heuristic)
-
         if ptype is None:
             if isinstance(value, int):
                 ptype = mavutil.mavlink.MAV_PARAM_TYPE_INT32
-                wire = int(value)
             elif isinstance(value, float):
                 ptype = mavutil.mavlink.MAV_PARAM_TYPE_REAL32
-                wire = float(value)
             else:
                 self._log.warning(f"Unsupported parameter type for {name}: {type(value)}")
-                return
-        else:
-            wire = value
+                raise ValueError(f"Unsupported parameter type for {name}: {type(value)}")
 
-        req = self.build_param_set(name, wire, ptype)
+        # Build the PARAM_SET message with proper encoding
+        req = self.build_param_set(name, value, ptype)
 
-        # We can just send and then read back with get_param()
+        # Send the parameter set command
         self.send("mav", req)
-        # Some firmwares echo a PARAM_VALUE immediately; others need a separate read
+        
+        # Wait for confirmation by reading back the parameter
         try:
             return await self.get_param(name, timeout=timeout)
         except TimeoutError:
