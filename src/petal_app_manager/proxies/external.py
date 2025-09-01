@@ -409,7 +409,7 @@ class MavLinkExternalProxy(ExternalProxy):
         endpoint: str,
         baud: int,
         maxlen: int,
-        mavlink_worker_sleep_ms: float = 0,
+        mavlink_worker_sleep_ms: float = 1,
         mavlink_heartbeat_send_frequency: float = 5.0,
         root_sd_path: str = 'fs/microsd/log'
     ):
