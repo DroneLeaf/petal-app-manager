@@ -262,9 +262,17 @@ def build_app(
         # Register shutdown handlers for the petals
         for petal in petals:
             app.add_event_handler("shutdown", petal.shutdown)
+
+    async def shutdown_petals():
+        """Shutdown petals gracefully"""
+        for petal in petals:
+            async_shutdown_method = getattr(petal, 'async_shutdown', None)
+            if async_shutdown_method and asyncio.iscoroutinefunction(async_shutdown_method):
+                await async_shutdown_method()
     
     # Schedule petal loading to happen after proxy startup
     app.add_event_handler("startup", load_petals_on_startup)
+    app.add_event_handler("shutdown", shutdown_petals)
 
     return app
 
