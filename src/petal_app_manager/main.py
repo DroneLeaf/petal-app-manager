@@ -208,7 +208,7 @@ def build_app(
 
     for p in proxies.values():
         app.add_event_handler("startup", p.start)
-        app.add_event_handler("shutdown", p.stop)
+        # Note: proxy shutdown handlers will be registered later in shutdown_all
 
     api.set_proxies(proxies)
     api_logger = logging.getLogger("PetalAppManagerAPI")
@@ -259,9 +259,7 @@ def build_app(
             if async_startup_method and asyncio.iscoroutinefunction(async_startup_method):
                 await async_startup_method()
         
-        # Register shutdown handlers for the petals
-        for petal in petals:
-            app.add_event_handler("shutdown", petal.shutdown)
+        # Note: Petal shutdown is handled centrally in shutdown_all, not via individual event handlers
 
     async def shutdown_petals():
         """Shutdown petals gracefully"""
@@ -269,10 +267,37 @@ def build_app(
             async_shutdown_method = getattr(petal, 'async_shutdown', None)
             if async_shutdown_method and asyncio.iscoroutinefunction(async_shutdown_method):
                 await async_shutdown_method()
+
+    async def shutdown_all():
+        """Shutdown petals first, then proxies"""
+        logger.info("Starting graceful shutdown...")
+        
+        # Step 1: Shutdown petals first (async shutdown if available)
+        logger.info("Shutting down petals (async)...")
+        await shutdown_petals()
+        
+        # Step 2: Shutdown petals (sync shutdown)
+        logger.info("Shutting down petals (sync)...")
+        for petal in petals:
+            try:
+                petal.shutdown()
+            except Exception as e:
+                logger.error(f"Error shutting down petal {getattr(petal, 'name', 'unknown')}: {e}")
+        
+        # Step 3: Shutdown proxies
+        logger.info("Shutting down proxies...")
+        for proxy_name, proxy in proxies.items():
+            try:
+                await proxy.stop()
+                logger.info(f"Shutdown proxy: {proxy_name}")
+            except Exception as e:
+                logger.error(f"Error shutting down proxy {proxy_name}: {e}")
+        
+        logger.info("Graceful shutdown completed")
     
     # Schedule petal loading to happen after proxy startup
     app.add_event_handler("startup", load_petals_on_startup)
-    app.add_event_handler("shutdown", shutdown_petals)
+    app.add_event_handler("shutdown", shutdown_all)
 
     return app
 
