@@ -21,6 +21,9 @@ petal_dependencies:
   petal_warehouse:
   - redis
   - ext_mavlink
+  petal_user_journey_coordinator:
+  - mqtt
+  - ext_mavlink
 proxy_dependencies:
   bucket:
   - db
