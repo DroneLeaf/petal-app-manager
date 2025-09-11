@@ -1345,15 +1345,29 @@ class _BlockingParser:
         self.master = master
         self.proxy = mavlink_proxy
         self.root_sd_path = self.proxy.root_sd_path
-        
-        self.ftp = mavftp.MAVFTP(
-            self.master, self.master.target_system, self.master.target_component
-        )
-        self.ftp.ftp_settings.debug            = debug
-        self.ftp.ftp_settings.retry_time       = 0.2   # 200 ms instead of 1 s
-        self.ftp.ftp_settings.burst_read_size  = 239
-        self.ftp.burst_size                    = 239
+        # try three times to init MAVFTP
+        try:
+            for _ in range(3):
+                try:
+                    self.ftp = mavftp.MAVFTP(
+                        self.master, self.master.target_system, self.master.target_component
+                    )
+                    break
+                except Exception as e:
+                    self._log.warning(f"MAVFTP init attempt failed: {e}")
+                    time.sleep(1)
+            else:
+                raise RuntimeError("MAVFTP init failed after 3 attempts")
 
+            self._log.info("MAVFTP initialized successfully")
+            self.ftp.ftp_settings.debug            = debug
+            self.ftp.ftp_settings.retry_time       = 0.2   # 200 ms instead of 1 s
+            self.ftp.ftp_settings.burst_read_size  = 239
+            self.ftp.burst_size                    = 239
+
+        except Exception as e:
+            self._log.error(f"Failed to initialize MAVFTP: {e}")
+            raise
 
     @property
     def system_id(self):          # convenience for log message in proxy.start()
