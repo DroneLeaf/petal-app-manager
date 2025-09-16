@@ -301,16 +301,23 @@ async def _check_mavlink_proxy(proxy: MavLinkExternalProxy) -> Dict[str, Any]:
         current_time = time.time()
         
         status_info = {
-            "status": "healthy" if proxy.connected else "unhealthy",
+            "status": "healthy" if proxy.connected and proxy.leaf_fc_connected else "unhealthy",
             "connection": {
                 "endpoint": proxy.endpoint,
                 "baud": proxy.baud,
                 "connected": proxy.connected
             },
-            "heartbeat": {
+            "px4_heartbeat": {
+                "connected": proxy.connected,
                 "last_received": proxy._last_heartbeat_time,
                 "seconds_since_last": current_time - proxy._last_heartbeat_time if proxy._last_heartbeat_time > 0 else None,
                 "timeout_threshold": proxy._heartbeat_timeout
+            },
+            "leaf_fc_heartbeat": {
+                "connected": proxy.leaf_fc_connected,
+                "last_heartbeat": proxy._last_leaf_fc_heartbeat_time,
+                "seconds_since_last": current_time - proxy._last_leaf_fc_heartbeat_time if proxy._last_leaf_fc_heartbeat_time > 0 else None,
+                "timeout_threshold": proxy._leaf_fc_heartbeat_timeout
             },
             "worker_thread": {
                 "running": proxy._running.is_set() if proxy._running else False,

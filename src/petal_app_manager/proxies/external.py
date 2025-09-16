@@ -422,14 +422,18 @@ class MavLinkExternalProxy(ExternalProxy):
         self.master: mavutil.mavfile | None = None
         
         # Set up file-only logging
-        self._log = setup_file_only_logger("MavLinkExternalProxy", "app-mavlinkexternalproxy.log", "INFO")
-        
+        self._log_msgs = setup_file_only_logger("MavLinkExternalProxyMsgs", "app-mavlinkexternalproxymsgs.log", "INFO")
+        self._log = logging.getLogger("MavLinkExternalProxy")
+
         self._loop: asyncio.AbstractEventLoop | None = None
         self._exe = ThreadPoolExecutor(max_workers=1)
         self.connected = False
         self._last_heartbeat_time = 0.0
+        self.leaf_fc_connected = False
+        self._last_leaf_fc_heartbeat_time = 0.0
         self._connection_check_interval = 5.0  # Check connection every 5 seconds
-        self._heartbeat_timeout = 60.0  # Consider disconnected if no heartbeat for 60s
+        self._heartbeat_timeout = 10.0  # Consider disconnected if no heartbeat for 60s
+        self._leaf_fc_heartbeat_timeout = 5.0  # Consider Leaf FC disconnected if no heartbeat for 30s
         self._reconnect_interval = 2.0  # Wait 2s between reconnection attempts
         self._heartbeat_task = None
         self._connection_monitor_task = None
@@ -565,7 +569,17 @@ class MavLinkExternalProxy(ExternalProxy):
                 source_system=2, 
                 source_component=140  # MAV_COMP_ID_USER1–USER4 140–143
             )
-            
+
+            # self.master = await self._loop.run_in_executor(
+            #     self._exe,
+            #     mavutil.mavlink_connection,
+            #     self.endpoint,
+            #     self.baud,
+            #     "all",
+            #     2,
+            #     140
+            # )
+
             # Try to get a heartbeat with timeout
             try:
                 if self.master.wait_heartbeat(timeout=5):
@@ -576,6 +590,7 @@ class MavLinkExternalProxy(ExternalProxy):
                     
                     # Register heartbeat handler to track connection health
                     self.register_handler(str(mavlink_dialect.MAVLINK_MSG_ID_HEARTBEAT), self._on_heartbeat_received)
+                    self.register_handler(str(mavlink_dialect.MAVLINK_MSG_ID_LEAF_HEARTBEAT), self._on_leaf_fc_heartbeat_received)
                     
                 else:
                     self.connected = False
@@ -604,20 +619,37 @@ class MavLinkExternalProxy(ExternalProxy):
             self.connected = True
             self._log.info("MAVLink connection re-established")
 
+    def _on_leaf_fc_heartbeat_received(self, msg):
+        """Handler for incoming heartbeat messages to track connection health."""
+        self._last_leaf_fc_heartbeat_time = time.time()
+        if not self.leaf_fc_connected:
+            self.leaf_fc_connected = True
+            self._log.info("Leaf FC connection re-established")
+
     async def _monitor_connection(self):
         """Monitor connection health and trigger reconnection if needed."""
         while self._running.is_set():
             try:
+                current_time = time.time()
+
+                # Check if we haven't received a Leaf FC heartbeat recently
+                if abs(current_time - self._last_leaf_fc_heartbeat_time) > self._leaf_fc_heartbeat_timeout:
+                    if self.leaf_fc_connected:
+                        self._log.warning("No Leaf FC heartbeat received for %.1fs - Leaf FC connection lost",
+                                          current_time - self._last_leaf_fc_heartbeat_time)
+                        self.leaf_fc_connected = False
+                    else:
+                        self._log.warning("No Leaf FC heartbeat received for %.1fs - still disconnected",
+                                          current_time - self._last_leaf_fc_heartbeat_time)
+
                 # Skip monitoring if _mav_lock is held (FTP operation in progress)
                 if self._mav_lock.locked():
                     await asyncio.sleep(self._connection_check_interval)
                     continue
-                
-                current_time = time.time()
-                
+                                
                 # Check if we haven't received a heartbeat recently
                 if (self.connected and 
-                    current_time - self._last_heartbeat_time > self._heartbeat_timeout):
+                    abs(current_time - self._last_heartbeat_time) > self._heartbeat_timeout):
                     self._log.warning("No heartbeat received for %.1fs - connection lost", 
                                     current_time - self._last_heartbeat_time)
                     self.connected = False
@@ -667,10 +699,10 @@ class MavLinkExternalProxy(ExternalProxy):
                 if self.connected and self.master:
                     await self.send_heartbeat()
                 else:
-                    self._log.debug("Skipping heartbeat send - not connected")
+                    self._log_msgs.debug("Skipping heartbeat send - not connected")
                     
             except Exception as exc:
-                self._log.error(f"Failed to send heartbeat: {exc}")
+                self._log_msgs.error(f"Failed to send heartbeat: {exc}")
                 # Don't mark as disconnected just for heartbeat send failure
                 
             await asyncio.sleep(interval)
@@ -691,7 +723,7 @@ class MavLinkExternalProxy(ExternalProxy):
             mavutil.mavlink.MAV_STATE_ACTIVE  # System state
         )
         self.send("mav", msg)
-        self._log.debug("Sent MAVLink heartbeat")
+        self._log_msgs.debug("Sent MAVLink heartbeat")
 
     async def stop(self):
         """Stop the worker and close the link."""
@@ -738,7 +770,7 @@ class MavLinkExternalProxy(ExternalProxy):
                     
                     # Only log if rate limiting allows
                     if self._should_log_message(msg_type):
-                        self._log.debug(f"📥 MAVLink RX: {msg_type} (ID: {msg_id}) - {msg}")
+                        self._log_msgs.debug(f"📥 MAVLink RX: {msg_type} (ID: {msg_id}) - {msg}")
                     
                     out.append(("mav", msg))
                     out.append((str(msg_id), msg))
@@ -747,12 +779,12 @@ class MavLinkExternalProxy(ExternalProxy):
         except (OSError, socket.error) as e:
             # Handle connection errors gracefully
             if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED]:
-                self._log.debug(f"MAVLink connection lost during read: {e}")
+                self._log_msgs.debug(f"MAVLink connection lost during read: {e}")
                 # Don't mark as disconnected here, let the heartbeat monitor handle it
             else:
-                self._log.error(f"Unexpected error reading MAVLink messages: {e}")
+                self._log_msgs.error(f"Unexpected error reading MAVLink messages: {e}")
         except Exception as e:
-            self._log.error(f"Error reading MAVLink messages: {e}")
+            self._log_msgs.error(f"Error reading MAVLink messages: {e}")
             # Don't mark as disconnected here, let the heartbeat monitor handle it
         
         return out
@@ -771,18 +803,18 @@ class MavLinkExternalProxy(ExternalProxy):
                         
                         # Only log if rate limiting allows
                         if self._should_log_message(msg_type):
-                            self._log.info(f"📤 MAVLink TX: {msg_type} (ID: {msg_id}) - {msg}")
+                            self._log_msgs.info(f"📤 MAVLink TX: {msg_type} (ID: {msg_id}) - {msg}")
                         
                         self.master.mav.send(msg)
                     except (OSError, socket.error) as e:
                         if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
-                            self._log.debug(f"MAVLink connection lost during write: {e}")
+                            self._log_msgs.debug(f"MAVLink connection lost during write: {e}")
                             # Don't mark as disconnected here, let the heartbeat monitor handle it
                             break  # Stop trying to send more messages
                         else:
-                            self._log.error(f"Unexpected error sending MAVLink message {key}: {e}")
+                            self._log_msgs.error(f"Unexpected error sending MAVLink message {key}: {e}")
                     except Exception as exc:
-                        self._log.error(
+                        self._log_msgs.error(
                             "Failed to send MAVLink message %s: %s",
                             key, exc
                         )
@@ -1349,6 +1381,9 @@ class _BlockingParser:
         try:
             for _ in range(3):
                 try:
+                    if self.master is None or not self.proxy.connected:
+                        raise RuntimeError("MAVLink master not initialized MAVFTP proxy failed")
+                    
                     self.ftp = mavftp.MAVFTP(
                         self.master, self.master.target_system, self.master.target_component
                     )
