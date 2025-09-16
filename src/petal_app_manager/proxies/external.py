@@ -428,9 +428,9 @@ class MavLinkExternalProxy(ExternalProxy):
         self._loop: asyncio.AbstractEventLoop | None = None
         self._exe = ThreadPoolExecutor(max_workers=1)
         self.connected = False
-        self._last_heartbeat_time = 0.0
+        self._last_heartbeat_time = time.time()
         self.leaf_fc_connected = False
-        self._last_leaf_fc_heartbeat_time = 0.0
+        self._last_leaf_fc_heartbeat_time = time.time()
         self._connection_check_interval = 5.0  # Check connection every 5 seconds
         self._heartbeat_timeout = 10.0  # Consider disconnected if no heartbeat for 60s
         self._leaf_fc_heartbeat_timeout = 5.0  # Consider Leaf FC disconnected if no heartbeat for 30s
@@ -439,6 +439,7 @@ class MavLinkExternalProxy(ExternalProxy):
         self._connection_monitor_task = None
         self._reconnect_pending = False
         self._mav_lock = threading.Lock()
+        self._download_lock = threading.Lock()  # Prevent concurrent downloads
         
         # Rate limiting for logging
         self._last_log_time = {}
@@ -536,9 +537,6 @@ class MavLinkExternalProxy(ExternalProxy):
         # Start the worker thread first
         await super().start()
         
-        # Attempt initial connection
-        self._schedule_reconnect()
-        
         # Start connection monitoring and heartbeat tasks
         self._connection_monitor_task = asyncio.create_task(self._monitor_connection())
         
@@ -552,6 +550,22 @@ class MavLinkExternalProxy(ExternalProxy):
                 self._log.error(f"Invalid self.mavlink_heartbeat_send_frequency: {exc}")
                 frequency = 5.0
             self._heartbeat_task = asyncio.create_task(self._send_heartbeat_periodically(frequency=frequency))
+        
+        # Schedule initial connection attempt in background (non-blocking)
+        # This allows the server to start immediately without waiting for MAVLink
+        asyncio.create_task(self._initial_connection_attempt())
+
+    async def _initial_connection_attempt(self):
+        """Attempt initial MAVLink connection in the background."""
+        try:
+            self._log.info("Attempting initial MAVLink connection to %s", self.endpoint)
+            await self._establish_connection()
+            if self.connected:
+                self._log.info("Initial MAVLink connection successful")
+            else:
+                self._log.info("Initial MAVLink connection failed - will retry in background")
+        except Exception as e:
+            self._log.warning(f"Initial MAVLink connection attempt failed: {e} - will retry in background")
 
     async def _establish_connection(self):
         """Establish MAVLink connection and wait for heartbeat."""
@@ -562,27 +576,20 @@ class MavLinkExternalProxy(ExternalProxy):
                 except:
                     pass  # Ignore errors when closing old connection
             
-            self.master = mavutil.mavlink_connection(
-                self.endpoint, 
-                baud=self.baud, 
-                dialect="all",
-                source_system=2, 
-                source_component=140  # MAV_COMP_ID_USER1–USER4 140–143
+            # Run the blocking connection establishment in a separate thread
+            self.master = await self._loop.run_in_executor(
+                self._exe,
+                self._create_mavlink_connection
             )
 
-            # self.master = await self._loop.run_in_executor(
-            #     self._exe,
-            #     mavutil.mavlink_connection,
-            #     self.endpoint,
-            #     self.baud,
-            #     "all",
-            #     2,
-            #     140
-            # )
-
-            # Try to get a heartbeat with timeout
+            # Try to get a heartbeat with timeout - also run in executor
             try:
-                if self.master.wait_heartbeat(timeout=5):
+                heartbeat_received = await self._loop.run_in_executor(
+                    self._exe,
+                    self._wait_for_heartbeat
+                )
+                
+                if heartbeat_received:
                     self.connected = True
                     self._last_heartbeat_time = time.time()
                     self._log.info("MAVLink connection established - Heartbeat from sys %s, comp %s",
@@ -611,6 +618,22 @@ class MavLinkExternalProxy(ExternalProxy):
                 except:
                     pass
                 self.master = None
+
+    def _create_mavlink_connection(self):
+        """Create MAVLink connection in a separate thread."""
+        return mavutil.mavlink_connection(
+            self.endpoint, 
+            baud=self.baud, 
+            dialect="all",
+            source_system=2, 
+            source_component=140  # MAV_COMP_ID_USER1–USER4 140–143
+        )
+    
+    def _wait_for_heartbeat(self):
+        """Wait for heartbeat in a separate thread."""
+        if self.master:
+            return self.master.wait_heartbeat(timeout=5)
+        return False
 
     def _on_heartbeat_received(self, msg):
         """Handler for incoming heartbeat messages to track connection health."""
@@ -643,16 +666,19 @@ class MavLinkExternalProxy(ExternalProxy):
                                           current_time - self._last_leaf_fc_heartbeat_time)
 
                 # Skip monitoring if _mav_lock is held (FTP operation in progress)
-                if self._mav_lock.locked():
+                if self._download_lock.locked():
                     await asyncio.sleep(self._connection_check_interval)
                     continue
                                 
                 # Check if we haven't received a heartbeat recently
-                if (self.connected and 
-                    abs(current_time - self._last_heartbeat_time) > self._heartbeat_timeout):
-                    self._log.warning("No heartbeat received for %.1fs - connection lost", 
-                                    current_time - self._last_heartbeat_time)
-                    self.connected = False
+                if abs(current_time - self._last_heartbeat_time) > self._heartbeat_timeout:
+                    if self.connected:
+                        self._log.warning("No heartbeat received for %.1fs - connection lost",
+                                        current_time - self._last_heartbeat_time)
+                        self.connected = False
+                    else:
+                        self._log.warning("No heartbeat received for %.1fs - still disconnected",
+                                        current_time - self._last_heartbeat_time)
                 
                 # Attempt reconnection if not connected
                 if not self.connected and self._running.is_set():
@@ -1402,7 +1428,6 @@ class _BlockingParser:
 
         except Exception as e:
             self._log.error(f"Failed to initialize MAVFTP: {e}")
-            raise
 
     @property
     def system_id(self):          # convenience for log message in proxy.start()
@@ -1500,7 +1525,7 @@ class _BlockingParser:
                             raise RuntimeError(f"Failed to reconnect after {max_retries} attempts") from conn_e
                         continue
                 
-                with self.proxy._mav_lock:
+                with self.proxy._download_lock:
 
                     ret = self.ftp.cmd_get(
                         [remote_path, str(local_path.absolute())],
@@ -1552,7 +1577,7 @@ class _BlockingParser:
             except DownloadCancelledException:
                 # Handle cancellation gracefully at the outer level too
                 self._log.info("Download cancelled by user")
-                with self.proxy._mav_lock:
+                with self.proxy._download_lock:
                     self._reset_ftp_state()
                 if local_path.exists():
                     local_path.unlink()
@@ -1560,7 +1585,7 @@ class _BlockingParser:
             except (OSError, socket.error) as e:
                 # Handle connection errors (including "Bad file descriptor")
                 self._log.error(f"Download error (attempt {attempt + 1}/{max_retries}): {str(e)}")
-                with self.proxy._mav_lock:
+                with self.proxy._download_lock:
                     self._reset_ftp_state()
 
                 # Clean up partial file
@@ -1580,7 +1605,7 @@ class _BlockingParser:
             except Exception as e:
                 self._log.error(f"Download error: {str(e)}")
                 # Always reset FTP state on error
-                with self.proxy._mav_lock:
+                with self.proxy._download_lock:
                     self._reset_ftp_state()
 
                 # Clean up partial file
@@ -1691,7 +1716,7 @@ class _BlockingParser:
                     self._log.warning(f"Connection lost, skipping ls for {path}")
                     return []
                 
-                with self.proxy._mav_lock:
+                with self.proxy._download_lock:
                     ack = self.ftp.cmd_list([path])
                     if ack.return_code == 0:
                         return list(set((e.name, e.size_b, e.is_dir) for e in self.ftp.list_result))
@@ -1767,7 +1792,7 @@ class _BlockingParser:
                     self._log.warning(f"Connection lost, skipping delete for {path}")
                     return
                 
-                with self.proxy._mav_lock:
+                with self.proxy._download_lock:
                     ack = self.ftp.cmd_rm([path])
                     if ack.return_code == 0:
                         self._log.info(f"Successfully deleted {path}")
