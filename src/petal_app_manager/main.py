@@ -10,6 +10,7 @@ import logging
 import asyncio
 
 from .logger import setup_logging
+from .organization_manager import get_organization_manager
 from pathlib import Path
 import os
 import dotenv
@@ -248,6 +249,16 @@ def build_app(
     # Store petals list to manage them during startup/shutdown
     petals = []
     
+    async def startup_all():
+        """Initialize OrganizationManager and then load petals"""
+        # Step 1: Start OrganizationManager first
+        logger.info("Starting OrganizationManager...")
+        org_manager = get_organization_manager()
+        await org_manager.start()
+        
+        # Step 2: Load petals after OrganizationManager is started
+        await load_petals_on_startup()
+    
     async def load_petals_on_startup():
         """Load petals after proxies have been started"""
         nonlocal petals
@@ -269,7 +280,7 @@ def build_app(
                 await async_shutdown_method()
 
     async def shutdown_all():
-        """Shutdown petals first, then proxies"""
+        """Shutdown petals first, then proxies, then OrganizationManager"""
         logger.info("Starting graceful shutdown...")
         
         # Step 1: Shutdown petals first (async shutdown if available)
@@ -293,10 +304,19 @@ def build_app(
             except Exception as e:
                 logger.error(f"Error shutting down proxy {proxy_name}: {e}")
         
+        # Step 4: Shutdown OrganizationManager last
+        logger.info("Shutting down OrganizationManager...")
+        try:
+            org_manager = get_organization_manager()
+            await org_manager.stop()
+            logger.info("OrganizationManager shutdown completed")
+        except Exception as e:
+            logger.error(f"Error shutting down OrganizationManager: {e}")
+        
         logger.info("Graceful shutdown completed")
     
-    # Schedule petal loading to happen after proxy startup
-    app.add_event_handler("startup", load_petals_on_startup)
+    # Schedule startup and shutdown handlers
+    app.add_event_handler("startup", startup_all)
     app.add_event_handler("shutdown", shutdown_all)
 
     return app

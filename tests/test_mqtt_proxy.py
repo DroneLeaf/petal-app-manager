@@ -23,38 +23,43 @@ async def mock_local_db() -> LocalDBProxy:
 @pytest_asyncio.fixture
 async def proxy(mock_local_db) -> AsyncGenerator[MQTTProxy, None]:
     """Create an MQTTProxy instance for testing with mocked dependencies."""
-    # Create the proxy with test configuration
-    proxy = MQTTProxy(
-        local_db_proxy=mock_local_db,
-        ts_client_host="localhost",
-        ts_client_port=3004,
-        callback_host="localhost",
-        callback_port=3005,
-        enable_callbacks=True,
-        debug=True
-    )
     
-    # Set required attributes manually instead of calling start()
-    proxy.organization_id = "e8fc2cd9-f040-4229-84c0-62ea693b99f6"
-    proxy.robot_instance_id = "ce93d985-d950-4f0d-be32-f778f1a00cdc"
-    proxy.device_id = "Instance-ce93d985-d950-4f0d-be32-f778f1a00cdc"
-    proxy._loop = asyncio.get_running_loop()
-    proxy.is_connected = True
-    
-    # Initialize worker thread state for testing
-    proxy._worker_running = threading.Event()
-    proxy._worker_running.set()
-    proxy._worker_threads = []
-    
-    # Setup mock callback app
-    proxy.callback_app = MagicMock()
-    proxy.callback_server = MagicMock()
-    proxy.callback_thread = MagicMock()
-    proxy.callback_thread.is_alive.return_value = True
-    
-    # Mock the HTTP requests
-    with patch('petal_app_manager.proxies.mqtt.requests.get') as mock_get, \
+    # Mock the OrganizationManager for testing - this needs to be active throughout the test
+    with patch('petal_app_manager.proxies.mqtt.get_organization_manager') as mock_get_org_manager, \
+         patch('petal_app_manager.proxies.mqtt.requests.get') as mock_get, \
          patch('petal_app_manager.proxies.mqtt.requests.request') as mock_request:
+        
+        mock_org_manager = MagicMock()
+        mock_org_manager.organization_id = "e8fc2cd9-f040-4229-84c0-62ea693b99f6"
+        mock_get_org_manager.return_value = mock_org_manager
+        
+        # Create the proxy with test configuration
+        proxy = MQTTProxy(
+            local_db_proxy=mock_local_db,
+            ts_client_host="localhost",
+            ts_client_port=3004,
+            callback_host="localhost",
+            callback_port=3005,
+            enable_callbacks=True,
+            debug=True
+        )
+        
+        # Set required attributes manually instead of calling start()
+        proxy.robot_instance_id = "ce93d985-d950-4f0d-be32-f778f1a00cdc"
+        proxy.device_id = "Instance-ce93d985-d950-4f0d-be32-f778f1a00cdc"
+        proxy._loop = asyncio.get_running_loop()
+        proxy.is_connected = True
+        
+        # Initialize worker thread state for testing
+        proxy._worker_running = threading.Event()
+        proxy._worker_running.set()
+        proxy._worker_threads = []
+        
+        # Setup mock callback app
+        proxy.callback_app = MagicMock()
+        proxy.callback_server = MagicMock()
+        proxy.callback_thread = MagicMock()
+        proxy.callback_thread.is_alive.return_value = True
         
         # Setup mock responses for health checks
         mock_health_response = MagicMock()
@@ -83,16 +88,23 @@ async def proxy(mock_local_db) -> AsyncGenerator[MQTTProxy, None]:
 @pytest_asyncio.fixture
 async def proxy_no_callbacks(mock_local_db) -> AsyncGenerator[MQTTProxy, None]:
     """Create an MQTTProxy instance with callbacks disabled for testing."""
-    proxy = MQTTProxy(
-        local_db_proxy=mock_local_db,
-        ts_client_host="localhost",
-        ts_client_port=3004,
-        enable_callbacks=False,
-        debug=True
-    )
     
-    with patch('petal_app_manager.proxies.mqtt.requests.get') as mock_get, \
+    # Mock the OrganizationManager for testing - this needs to be active throughout the test
+    with patch('petal_app_manager.proxies.mqtt.get_organization_manager') as mock_get_org_manager, \
+         patch('petal_app_manager.proxies.mqtt.requests.get') as mock_get, \
          patch('petal_app_manager.proxies.mqtt.requests.request') as mock_request:
+        
+        mock_org_manager = MagicMock()
+        mock_org_manager.organization_id = "e8fc2cd9-f040-4229-84c0-62ea693b99f6"
+        mock_get_org_manager.return_value = mock_org_manager
+        
+        proxy = MQTTProxy(
+            local_db_proxy=mock_local_db,
+            ts_client_host="localhost",
+            ts_client_port=3004,
+            enable_callbacks=False,
+            debug=True
+        )
         
         # Setup mock responses
         mock_health_response = MagicMock()
@@ -184,15 +196,29 @@ async def test_connection_error_handling():
 
 @pytest.mark.asyncio
 async def test_missing_organization_id():
-    """Test handling of missing organization ID."""
+    """Test handling of missing organization ID - should not fail startup anymore."""
     mock_local_db = MagicMock(spec=LocalDBProxy)
     mock_local_db.organization_id = None
     mock_local_db.machine_id = "test-machine"
     
-    proxy = MQTTProxy(local_db_proxy=mock_local_db)
-    
-    with pytest.raises(ValueError, match="Organization ID and Robot Instance ID must be available"):
-        await proxy.start()
+    # Mock OrganizationManager to return None
+    with patch('petal_app_manager.proxies.mqtt.get_organization_manager') as mock_get_org_manager:
+        mock_org_manager = MagicMock()
+        mock_org_manager.organization_id = None
+        mock_get_org_manager.return_value = mock_org_manager
+        
+        proxy = MQTTProxy(local_db_proxy=mock_local_db)
+        
+        # Mock health check to pass
+        with patch('petal_app_manager.proxies.mqtt.requests.get') as mock_get:
+            mock_health_response = MagicMock()
+            mock_health_response.status_code = 200
+            mock_get.return_value = mock_health_response
+            
+            # Should succeed - organization_id not required at startup
+            await proxy.start()
+            assert proxy.is_connected is True
+            await proxy.stop()
 
 
 @pytest.mark.asyncio
@@ -204,7 +230,7 @@ async def test_missing_machine_id():
     
     proxy = MQTTProxy(local_db_proxy=mock_local_db)
     
-    with pytest.raises(ValueError, match="Organization ID and Robot Instance ID must be available"):
+    with pytest.raises(ValueError, match="Robot Instance ID must be available from LocalDBProxy"):
         await proxy.start()
 
 
@@ -574,16 +600,21 @@ async def test_health_check_unhealthy():
     mock_local_db.organization_id = "test-org"
     mock_local_db.machine_id = "test-machine"
     
-    proxy = MQTTProxy(local_db_proxy=mock_local_db)
-    # Set organization_id manually since we're not calling start()
-    proxy.organization_id = "test-org"
-    proxy.robot_instance_id = "test-machine"
-    # Don't call start() so proxy remains disconnected
-    
-    health = await proxy.health_check()
-    
-    assert health["status"] == "unhealthy"
-    assert health["connection"]["connected"] is False
+    # Mock OrganizationManager for testing
+    with patch('petal_app_manager.proxies.mqtt.get_organization_manager') as mock_get_org_manager:
+        mock_org_manager = MagicMock()
+        mock_org_manager.organization_id = "test-org"
+        mock_get_org_manager.return_value = mock_org_manager
+        
+        proxy = MQTTProxy(local_db_proxy=mock_local_db)
+        # Set robot_instance_id manually since we're not calling start()
+        proxy.robot_instance_id = "test-machine"
+        # Don't call start() so proxy remains disconnected
+        
+        health = await proxy.health_check()
+        
+        assert health["status"] == "unhealthy"
+        assert health["connection"]["connected"] is False
 
 
 # ------ Error Handling Tests ------ #

@@ -15,6 +15,7 @@ from botocore.exceptions import ClientError, NoCredentialsError
 
 from .base import BaseProxy
 from .localdb import LocalDBProxy
+from ..organization_manager import get_organization_manager
 
 _ULOG_MAGIC   = b"ULog\x01\x12\x35"     # 7‑byte magic    :contentReference[oaicite:0]{index=0}
 _ULOG_VERSION = 1                       # current spec
@@ -100,6 +101,24 @@ class S3BucketProxy(BaseProxy):
             return None
         
         return machine_id
+
+    def _get_organization_id(self) -> Optional[str]:
+        """
+        Get the organization ID from the OrganizationManager.
+        
+        Returns:
+            The organization ID if available, None otherwise
+        """
+        try:
+            org_manager = get_organization_manager()
+            org_id = org_manager.organization_id
+            if not org_id:
+                self.log.debug("Organization ID not yet available from OrganizationManager")
+                return None
+            return org_id
+        except Exception as e:
+            self.log.error(f"Error getting organization ID from OrganizationManager: {e}")
+            return None
         
     def _validate_file_extension(self, filename: str) -> bool:
         """

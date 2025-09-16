@@ -32,6 +32,7 @@ import uvicorn
 
 from .base import BaseProxy
 from .localdb import LocalDBProxy
+from ..organization_manager import get_organization_manager
 
 class MQTTMessage:
     """Internal message structure for deque processing."""
@@ -115,17 +116,16 @@ class MQTTProxy(BaseProxy):
     async def start(self):
         """Initialize the MQTT proxy and start callback server and worker threads."""
         
-        # Get organization and device IDs
-        self.organization_id = self._get_organization_id()
+        # Get robot instance ID for basic setup
         self.robot_instance_id = self._get_machine_id()
         self.device_id = f"Instance-{self.robot_instance_id}" if self.robot_instance_id else None
         
         self._loop = asyncio.get_running_loop()
         self.log.info("Initializing MQTTProxy connection")
         
-        # Validate configuration
-        if not self.organization_id or not self.device_id:
-            raise ValueError("Organization ID and Robot Instance ID must be available from LocalDBProxy")
+        # Validate basic configuration (organization_id will be fetched on-demand)
+        if not self.device_id:
+            raise ValueError("Robot Instance ID must be available from LocalDBProxy")
         
         try:
             # Check TypeScript client health
@@ -140,7 +140,7 @@ class MQTTProxy(BaseProxy):
                 await self._setup_callback_server()
                 await self._start_callback_server()
             
-            # Subscribe to default device topics
+            # Subscribe to default device topics (will get org_id on-demand)
             await self._subscribe_to_device_topics()
             
             self.is_connected = True
@@ -200,21 +200,54 @@ class MQTTProxy(BaseProxy):
 
     def _get_organization_id(self) -> Optional[str]:
         """
-        Get the organization ID from the LocalDBProxy.
+        Get the organization ID from the OrganizationManager on-demand.
 
         Returns:
             The organization ID if available, None otherwise
         """
-        if not self.local_db_proxy:
-            self.log.error("LocalDBProxy not available")
+        try:
+            org_manager = get_organization_manager()
+            org_id = org_manager.organization_id
+            if not org_id:
+                self.log.debug("Organization ID not yet available from OrganizationManager")
+                return None
+            return org_id
+        except Exception as e:
+            self.log.debug(f"Error getting organization ID from OrganizationManager: {e}")
             return None
+    
+    def _get_organization_id_with_wait(self, timeout: float = 5.0) -> Optional[str]:
+        """
+        Get organization ID with optional wait for availability.
+        
+        Args:
+            timeout: Maximum time to wait for organization ID
+            
+        Returns:
+            Organization ID if available within timeout, None otherwise
+        """
+        import time
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout:
+            org_id = self._get_organization_id()
+            if org_id:
+                return org_id
+            time.sleep(0.5)
+        
+        self.log.warning(f"Organization ID not available after {timeout}s timeout")
+        return None
 
-        organization_id = self.local_db_proxy.organization_id
-        if not organization_id:
-            self.log.error("Organization ID not available from LocalDBProxy")
-            return None
-
-        return organization_id
+    @property
+    def organization_id(self) -> Optional[str]:
+        """
+        Organization ID property for backward compatibility.
+        Fetches organization_id on-demand from OrganizationManager.
+        
+        Returns:
+            Organization ID if available, None otherwise
+        """
+        return self._get_organization_id()
 
     # ------ Worker Thread Management ------ #
 
@@ -521,14 +554,17 @@ class MQTTProxy(BaseProxy):
 
     async def _subscribe_to_device_topics(self):
         """Subscribe to common device topics automatically."""
-        if not self.organization_id or not self.device_id:
+        # Get organization ID on-demand
+        organization_id = self._get_organization_id()
+        
+        if not organization_id or not self.device_id:
             self.log.warning("Cannot subscribe to device topics: missing org or device ID")
             return
 
         # Default topics to subscribe to
         topics = [
-            f"org/{self.organization_id}/device/{self.device_id}/command",
-            f"org/{self.organization_id}/device/{self.device_id}/response",
+            f"org/{organization_id}/device/{self.device_id}/command",
+            f"org/{organization_id}/device/{self.device_id}/response",
         ]
 
         for topic in topics:
@@ -679,7 +715,7 @@ class MQTTProxy(BaseProxy):
                 "handlers": {topic: len(handlers) for topic, handlers in self._handlers.items()}
             },
             "device_info": {
-                "organization_id": self.organization_id,
+                "organization_id": self._get_organization_id(),
                 "robot_instance_id": self.robot_instance_id
             }
         }
