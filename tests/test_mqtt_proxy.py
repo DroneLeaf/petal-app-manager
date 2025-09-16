@@ -8,20 +8,10 @@ import json
 from typing import Generator, AsyncGenerator
 
 from petal_app_manager.proxies.mqtt import MQTTProxy
-from petal_app_manager.proxies.localdb import LocalDBProxy
 
 
 @pytest_asyncio.fixture
-async def mock_local_db() -> LocalDBProxy:
-    """Create a mocked LocalDBProxy for testing."""
-    mock_db = MagicMock(spec=LocalDBProxy)
-    mock_db.organization_id = "e8fc2cd9-f040-4229-84c0-62ea693b99f6"
-    mock_db.machine_id = "ce93d985-d950-4f0d-be32-f778f1a00cdc"
-    return mock_db
-
-
-@pytest_asyncio.fixture
-async def proxy(mock_local_db) -> AsyncGenerator[MQTTProxy, None]:
+async def proxy() -> AsyncGenerator[MQTTProxy, None]:
     """Create an MQTTProxy instance for testing with mocked dependencies."""
     
     # Mock the OrganizationManager for testing - this needs to be active throughout the test
@@ -31,11 +21,11 @@ async def proxy(mock_local_db) -> AsyncGenerator[MQTTProxy, None]:
         
         mock_org_manager = MagicMock()
         mock_org_manager.organization_id = "e8fc2cd9-f040-4229-84c0-62ea693b99f6"
+        mock_org_manager.machine_id = "ce93d985-d950-4f0d-be32-f778f1a00cdc"
         mock_get_org_manager.return_value = mock_org_manager
         
         # Create the proxy with test configuration
         proxy = MQTTProxy(
-            local_db_proxy=mock_local_db,
             ts_client_host="localhost",
             ts_client_port=3004,
             callback_host="localhost",
@@ -86,7 +76,7 @@ async def proxy(mock_local_db) -> AsyncGenerator[MQTTProxy, None]:
 
 
 @pytest_asyncio.fixture
-async def proxy_no_callbacks(mock_local_db) -> AsyncGenerator[MQTTProxy, None]:
+async def proxy_no_callbacks() -> AsyncGenerator[MQTTProxy, None]:
     """Create an MQTTProxy instance with callbacks disabled for testing."""
     
     # Mock the OrganizationManager for testing - this needs to be active throughout the test
@@ -96,10 +86,10 @@ async def proxy_no_callbacks(mock_local_db) -> AsyncGenerator[MQTTProxy, None]:
         
         mock_org_manager = MagicMock()
         mock_org_manager.organization_id = "e8fc2cd9-f040-4229-84c0-62ea693b99f6"
+        mock_org_manager.machine_id = "ce93d985-d950-4f0d-be32-f778f1a00cdc"
         mock_get_org_manager.return_value = mock_org_manager
         
         proxy = MQTTProxy(
-            local_db_proxy=mock_local_db,
             ts_client_host="localhost",
             ts_client_port=3004,
             enable_callbacks=False,
@@ -172,42 +162,43 @@ async def test_stop_connection(proxy: MQTTProxy):
 @pytest.mark.asyncio
 async def test_connection_error_handling():
     """Test handling of connection errors during startup."""
-    mock_local_db = MagicMock(spec=LocalDBProxy)
-    mock_local_db.organization_id = "test-org"
-    mock_local_db.machine_id = "test-machine"
     
-    proxy = MQTTProxy(
-        local_db_proxy=mock_local_db,
-        ts_client_host="localhost",
-        ts_client_port=3004
-    )
-    
-    with patch('requests.get') as mock_get:
-        # Make health check fail
-        mock_get.side_effect = Exception("Connection failed")
+    # Mock OrganizationManager to return proper IDs
+    with patch('petal_app_manager.proxies.mqtt.get_organization_manager') as mock_get_org_manager:
+        mock_org_manager = MagicMock()
+        mock_org_manager.organization_id = "test-org"
+        mock_org_manager.machine_id = "test-machine"
+        mock_get_org_manager.return_value = mock_org_manager
         
-        # This should raise an exception
-        with pytest.raises(ConnectionError):
-            await proxy.start()
+        proxy = MQTTProxy(
+            ts_client_host="localhost",
+            ts_client_port=3004
+        )
         
-        # Client should not be connected
-        assert proxy.is_connected is False
+        with patch('requests.get') as mock_get:
+            # Make health check fail
+            mock_get.side_effect = Exception("Connection failed")
+            
+            # This should raise an exception
+            with pytest.raises(ConnectionError):
+                await proxy.start()
+            
+            # Client should not be connected
+            assert proxy.is_connected is False
 
 
 @pytest.mark.asyncio
 async def test_missing_organization_id():
     """Test handling of missing organization ID - should not fail startup anymore."""
-    mock_local_db = MagicMock(spec=LocalDBProxy)
-    mock_local_db.organization_id = None
-    mock_local_db.machine_id = "test-machine"
     
-    # Mock OrganizationManager to return None
+    # Mock OrganizationManager to return None for organization_id
     with patch('petal_app_manager.proxies.mqtt.get_organization_manager') as mock_get_org_manager:
         mock_org_manager = MagicMock()
         mock_org_manager.organization_id = None
+        mock_org_manager.machine_id = "test-machine"
         mock_get_org_manager.return_value = mock_org_manager
         
-        proxy = MQTTProxy(local_db_proxy=mock_local_db)
+        proxy = MQTTProxy()
         
         # Mock health check to pass
         with patch('petal_app_manager.proxies.mqtt.requests.get') as mock_get:
@@ -224,14 +215,18 @@ async def test_missing_organization_id():
 @pytest.mark.asyncio
 async def test_missing_machine_id():
     """Test handling of missing machine ID."""
-    mock_local_db = MagicMock(spec=LocalDBProxy)
-    mock_local_db.organization_id = "test-org"
-    mock_local_db.machine_id = None
     
-    proxy = MQTTProxy(local_db_proxy=mock_local_db)
-    
-    with pytest.raises(ValueError, match="Robot Instance ID must be available from LocalDBProxy"):
-        await proxy.start()
+    # Mock OrganizationManager to return None for machine_id
+    with patch('petal_app_manager.proxies.mqtt.get_organization_manager') as mock_get_org_manager:
+        mock_org_manager = MagicMock()
+        mock_org_manager.organization_id = "test-org"
+        mock_org_manager.machine_id = None
+        mock_get_org_manager.return_value = mock_org_manager
+        
+        proxy = MQTTProxy()
+        
+        with pytest.raises(ValueError, match="Robot Instance ID must be available from OrganizationManager"):
+            await proxy.start()
 
 
 # ------ TypeScript Client Communication Tests ------ #
@@ -247,16 +242,20 @@ async def test_check_ts_client_health_success(proxy: MQTTProxy):
 @pytest.mark.asyncio
 async def test_check_ts_client_health_failure():
     """Test failed TypeScript client health check."""
-    mock_local_db = MagicMock(spec=LocalDBProxy)
-    mock_local_db.organization_id = "test-org"
-    mock_local_db.machine_id = "test-machine"
     
-    proxy = MQTTProxy(local_db_proxy=mock_local_db)
-    
-    with patch('requests.get') as mock_get:
-        mock_get.side_effect = Exception("Connection failed")
+    # Mock OrganizationManager to return proper IDs
+    with patch('petal_app_manager.proxies.mqtt.get_organization_manager') as mock_get_org_manager:
+        mock_org_manager = MagicMock()
+        mock_org_manager.organization_id = "test-org"
+        mock_org_manager.machine_id = "test-machine"
+        mock_get_org_manager.return_value = mock_org_manager
         
-        health_status = await proxy._check_ts_client_health()
+        proxy = MQTTProxy()
+        
+        with patch('requests.get') as mock_get:
+            mock_get.side_effect = Exception("Connection failed")
+            
+            health_status = await proxy._check_ts_client_health()
         assert health_status is False
 
 
@@ -319,15 +318,19 @@ async def test_publish_message_success(proxy: MQTTProxy):
 @pytest.mark.asyncio
 async def test_publish_message_disconnected():
     """Test publishing when proxy is disconnected."""
-    mock_local_db = MagicMock(spec=LocalDBProxy)
-    mock_local_db.organization_id = "test-org"
-    mock_local_db.machine_id = "test-machine"
     
-    proxy = MQTTProxy(local_db_proxy=mock_local_db)
-    # Don't call start() so proxy remains disconnected
-    
-    result = await proxy.publish_message("test/topic", {"message": "hello"})
-    assert result is False
+    # Mock OrganizationManager to return proper IDs
+    with patch('petal_app_manager.proxies.mqtt.get_organization_manager') as mock_get_org_manager:
+        mock_org_manager = MagicMock()
+        mock_org_manager.organization_id = "test-org"
+        mock_org_manager.machine_id = "test-machine"
+        mock_get_org_manager.return_value = mock_org_manager
+        
+        proxy = MQTTProxy()
+        # Don't call start() so proxy remains disconnected
+        
+        result = await proxy.publish_message("test/topic", {"message": "hello"})
+        assert result is False
 
 
 @pytest.mark.asyncio
@@ -383,11 +386,9 @@ async def test_subscribe_to_topic_success(proxy: MQTTProxy):
 @pytest.mark.asyncio
 async def test_subscribe_to_topic_disconnected():
     """Test subscribing when proxy is disconnected."""
-    mock_local_db = MagicMock(spec=LocalDBProxy)
-    mock_local_db.organization_id = "test-org"
-    mock_local_db.machine_id = "test-machine"
     
-    proxy = MQTTProxy(local_db_proxy=mock_local_db)
+    
+    proxy = MQTTProxy()
     # Don't call start() so proxy remains disconnected
     
     result = await proxy.subscribe_to_topic("test/topic")
@@ -432,11 +433,9 @@ async def test_unsubscribe_from_topic_success(proxy: MQTTProxy):
 @pytest.mark.asyncio
 async def test_unsubscribe_from_topic_disconnected():
     """Test unsubscribing when proxy is disconnected."""
-    mock_local_db = MagicMock(spec=LocalDBProxy)
-    mock_local_db.organization_id = "test-org"
-    mock_local_db.machine_id = "test-machine"
     
-    proxy = MQTTProxy(local_db_proxy=mock_local_db)
+    
+    proxy = MQTTProxy()
     # Don't call start() so proxy remains disconnected
     
     result = await proxy.unsubscribe_from_topic("test/topic")
@@ -596,9 +595,7 @@ async def test_health_check_healthy(proxy: MQTTProxy):
 @pytest.mark.asyncio
 async def test_health_check_unhealthy():
     """Test health check when proxy is unhealthy."""
-    mock_local_db = MagicMock(spec=LocalDBProxy)
-    mock_local_db.organization_id = "test-org"
-    mock_local_db.machine_id = "test-machine"
+    
     
     # Mock OrganizationManager for testing
     with patch('petal_app_manager.proxies.mqtt.get_organization_manager') as mock_get_org_manager:
@@ -606,7 +603,7 @@ async def test_health_check_unhealthy():
         mock_org_manager.organization_id = "test-org"
         mock_get_org_manager.return_value = mock_org_manager
         
-        proxy = MQTTProxy(local_db_proxy=mock_local_db)
+        proxy = MQTTProxy()
         # Set robot_instance_id manually since we're not calling start()
         proxy.robot_instance_id = "test-machine"
         # Don't call start() so proxy remains disconnected
@@ -732,13 +729,11 @@ async def test_device_topic_auto_subscription(proxy: MQTTProxy):
 @pytest.mark.asyncio
 async def test_configuration_variations():
     """Test different configuration options."""
-    mock_local_db = MagicMock(spec=LocalDBProxy)
-    mock_local_db.organization_id = "test-org"
-    mock_local_db.machine_id = "test-machine"
+    
     
     # Test without callbacks
     proxy_no_cb = MQTTProxy(
-        local_db_proxy=mock_local_db,
+        
         enable_callbacks=False,
         debug=False,
         request_timeout=10

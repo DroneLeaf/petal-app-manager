@@ -86,21 +86,6 @@ def build_app(
 
     allowed_origins = config.get("allowed_origins", ["*"])  # Default to allow all origins if not specified
 
-    app = FastAPI(title="PetalAppManager")
-    
-    # Mount static files for admin dashboard assets
-    assets_path = Path(__file__).parent / "assets"
-    if assets_path.exists():
-        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
-    
-    # Add CORS middleware to allow all origins
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=allowed_origins,  # Allow origins from the JSON file
-        allow_credentials=False,  # Cannot use credentials with wildcard origin
-        allow_methods=["*"],  # Allow all methods
-        allow_headers=["*"],  # Allow all headers
-    )
     # ---------- load enabled proxies from YAML ----------
     proxies_yaml_path = Path(__file__).parent.parent.parent / "proxies.yaml"
     proxies_config = load_proxies_config(proxies_yaml_path)
@@ -152,19 +137,17 @@ def build_app(
                         update_data_url=Config.UPDATE_DATA_URL,
                         set_data_url=Config.SET_DATA_URL,
                     )
-                elif proxy_name == "mqtt" and "db" in proxies:
+                elif proxy_name == "mqtt":
                     proxies["mqtt"] = MQTTProxy(
-                        local_db_proxy=proxies.get("db"),  # May be None if db not loaded
                         ts_client_host=Config.TS_CLIENT_HOST,
                         ts_client_port=Config.TS_CLIENT_PORT,
                         callback_host=Config.CALLBACK_HOST,
                         callback_port=Config.CALLBACK_PORT,
                         enable_callbacks=Config.ENABLE_CALLBACKS,
                     )
-                elif proxy_name == "cloud" and "db" in proxies:
+                elif proxy_name == "cloud":
                     proxies["cloud"] = CloudDBProxy(
                         endpoint=Config.CLOUD_ENDPOINT,
-                        local_db_proxy=proxies.get("db"),  # May be None if db not loaded
                         access_token_url=Config.ACCESS_TOKEN_URL,
                         session_token_url=Config.SESSION_TOKEN_URL,
                         s3_bucket_name=Config.S3_BUCKET_NAME,
@@ -173,11 +156,10 @@ def build_app(
                         update_data_url=Config.UPDATE_DATA_URL,
                         set_data_url=Config.SET_DATA_URL,
                     )
-                elif proxy_name == "bucket" and "db" in proxies:
+                elif proxy_name == "bucket":
                     proxies["bucket"] = S3BucketProxy(
                         session_token_url=Config.SESSION_TOKEN_URL,
                         bucket_name=Config.S3_BUCKET_NAME,
-                        local_db_proxy=proxies.get("db"),  # May be None if db not loaded
                         upload_prefix="flight_logs/"
                     )
                 elif proxy_name == "ftp_mavlink" and "ext_mavlink" in proxies:
@@ -207,40 +189,10 @@ def build_app(
             else:
                 logger.warning(f"Cannot load {proxy_name}: unknown proxy type or circular dependency")
 
-    for p in proxies.values():
-        app.add_event_handler("startup", p.start)
-        # Note: proxy shutdown handlers will be registered later in shutdown_all
-
-    api.set_proxies(proxies)
-    api_logger = logging.getLogger("PetalAppManagerAPI")
-
-    # ---------- core routers ----------
-    # Set the logger for health check endpoints
-    health._set_logger(api_logger)  # Set the logger for health check endpoints
-    app.include_router(health.router)
-    # Configure health check with proxy instances
-    proxy_info._set_logger(api_logger)  # Set the logger for proxy info endpoints
-    app.include_router(proxy_info.router, prefix="/debug")
-    # Configure cloud API with proxy instances
-    cloud_api._set_logger(api_logger)  # Set the logger for cloud API endpoints
-    app.include_router(cloud_api.router, prefix="/cloud")
-    # Configure bucket API with proxy instances
-    bucket_api._set_logger(api_logger)  # Set the logger for bucket API endpoints
-    app.include_router(bucket_api.router, prefix="/test")
-    # Configure MAVLink FTP API with proxy instances
-    mavftp_api._set_logger(api_logger)  # Set the logger for MAVLink FTP API endpoints
-    app.include_router(mavftp_api.router, prefix="/mavftp")
-    
-    # Configure configuration management API
-    config_api._set_logger(api_logger)  # Set the logger for configuration API endpoints
-    app.include_router(config_api.router)
-    
-    # Configure admin UI (separate from FastAPI docs)
-    admin_ui._set_logger(api_logger)  # Set the logger for admin UI endpoints
-    app.include_router(admin_ui.router)
-    # Configure MQTT API with proxy instances
-    mqtt_api._set_logger(api_logger)  # Set the logger for MQTT API endpoints
-    app.include_router(mqtt_api.router, prefix="/mqtt")
+    # Note: Proxy startup will be handled in startup_all() after OrganizationManager is ready
+    # for p in proxies.values():
+    #     app.add_event_handler("startup", p.start)
+    #     # Note: proxy shutdown handlers will be registered later in shutdown_all
 
     # ---------- dynamic plugins ----------
     # Set up the logger for the plugins loader
@@ -250,14 +202,28 @@ def build_app(
     petals = []
     
     async def startup_all():
-        """Initialize OrganizationManager and then load petals"""
+        """Initialize OrganizationManager, then start proxies, then load petals"""
         # Step 1: Start OrganizationManager first
         logger.info("Starting OrganizationManager...")
         org_manager = get_organization_manager()
         await org_manager.start()
         
-        # Step 2: Load petals after OrganizationManager is started
+        # Step 2: Start proxies after OrganizationManager is ready
+        logger.info("Starting proxies...")
+        for proxy_name, proxy in proxies.items():
+            try:
+                await proxy.start()
+                logger.info(f"Started proxy: {proxy_name}")
+            except Exception as e:
+                logger.error(f"Failed to start proxy {proxy_name}: {e}")
+                raise
+        
+        # Step 3: Load petals after proxies are started
         await load_petals_on_startup()
+        
+        # Step 4: Log completion
+        logger.info("=== startup_all() completed successfully ===")
+        logger.info("Application should now be ready to receive requests")
     
     async def load_petals_on_startup():
         """Load petals after proxies have been started"""
@@ -268,7 +234,16 @@ def build_app(
         for petal in petals:
             async_startup_method = getattr(petal, 'async_startup', None)
             if async_startup_method and asyncio.iscoroutinefunction(async_startup_method):
-                await async_startup_method()
+                logger.info(f"Starting async_startup for petal: {petal.name}")
+                try:
+                    await asyncio.wait_for(async_startup_method(), timeout=30.0)
+                    logger.info(f"Completed async_startup for petal: {petal.name}")
+                except asyncio.TimeoutError:
+                    logger.error(f"Timeout during async_startup for petal: {petal.name}")
+                    raise
+                except Exception as e:
+                    logger.error(f"Error during async_startup for petal {petal.name}: {e}")
+                    raise
         
         # Note: Petal shutdown is handled centrally in shutdown_all, not via individual event handlers
 
@@ -314,10 +289,71 @@ def build_app(
             logger.error(f"Error shutting down OrganizationManager: {e}")
         
         logger.info("Graceful shutdown completed")
+
+    # Create lifespan context manager for proper startup/shutdown handling
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        """FastAPI lifespan context manager to handle startup and shutdown properly"""
+        # Startup
+        logger.info("Starting FastAPI lifespan...")
+        await startup_all()
+        logger.info("FastAPI lifespan startup completed")
+        
+        yield
+        
+        # Shutdown
+        logger.info("Starting FastAPI lifespan shutdown...")
+        await shutdown_all()
+        logger.info("FastAPI lifespan shutdown completed")
+
+    # Now create the FastAPI app with the lifespan
+    app = FastAPI(title="PetalAppManager", lifespan=lifespan)
     
-    # Schedule startup and shutdown handlers
-    app.add_event_handler("startup", startup_all)
-    app.add_event_handler("shutdown", shutdown_all)
+    # Mount static files for admin dashboard assets
+    assets_path = Path(__file__).parent / "assets"
+    if assets_path.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
+    
+    # Add CORS middleware to allow all origins
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,  # Allow origins from the JSON file
+        allow_credentials=False,  # Cannot use credentials with wildcard origin
+        allow_methods=["*"],  # Allow all methods
+        allow_headers=["*"],  # Allow all headers
+    )
+
+    # Configure API proxies and routers
+    api.set_proxies(proxies)
+    api_logger = logging.getLogger("PetalAppManagerAPI")
+
+    # ---------- core routers ----------
+    # Set the logger for health check endpoints
+    health._set_logger(api_logger)  # Set the logger for health check endpoints
+    app.include_router(health.router)
+    # Configure health check with proxy instances
+    proxy_info._set_logger(api_logger)  # Set the logger for proxy info endpoints
+    app.include_router(proxy_info.router, prefix="/debug")
+    # Configure cloud API with proxy instances
+    cloud_api._set_logger(api_logger)  # Set the logger for cloud API endpoints
+    app.include_router(cloud_api.router, prefix="/cloud")
+    # Configure bucket API with proxy instances
+    bucket_api._set_logger(api_logger)  # Set the logger for bucket API endpoints
+    app.include_router(bucket_api.router, prefix="/test")
+    # Configure MAVLink FTP API with proxy instances
+    mavftp_api._set_logger(api_logger)  # Set the logger for MAVLink FTP API endpoints
+    app.include_router(mavftp_api.router, prefix="/mavftp")
+    
+    # Configure configuration management API
+    config_api._set_logger(api_logger)  # Set the logger for configuration API endpoints
+    app.include_router(config_api.router)
+    
+    # Configure admin UI (separate from FastAPI docs)
+    admin_ui._set_logger(api_logger)  # Set the logger for admin UI endpoints
+    app.include_router(admin_ui.router)
+    # Configure MQTT API with proxy instances
+    mqtt_api._set_logger(api_logger)  # Set the logger for MQTT API endpoints
+    app.include_router(mqtt_api.router, prefix="/mqtt")
 
     return app
 

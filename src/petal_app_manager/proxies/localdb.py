@@ -24,6 +24,7 @@ from pathlib import Path
 import os
 
 from .base import BaseProxy
+from ..organization_manager import get_organization_manager
 
 class LocalDBProxy(BaseProxy):
     """
@@ -62,8 +63,13 @@ class LocalDBProxy(BaseProxy):
     
     @property
     def organization_id(self) -> Optional[str]:
-        """Get the organization ID for this instance."""
-        return self._organization_id
+        """Get the organization ID from OrganizationManager."""
+        try:
+            org_manager = get_organization_manager()
+            return org_manager.organization_id
+        except Exception as e:
+            self.log.error(f"Error getting organization ID from OrganizationManager: {e}")
+            return None
     
     @property
     def robot_type_id(self) -> Optional[str]:
@@ -89,19 +95,13 @@ class LocalDBProxy(BaseProxy):
         else:
             self.log.warning("No current robot instance found")
 
-        # Get machine ID and organization ID
-        self._organization_id = current_instance.get("data",{}).get("organization_id", None)
+        # Get robot type ID from current instance data
         self._robot_type_id = current_instance.get("data",{}).get("robot_type_id", None)
-        if self._organization_id is None or self._robot_type_id is None:
-            self.log.warning(
-                "Organization ID or Robot Type ID not found in current instance"
-            )
+        if self._robot_type_id is None:
+            self.log.warning("Robot Type ID not found in current instance")
         else:
-            self.log.info(
-                "Organization ID: %s, Robot Type ID: %s",
-                self._organization_id,
-                self._robot_type_id
-            )
+            self.log.info("Robot Type ID: %s", self._robot_type_id)
+        
         self.log.info("LocalDBProxy started successfully")
         
     async def stop(self):

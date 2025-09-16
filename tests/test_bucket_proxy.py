@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock
 import json
 
 from petal_app_manager.proxies.bucket import S3BucketProxy
+from petal_app_manager.organization_manager import get_organization_manager
 
 
 class TestS3BucketProxy:
@@ -13,15 +14,16 @@ class TestS3BucketProxy:
     
     def test_file_extension_validation(self):
         """Test file extension validation."""
-        # Create a mock LocalDBProxy
-        mock_local_db_proxy = MagicMock()
-        mock_local_db_proxy.machine_id = "test-machine-123"
-        
-        proxy = S3BucketProxy(
-            session_token_url="http://test:3000/token",
-            bucket_name="test-bucket",
-            local_db_proxy=mock_local_db_proxy
-        )
+        # Mock OrganizationManager
+        with patch('petal_app_manager.proxies.bucket.get_organization_manager') as mock_get_org_mgr:
+            mock_org_mgr = MagicMock()
+            mock_org_mgr.machine_id = "test-machine-123"
+            mock_get_org_mgr.return_value = mock_org_mgr
+            
+            proxy = S3BucketProxy(
+                session_token_url="http://test:3000/token",
+                bucket_name="test-bucket"
+            )
         
         # Valid extensions
         assert proxy._validate_file_extension("test.ulg") is True
@@ -41,15 +43,16 @@ class TestS3BucketProxy:
     
     def test_file_content_validation(self):
         """Test file content validation."""
-        # Create a mock LocalDBProxy
-        mock_local_db_proxy = MagicMock()
-        mock_local_db_proxy.machine_id = "test-machine-123"
-        
-        proxy = S3BucketProxy(
-            session_token_url="http://test:3000/token",
-            bucket_name="test-bucket",
-            local_db_proxy=mock_local_db_proxy
-        )
+        # Mock OrganizationManager
+        with patch('petal_app_manager.proxies.bucket.get_organization_manager') as mock_get_org_mgr:
+            mock_org_mgr = MagicMock()
+            mock_org_mgr.machine_id = "test-machine-123"
+            mock_get_org_mgr.return_value = mock_org_mgr
+            
+            proxy = S3BucketProxy(
+                session_token_url="http://test:3000/token",
+                bucket_name="test-bucket"
+            )
         
         # Define valid file headers
         ulog_header   = b"ULog\x01\x12\x35\x01\x00"          # 7‑byte magic + v1 + pad
@@ -112,16 +115,17 @@ class TestS3BucketProxy:
     
     def test_s3_key_generation(self):
         """Test S3 key generation."""
-        # Create a mock LocalDBProxy
-        mock_local_db_proxy = MagicMock()
-        mock_local_db_proxy.machine_id = "test-machine-123"
-        
-        proxy = S3BucketProxy(
-            session_token_url="http://test:3000/token",
-            bucket_name="test-bucket",
-            local_db_proxy=mock_local_db_proxy,
-            upload_prefix="flight_logs/"
-        )
+        # Mock OrganizationManager
+        with patch('petal_app_manager.proxies.bucket.get_organization_manager') as mock_get_org_mgr:
+            mock_org_mgr = MagicMock()
+            mock_org_mgr.machine_id = "test-machine-123"
+            mock_get_org_mgr.return_value = mock_org_mgr
+            
+            proxy = S3BucketProxy(
+                session_token_url="http://test:3000/token",
+                bucket_name="test-bucket",
+                upload_prefix="flight_logs/"
+            )
         
         machine_id = "test-machine-123"
         
@@ -142,15 +146,16 @@ class TestS3BucketProxy:
     
     def test_session_credentials_caching_structure(self):
         """Test session credentials caching structure."""
-        # Create a mock LocalDBProxy
-        mock_local_db_proxy = MagicMock()
-        mock_local_db_proxy.machine_id = "test-machine-123"
-        
-        proxy = S3BucketProxy(
-            session_token_url="http://test:3000/token",
-            bucket_name="test-bucket",
-            local_db_proxy=mock_local_db_proxy
-        )
+        # Mock OrganizationManager
+        with patch('petal_app_manager.proxies.bucket.get_organization_manager') as mock_get_org_mgr:
+            mock_org_mgr = MagicMock()
+            mock_org_mgr.machine_id = "test-machine-123"
+            mock_get_org_mgr.return_value = mock_org_mgr
+            
+            proxy = S3BucketProxy(
+                session_token_url="http://test:3000/token",
+                bucket_name="test-bucket"
+            )
         
         # Test that cache structure is initialized
         assert hasattr(proxy, '_session_cache')
@@ -161,64 +166,64 @@ class TestS3BucketProxy:
     
     def test_configuration_validation(self):
         """Test configuration validation."""
-        # Create a mock LocalDBProxy
-        mock_local_db_proxy = MagicMock()
-        mock_local_db_proxy.machine_id = "test-machine-123"
-        
-        # Valid configuration
-        proxy = S3BucketProxy(
-            session_token_url="http://test:3000/token",
-            bucket_name="test-bucket",
-            local_db_proxy=mock_local_db_proxy
-        )
-        assert proxy.session_token_url == "http://test:3000/token"
-        assert proxy.bucket_name == "test-bucket"
-        assert proxy.upload_prefix == "flight_logs/"  # default with trailing slash
-        
-        # Custom configuration
-        proxy = S3BucketProxy(
-            session_token_url="https://auth.example.com/token",
-            bucket_name="my-custom-bucket",
-            local_db_proxy=mock_local_db_proxy,
-            upload_prefix="logs",
-            debug=True,
-            request_timeout=60
-        )
-        assert proxy.session_token_url == "https://auth.example.com/token"
-        assert proxy.bucket_name == "my-custom-bucket"
-        assert proxy.upload_prefix == "logs/"  # adds trailing slash
-        assert proxy.debug == True
-        assert proxy.request_timeout == 60
-        assert proxy.upload_prefix == "logs/"  # should add trailing slash
-        assert proxy.debug is True
-        assert proxy.request_timeout == 60
+        # Mock OrganizationManager
+        with patch('petal_app_manager.proxies.bucket.get_organization_manager') as mock_get_org_mgr:
+            mock_org_mgr = MagicMock()
+            mock_org_mgr.machine_id = "test-machine-123"
+            mock_get_org_mgr.return_value = mock_org_mgr
+            
+            # Valid configuration
+            proxy = S3BucketProxy(
+                session_token_url="http://test:3000/token",
+                bucket_name="test-bucket"
+            )
+            assert proxy.session_token_url == "http://test:3000/token"
+            assert proxy.bucket_name == "test-bucket"
+            assert proxy.upload_prefix == "flight_logs/"  # default with trailing slash
+            
+            # Custom configuration
+            proxy = S3BucketProxy(
+                session_token_url="https://auth.example.com/token",
+                bucket_name="my-custom-bucket",
+                upload_prefix="logs",
+                debug=True,
+                request_timeout=60
+            )
+            assert proxy.session_token_url == "https://auth.example.com/token"
+            assert proxy.bucket_name == "my-custom-bucket"
+            assert proxy.upload_prefix == "logs/"  # adds trailing slash
+            assert proxy.debug == True
+            assert proxy.request_timeout == 60
+            assert proxy.upload_prefix == "logs/"  # should add trailing slash
+            assert proxy.debug is True
+            assert proxy.request_timeout == 60
     
     @pytest.mark.asyncio
     async def test_start_validation(self):
         """Test proxy start validation."""
-        # Create a mock LocalDBProxy
-        mock_local_db_proxy = MagicMock()
-        mock_local_db_proxy.machine_id = "test-machine-123"
-        
-        # Missing session_token_url should raise ValueError
-        proxy = S3BucketProxy(
-            session_token_url="",
-            bucket_name="test-bucket",
-            local_db_proxy=mock_local_db_proxy
-        )
-        
-        with pytest.raises(ValueError, match="SESSION_TOKEN_URL and BUCKET_NAME must be configured"):
-            await proxy.start()
-        
-        # Missing bucket_name should raise ValueError
-        proxy = S3BucketProxy(
-            session_token_url="http://test:3000/token",
-            bucket_name="",
-            local_db_proxy=mock_local_db_proxy
-        )
-        
-        with pytest.raises(ValueError, match="SESSION_TOKEN_URL and BUCKET_NAME must be configured"):
-            await proxy.start()
+        # Mock OrganizationManager
+        with patch('petal_app_manager.proxies.bucket.get_organization_manager') as mock_get_org_mgr:
+            mock_org_mgr = MagicMock()
+            mock_org_mgr.machine_id = "test-machine-123"
+            mock_get_org_mgr.return_value = mock_org_mgr
+            
+            # Missing session_token_url should raise ValueError
+            proxy = S3BucketProxy(
+                session_token_url="",
+                bucket_name="test-bucket"
+            )
+            
+            with pytest.raises(ValueError, match="SESSION_TOKEN_URL and BUCKET_NAME must be configured"):
+                await proxy.start()
+            
+            # Missing bucket_name should raise ValueError
+            proxy = S3BucketProxy(
+                session_token_url="http://test:3000/token",
+                bucket_name=""
+            )
+            
+            with pytest.raises(ValueError, match="SESSION_TOKEN_URL and BUCKET_NAME must be configured"):
+                await proxy.start()
 
 
 if __name__ == "__main__":

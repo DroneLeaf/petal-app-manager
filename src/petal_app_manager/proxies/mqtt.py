@@ -31,7 +31,6 @@ from pydantic import BaseModel
 import uvicorn
 
 from .base import BaseProxy
-from .localdb import LocalDBProxy
 from ..organization_manager import get_organization_manager
 
 class MQTTMessage:
@@ -57,7 +56,6 @@ class MQTTProxy(BaseProxy):
     
     def __init__(
         self,
-        local_db_proxy: LocalDBProxy,
         ts_client_host: str = "localhost",
         ts_client_port: int = 3004,
         callback_host: str = "localhost",
@@ -76,7 +74,6 @@ class MQTTProxy(BaseProxy):
         self.enable_callbacks = enable_callbacks
         self.debug = debug
         self.request_timeout = request_timeout
-        self.local_db_proxy = local_db_proxy
         
         # Message buffer configuration
         self.max_message_buffer = max_message_buffer
@@ -125,7 +122,7 @@ class MQTTProxy(BaseProxy):
         
         # Validate basic configuration (organization_id will be fetched on-demand)
         if not self.device_id:
-            raise ValueError("Robot Instance ID must be available from LocalDBProxy")
+            raise ValueError("Robot Instance ID must be available from OrganizationManager")
         
         try:
             # Check TypeScript client health
@@ -182,21 +179,21 @@ class MQTTProxy(BaseProxy):
 
     def _get_machine_id(self) -> Optional[str]:
         """
-        Get the machine ID from the LocalDBProxy.
+        Get the machine ID from the OrganizationManager.
         
         Returns:
             The machine ID if available, None otherwise
         """
-        if not self.local_db_proxy:
-            self.log.error("LocalDBProxy not available")
+        try:
+            org_manager = get_organization_manager()
+            machine_id = org_manager.machine_id
+            if not machine_id:
+                self.log.error("Machine ID not available from OrganizationManager")
+                return None
+            return machine_id
+        except Exception as e:
+            self.log.error(f"Error getting machine ID from OrganizationManager: {e}")
             return None
-        
-        machine_id = self.local_db_proxy.machine_id
-        if not machine_id:
-            self.log.error("Machine ID not available from LocalDBProxy")
-            return None
-        
-        return machine_id
 
     def _get_organization_id(self) -> Optional[str]:
         """

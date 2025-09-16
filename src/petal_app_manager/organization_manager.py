@@ -2,17 +2,19 @@
 OrganizationManager
 ==================
 
-Centralized manager for organization ID that monitors the thing-parameters.json file
-and provides organization ID to all proxies and petals.
+Centralized manager for organization ID and machine ID that monitors the thing-parameters.json file
+and provides both organization ID and machine ID to all proxies and petals.
 
-This replaces the previous approach where LocalDBProxy was used to fetch organization ID.
-Now all components get the organization ID from this file-based source.
+This replaces the previous approach where LocalDBProxy was used to fetch organization ID and machine ID.
+Now all components get both IDs from this centralized source.
 """
 
 from __future__ import annotations
 import asyncio
 import json
 import logging
+import platform
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -21,20 +23,23 @@ from dataclasses import dataclass
 
 @dataclass
 class OrganizationInfo:
-    """Organization information extracted from thing-parameters.json"""
+    """Organization and machine information extracted from thing-parameters.json and system"""
     organization_id: Optional[str] = None
+    machine_id: Optional[str] = None
     thing_name: Optional[str] = None
     retrieved_at: Optional[str] = None
     last_updated: float = 0.0
 
 class OrganizationManager:
     """
-    Manages organization ID by monitoring the thing-parameters.json file.
+    Manages organization ID and machine ID by monitoring the thing-parameters.json file
+    and system machine ID.
     
     Features:
-    - File watching with periodic polling
+    - File watching with periodic polling for organization ID
+    - Machine ID detection using system executables
     - Callback notification system when organization ID changes
-    - Thread-safe access to organization information
+    - Thread-safe access to organization and machine information
     - Graceful handling of missing/invalid files
     """
     
@@ -58,7 +63,7 @@ class OrganizationManager:
         
         self.log = logging.getLogger("OrganizationManager")
         
-        # Organization info with thread-safe access
+        # Organization and machine info with thread-safe access
         self._org_info = OrganizationInfo()
         self._org_lock = threading.RLock()
         
@@ -81,6 +86,9 @@ class OrganizationManager:
         self._running = True
         
         self.log.info(f"Starting OrganizationManager monitoring {self.file_path}")
+        
+        # Load machine ID first (this doesn't change)
+        await self._load_machine_id()
         
         # Try to load initial organization info
         await self._load_organization_info()
@@ -110,11 +118,18 @@ class OrganizationManager:
             return self._org_info.organization_id
     
     @property
+    def machine_id(self) -> Optional[str]:
+        """Get the current machine ID (thread-safe)."""
+        with self._org_lock:
+            return self._org_info.machine_id
+    
+    @property
     def organization_info(self) -> OrganizationInfo:
         """Get the current organization info (thread-safe copy)."""
         with self._org_lock:
             return OrganizationInfo(
                 organization_id=self._org_info.organization_id,
+                machine_id=self._org_info.machine_id,
                 thing_name=self._org_info.thing_name,
                 retrieved_at=self._org_info.retrieved_at,
                 last_updated=self._org_info.last_updated
@@ -264,6 +279,52 @@ class OrganizationManager:
             self.log.error(f"Invalid JSON in organization file {self.file_path}: {e}")
         except Exception as e:
             self.log.error(f"Error loading organization info from {self.file_path}: {e}")
+    
+    async def _load_machine_id(self):
+        """Load machine ID using the machine ID executable."""
+        def _get_machine_id_sync() -> Optional[str]:
+            try:
+                # Determine architecture
+                arch = platform.machine().lower()
+                is_arm = "aarch64" in arch
+                
+                # Build path to executable
+                utils_dir = Path(__file__).parent / "utils"
+                machine_id_exe = utils_dir / (
+                    "machineid_arm" if is_arm else "machineid_x86"
+                )
+                
+                # Check if executable exists
+                if not machine_id_exe.exists():
+                    self.log.error(f"Machine ID executable not found at {machine_id_exe}")
+                    return None
+                
+                # Execute and get output
+                result = subprocess.run(
+                    [str(machine_id_exe)], 
+                    capture_output=True, 
+                    text=True,
+                    check=True
+                )
+                return result.stdout.strip()
+            except Exception as e:
+                self.log.error(f"Failed to get machine ID: {e}")
+                return None
+        
+        try:
+            # Run machine ID detection in thread pool
+            machine_id = await self._loop.run_in_executor(None, _get_machine_id_sync)
+            
+            with self._org_lock:
+                self._org_info.machine_id = machine_id
+            
+            if machine_id:
+                self.log.info(f"Machine ID loaded: {machine_id}")
+            else:
+                self.log.warning("Failed to load machine ID")
+                
+        except Exception as e:
+            self.log.error(f"Error loading machine ID: {e}")
     
     async def _notify_callbacks(self, org_id: Optional[str]):
         """Notify all registered callbacks about organization ID change."""

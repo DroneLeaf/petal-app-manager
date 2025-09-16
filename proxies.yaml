@@ -25,11 +25,5 @@ petal_dependencies:
   - mqtt
   - ext_mavlink
 proxy_dependencies:
-  bucket:
-  - db
-  cloud:
-  - db
   ftp_mavlink:
   - ext_mavlink
-  mqtt:
-  - db

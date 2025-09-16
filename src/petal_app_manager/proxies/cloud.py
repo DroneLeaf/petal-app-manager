@@ -24,7 +24,6 @@ import ssl
 from urllib.parse import urlparse
 
 from .base import BaseProxy
-from .localdb import LocalDBProxy
 from ..organization_manager import get_organization_manager
 
 class CloudDBProxy(BaseProxy):
@@ -36,7 +35,6 @@ class CloudDBProxy(BaseProxy):
         self,
         access_token_url: str,
         endpoint: str,
-        local_db_proxy: LocalDBProxy,
         session_token_url: str = None,
         s3_bucket_name: str = None,
         get_data_url: str = '/drone/onBoard/config/getData',
@@ -56,7 +54,6 @@ class CloudDBProxy(BaseProxy):
         self.set_data_url = set_data_url
         self.debug = debug
         self.request_timeout = request_timeout
-        self.local_db_proxy = local_db_proxy
         
         self._loop = None
         self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -92,21 +89,21 @@ class CloudDBProxy(BaseProxy):
         
     def _get_machine_id(self) -> Optional[str]:
         """
-        Get the machine ID from the LocalDBProxy.
+        Get the machine ID from the OrganizationManager.
         
         Returns:
             The machine ID if available, None otherwise
         """
-        if not self.local_db_proxy:
-            self.log.error("LocalDBProxy not available")
+        try:
+            org_manager = get_organization_manager()
+            machine_id = org_manager.machine_id
+            if not machine_id:
+                self.log.error("Machine ID not available from OrganizationManager")
+                return None
+            return machine_id
+        except Exception as e:
+            self.log.error(f"Error getting machine ID from OrganizationManager: {e}")
             return None
-        
-        machine_id = self.local_db_proxy.machine_id
-        if not machine_id:
-            self.log.error("Machine ID not available from LocalDBProxy")
-            return None
-        
-        return machine_id
 
     def _get_organization_id(self) -> Optional[str]:
         """
