@@ -18,6 +18,7 @@ import threading
 import time
 import socket
 import errno
+import struct
 from abc import abstractmethod
 from collections import defaultdict, deque
 from typing import (
@@ -408,7 +409,7 @@ class MavLinkExternalProxy(ExternalProxy):
         endpoint: str,
         baud: int,
         maxlen: int,
-        mavlink_worker_sleep_ms: float = 0,
+        mavlink_worker_sleep_ms: float = 1,
         mavlink_heartbeat_send_frequency: float = 5.0,
         root_sd_path: str = 'fs/microsd/log'
     ):
@@ -421,19 +422,24 @@ class MavLinkExternalProxy(ExternalProxy):
         self.master: mavutil.mavfile | None = None
         
         # Set up file-only logging
-        self._log = setup_file_only_logger("MavLinkExternalProxy", "app-mavlinkexternalproxy.log", "INFO")
-        
+        self._log_msgs = setup_file_only_logger("MavLinkExternalProxyMsgs", "app-mavlinkexternalproxymsgs.log", "INFO")
+        self._log = logging.getLogger("MavLinkExternalProxy")
+
         self._loop: asyncio.AbstractEventLoop | None = None
         self._exe = ThreadPoolExecutor(max_workers=1)
         self.connected = False
-        self._last_heartbeat_time = 0.0
+        self._last_heartbeat_time = time.time()
+        self.leaf_fc_connected = False
+        self._last_leaf_fc_heartbeat_time = time.time()
         self._connection_check_interval = 5.0  # Check connection every 5 seconds
-        self._heartbeat_timeout = 60.0  # Consider disconnected if no heartbeat for 60s
+        self._heartbeat_timeout = 10.0  # Consider disconnected if no heartbeat for 60s
+        self._leaf_fc_heartbeat_timeout = 5.0  # Consider Leaf FC disconnected if no heartbeat for 30s
         self._reconnect_interval = 2.0  # Wait 2s between reconnection attempts
         self._heartbeat_task = None
         self._connection_monitor_task = None
         self._reconnect_pending = False
         self._mav_lock = threading.Lock()
+        self._download_lock = threading.Lock()  # Prevent concurrent downloads
         
         # Rate limiting for logging
         self._last_log_time = {}
@@ -453,6 +459,40 @@ class MavLinkExternalProxy(ExternalProxy):
             'LOCAL_POSITION_NED',
             'GLOBAL_POSITION_INT'
         }
+        
+    def _norm_name(self, x):
+        """Normalize parameter name by removing null padding."""
+        try:
+            return x.decode("ascii").rstrip("\x00")
+        except AttributeError:
+            return str(x).rstrip("\x00")
+
+    def _decode_param_value(self, msg):
+        """
+        Decode a PARAM_VALUE message.
+        If type==INT32, reinterpret the float bits as int32.
+        """
+        name = self._norm_name(msg.param_id)
+        if msg.param_type == mavutil.mavlink.MAV_PARAM_TYPE_INT32:
+            # Decode float32 bits back to int32
+            raw_bytes = struct.pack("<f", msg.param_value)
+            val = struct.unpack("<i", raw_bytes)[0]
+        else:
+            val = msg.param_value
+        return name, val
+
+    def _encode_param_value(self, value: Any, param_type: int) -> float:
+        """
+        Encode a parameter value for transmission.
+        For INT32 types, encode the int32 bits as float32 for wire transmission.
+        """
+        if param_type == mavutil.mavlink.MAV_PARAM_TYPE_INT32:
+            # Encode int32 value as float32 bits for wire transmission
+            raw_bytes = struct.pack("<i", int(value))
+            spoofed_float = struct.unpack("<f", raw_bytes)[0]
+            return spoofed_float
+        else:
+            return float(value)
         
     def _should_log_message(self, msg_type: str) -> bool:
         """Determine if a message should be logged based on rate limiting"""
@@ -497,9 +537,6 @@ class MavLinkExternalProxy(ExternalProxy):
         # Start the worker thread first
         await super().start()
         
-        # Attempt initial connection
-        self._schedule_reconnect()
-        
         # Start connection monitoring and heartbeat tasks
         self._connection_monitor_task = asyncio.create_task(self._monitor_connection())
         
@@ -513,6 +550,22 @@ class MavLinkExternalProxy(ExternalProxy):
                 self._log.error(f"Invalid self.mavlink_heartbeat_send_frequency: {exc}")
                 frequency = 5.0
             self._heartbeat_task = asyncio.create_task(self._send_heartbeat_periodically(frequency=frequency))
+        
+        # Schedule initial connection attempt in background (non-blocking)
+        # This allows the server to start immediately without waiting for MAVLink
+        asyncio.create_task(self._initial_connection_attempt())
+
+    async def _initial_connection_attempt(self):
+        """Attempt initial MAVLink connection in the background."""
+        try:
+            self._log.info("Attempting initial MAVLink connection to %s", self.endpoint)
+            await self._establish_connection()
+            if self.connected:
+                self._log.info("Initial MAVLink connection successful")
+            else:
+                self._log.info("Initial MAVLink connection failed - will retry in background")
+        except Exception as e:
+            self._log.warning(f"Initial MAVLink connection attempt failed: {e} - will retry in background")
 
     async def _establish_connection(self):
         """Establish MAVLink connection and wait for heartbeat."""
@@ -523,17 +576,20 @@ class MavLinkExternalProxy(ExternalProxy):
                 except:
                     pass  # Ignore errors when closing old connection
             
-            self.master = mavutil.mavlink_connection(
-                self.endpoint, 
-                baud=self.baud, 
-                dialect="all",
-                source_system=2, 
-                source_component=140  # MAV_COMP_ID_USER1–USER4 140–143
+            # Run the blocking connection establishment in a separate thread
+            self.master = await self._loop.run_in_executor(
+                self._exe,
+                self._create_mavlink_connection
             )
-            
-            # Try to get a heartbeat with timeout
+
+            # Try to get a heartbeat with timeout - also run in executor
             try:
-                if self.master.wait_heartbeat(timeout=5):
+                heartbeat_received = await self._loop.run_in_executor(
+                    self._exe,
+                    self._wait_for_heartbeat
+                )
+                
+                if heartbeat_received:
                     self.connected = True
                     self._last_heartbeat_time = time.time()
                     self._log.info("MAVLink connection established - Heartbeat from sys %s, comp %s",
@@ -541,6 +597,7 @@ class MavLinkExternalProxy(ExternalProxy):
                     
                     # Register heartbeat handler to track connection health
                     self.register_handler(str(mavlink_dialect.MAVLINK_MSG_ID_HEARTBEAT), self._on_heartbeat_received)
+                    self.register_handler(str(mavlink_dialect.MAVLINK_MSG_ID_LEAF_HEARTBEAT), self._on_leaf_fc_heartbeat_received)
                     
                 else:
                     self.connected = False
@@ -562,6 +619,22 @@ class MavLinkExternalProxy(ExternalProxy):
                     pass
                 self.master = None
 
+    def _create_mavlink_connection(self):
+        """Create MAVLink connection in a separate thread."""
+        return mavutil.mavlink_connection(
+            self.endpoint, 
+            baud=self.baud, 
+            dialect="all",
+            source_system=2, 
+            source_component=140  # MAV_COMP_ID_USER1–USER4 140–143
+        )
+    
+    def _wait_for_heartbeat(self):
+        """Wait for heartbeat in a separate thread."""
+        if self.master:
+            return self.master.wait_heartbeat(timeout=5)
+        return False
+
     def _on_heartbeat_received(self, msg):
         """Handler for incoming heartbeat messages to track connection health."""
         self._last_heartbeat_time = time.time()
@@ -569,23 +642,43 @@ class MavLinkExternalProxy(ExternalProxy):
             self.connected = True
             self._log.info("MAVLink connection re-established")
 
+    def _on_leaf_fc_heartbeat_received(self, msg):
+        """Handler for incoming heartbeat messages to track connection health."""
+        self._last_leaf_fc_heartbeat_time = time.time()
+        if not self.leaf_fc_connected:
+            self.leaf_fc_connected = True
+            self._log.info("Leaf FC connection re-established")
+
     async def _monitor_connection(self):
         """Monitor connection health and trigger reconnection if needed."""
         while self._running.is_set():
             try:
+                current_time = time.time()
+
+                # Check if we haven't received a Leaf FC heartbeat recently
+                if abs(current_time - self._last_leaf_fc_heartbeat_time) > self._leaf_fc_heartbeat_timeout:
+                    if self.leaf_fc_connected:
+                        self._log.warning("No Leaf FC heartbeat received for %.1fs - Leaf FC connection lost",
+                                          current_time - self._last_leaf_fc_heartbeat_time)
+                        self.leaf_fc_connected = False
+                    else:
+                        self._log.warning("No Leaf FC heartbeat received for %.1fs - still disconnected",
+                                          current_time - self._last_leaf_fc_heartbeat_time)
+
                 # Skip monitoring if _mav_lock is held (FTP operation in progress)
-                if self._mav_lock.locked():
+                if self._download_lock.locked():
                     await asyncio.sleep(self._connection_check_interval)
                     continue
-                
-                current_time = time.time()
-                
+                                
                 # Check if we haven't received a heartbeat recently
-                if (self.connected and 
-                    current_time - self._last_heartbeat_time > self._heartbeat_timeout):
-                    self._log.warning("No heartbeat received for %.1fs - connection lost", 
-                                    current_time - self._last_heartbeat_time)
-                    self.connected = False
+                if abs(current_time - self._last_heartbeat_time) > self._heartbeat_timeout:
+                    if self.connected:
+                        self._log.warning("No heartbeat received for %.1fs - connection lost",
+                                        current_time - self._last_heartbeat_time)
+                        self.connected = False
+                    else:
+                        self._log.warning("No heartbeat received for %.1fs - still disconnected",
+                                        current_time - self._last_heartbeat_time)
                 
                 # Attempt reconnection if not connected
                 if not self.connected and self._running.is_set():
@@ -632,10 +725,10 @@ class MavLinkExternalProxy(ExternalProxy):
                 if self.connected and self.master:
                     await self.send_heartbeat()
                 else:
-                    self._log.debug("Skipping heartbeat send - not connected")
+                    self._log_msgs.debug("Skipping heartbeat send - not connected")
                     
             except Exception as exc:
-                self._log.error(f"Failed to send heartbeat: {exc}")
+                self._log_msgs.error(f"Failed to send heartbeat: {exc}")
                 # Don't mark as disconnected just for heartbeat send failure
                 
             await asyncio.sleep(interval)
@@ -656,7 +749,7 @@ class MavLinkExternalProxy(ExternalProxy):
             mavutil.mavlink.MAV_STATE_ACTIVE  # System state
         )
         self.send("mav", msg)
-        self._log.debug("Sent MAVLink heartbeat")
+        self._log_msgs.debug("Sent MAVLink heartbeat")
 
     async def stop(self):
         """Stop the worker and close the link."""
@@ -703,7 +796,7 @@ class MavLinkExternalProxy(ExternalProxy):
                     
                     # Only log if rate limiting allows
                     if self._should_log_message(msg_type):
-                        self._log.debug(f"📥 MAVLink RX: {msg_type} (ID: {msg_id}) - {msg}")
+                        self._log_msgs.debug(f"📥 MAVLink RX: {msg_type} (ID: {msg_id}) - {msg}")
                     
                     out.append(("mav", msg))
                     out.append((str(msg_id), msg))
@@ -712,12 +805,12 @@ class MavLinkExternalProxy(ExternalProxy):
         except (OSError, socket.error) as e:
             # Handle connection errors gracefully
             if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED]:
-                self._log.debug(f"MAVLink connection lost during read: {e}")
+                self._log_msgs.debug(f"MAVLink connection lost during read: {e}")
                 # Don't mark as disconnected here, let the heartbeat monitor handle it
             else:
-                self._log.error(f"Unexpected error reading MAVLink messages: {e}")
+                self._log_msgs.error(f"Unexpected error reading MAVLink messages: {e}")
         except Exception as e:
-            self._log.error(f"Error reading MAVLink messages: {e}")
+            self._log_msgs.error(f"Error reading MAVLink messages: {e}")
             # Don't mark as disconnected here, let the heartbeat monitor handle it
         
         return out
@@ -736,18 +829,18 @@ class MavLinkExternalProxy(ExternalProxy):
                         
                         # Only log if rate limiting allows
                         if self._should_log_message(msg_type):
-                            self._log.info(f"📤 MAVLink TX: {msg_type} (ID: {msg_id}) - {msg}")
+                            self._log_msgs.info(f"📤 MAVLink TX: {msg_type} (ID: {msg_id}) - {msg}")
                         
                         self.master.mav.send(msg)
                     except (OSError, socket.error) as e:
                         if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
-                            self._log.debug(f"MAVLink connection lost during write: {e}")
+                            self._log_msgs.debug(f"MAVLink connection lost during write: {e}")
                             # Don't mark as disconnected here, let the heartbeat monitor handle it
                             break  # Stop trying to send more messages
                         else:
-                            self._log.error(f"Unexpected error sending MAVLink message {key}: {e}")
+                            self._log_msgs.error(f"Unexpected error sending MAVLink message {key}: {e}")
                     except Exception as exc:
-                        self._log.error(
+                        self._log_msgs.error(
                             "Failed to send MAVLink message %s: %s",
                             key, exc
                         )
@@ -821,6 +914,189 @@ class MavLinkExternalProxy(ExternalProxy):
         )
 
         return cmd
+
+    def build_param_request_read(self, name: str, index: int = -1):
+        """
+        Build MAVLink PARAM_REQUEST_READ for a named or indexed parameter.
+        If index == -1, the 'name' is used; otherwise PX4 will ignore name.
+        """
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        # pymavlink will pad/trim to 16 chars; PX4 expects ASCII
+        return self.master.mav.param_request_read_encode(
+            self.master.target_system,
+            self.master.target_component,
+            name.encode("ascii"),
+            index
+        )
+
+    def build_param_request_list(self):
+        """Build MAVLink PARAM_REQUEST_LIST to fetch the full table."""
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+        return self.master.mav.param_request_list_encode(
+            self.master.target_system,
+            self.master.target_component
+        )
+
+    def build_param_set(self, name: str, value: Any, param_type: int):
+        """
+        Build MAVLink PARAM_SET for setting a parameter.
+        Handles INT32 encoding where int32 values are encoded as float32 bits for wire transmission.
+        """
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+        
+        # Use the encoding method for proper INT32 handling
+        encoded_value = self._encode_param_value(value, param_type)
+        
+        return self.master.mav.param_set_encode(
+            self.master.target_system,
+            self.master.target_component,
+            name.encode("ascii"),
+            encoded_value,               # properly encoded value
+            param_type                   # mavutil.mavlink.MAV_PARAM_TYPE_*
+        )
+
+    async def get_param(self, name: str, timeout: float = 3.0) -> Dict[str, Any]:
+        """
+        Request a single PARAM_VALUE for `name` and return a dict:
+        {"name": str, "value": Union[int,float], "raw": float, "type": int, "count": int, "index": int}
+        Raises TimeoutError if no reply within timeout.
+        """
+        if not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        req = self.build_param_request_read(name, index=-1)
+
+        result = {"got": False, "data": None}
+
+        def _collector(pkt) -> bool:
+            # Ensure we only process PARAM_VALUE
+            if pkt.get_type() != "PARAM_VALUE":
+                return False
+
+            # Use the decoding method for proper INT32 handling
+            pkt_name, decoded_value = self._decode_param_value(pkt)
+            if pkt_name != name:
+                return False
+
+            result["got"] = True
+            result["data"] = {
+                "name": pkt_name,
+                "value": decoded_value,
+                "raw": float(pkt.param_value),
+                "type": pkt.param_type,
+                "count": pkt.param_count,
+                "index": pkt.param_index,
+            }
+            return True
+
+        # You dispatch by both msg ID string and type; using type keeps it readable.
+        await self.send_and_wait(
+            match_key="PARAM_VALUE",
+            request_msg=req,
+            collector=_collector,
+            timeout=timeout,
+        )
+
+        if not result["got"]:
+            raise TimeoutError(f"No PARAM_VALUE received for {name}")
+
+        return result["data"]
+
+    async def get_all_params(self, timeout: float = 10.0):
+        """
+        Request entire parameter list and return:
+        { "<NAME>": {"value": int|float, "raw": float, "type": int, "index": int, "count": int}, ... }
+        """
+        if not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        req = self.build_param_request_list()
+        params = {}
+        seen = set()
+        expected_total = {"val": None}
+
+        def _collector(pkt) -> bool:
+            if pkt.get_type() != "PARAM_VALUE":
+                return False
+
+            if expected_total["val"] is None:
+                expected_total["val"] = pkt.param_count
+
+            # Use the decoding method for proper INT32 handling
+            name, decoded_value = self._decode_param_value(pkt)
+
+            if (name, pkt.param_index) in seen:
+                # duplicate frame—ignore; can happen with lossy links
+                pass
+            else:
+                seen.add((name, pkt.param_index))
+
+                params[name] = {
+                    "value": decoded_value,
+                    "raw": float(pkt.param_value),
+                    "type": pkt.param_type,
+                    "index": pkt.param_index,
+                    "count": pkt.param_count,
+                }
+
+            # Stop when we've collected all expected params
+            return (expected_total["val"] is not None) and (len(params) >= expected_total["val"])
+
+        await self.send_and_wait(
+            match_key="PARAM_VALUE",
+            request_msg=req,
+            collector=_collector,
+            timeout=timeout,
+        )
+        return params
+
+    async def set_param(self, name: str, value: Any, ptype: Optional[int] = None, timeout: float = 3.0) -> Dict[str, Any]:
+        """
+        Set a parameter and confirm by reading back. `value` can be int or float.
+        Returns the confirmed PARAM_VALUE dict (same shape as get_param()).
+        
+        Uses proper INT32 encoding where int32 values are encoded as float32 bits for wire transmission.
+
+        ["MAV_PARAM_TYPE"] = {
+            [1] = "MAV_PARAM_TYPE_UINT8",
+            [2] = "MAV_PARAM_TYPE_INT8",
+            [3] = "MAV_PARAM_TYPE_UINT16",
+            [4] = "MAV_PARAM_TYPE_INT16",
+            [5] = "MAV_PARAM_TYPE_UINT32",
+            [6] = "MAV_PARAM_TYPE_INT32",
+            [7] = "MAV_PARAM_TYPE_UINT64",
+            [8] = "MAV_PARAM_TYPE_INT64",
+            [9] = "MAV_PARAM_TYPE_REAL32",
+            [10] = "MAV_PARAM_TYPE_REAL64",
+        },
+
+        """
+        # Pick a MAV_PARAM_TYPE based on Python type (simple heuristic)
+        if ptype is None:
+            if isinstance(value, int):
+                ptype = mavutil.mavlink.MAV_PARAM_TYPE_INT32
+            elif isinstance(value, float):
+                ptype = mavutil.mavlink.MAV_PARAM_TYPE_REAL32
+            else:
+                self._log.warning(f"Unsupported parameter type for {name}: {type(value)}")
+                raise ValueError(f"Unsupported parameter type for {name}: {type(value)}")
+
+        # Build the PARAM_SET message with proper encoding
+        req = self.build_param_set(name, value, ptype)
+
+        # Send the parameter set command
+        self.send("mav", req)
+        
+        # Wait for confirmation by reading back the parameter
+        try:
+            return await self.get_param(name, timeout=timeout)
+        except TimeoutError:
+            # Fall back to an explicit read if the echo was missed
+            return await self.get_param(name, timeout=timeout)
 
     async def send_and_wait(
         self,
@@ -1127,15 +1403,31 @@ class _BlockingParser:
         self.master = master
         self.proxy = mavlink_proxy
         self.root_sd_path = self.proxy.root_sd_path
-        
-        self.ftp = mavftp.MAVFTP(
-            self.master, self.master.target_system, self.master.target_component
-        )
-        self.ftp.ftp_settings.debug            = debug
-        self.ftp.ftp_settings.retry_time       = 0.2   # 200 ms instead of 1 s
-        self.ftp.ftp_settings.burst_read_size  = 239
-        self.ftp.burst_size                    = 239
+        # try three times to init MAVFTP
+        try:
+            for _ in range(3):
+                try:
+                    if self.master is None or not self.proxy.connected:
+                        raise RuntimeError("MAVLink master not initialized MAVFTP proxy failed")
+                    
+                    self.ftp = mavftp.MAVFTP(
+                        self.master, self.master.target_system, self.master.target_component
+                    )
+                    break
+                except Exception as e:
+                    self._log.warning(f"MAVFTP init attempt failed: {e}")
+                    time.sleep(1)
+            else:
+                raise RuntimeError("MAVFTP init failed after 3 attempts")
 
+            self._log.info("MAVFTP initialized successfully")
+            self.ftp.ftp_settings.debug            = debug
+            self.ftp.ftp_settings.retry_time       = 0.2   # 200 ms instead of 1 s
+            self.ftp.ftp_settings.burst_read_size  = 239
+            self.ftp.burst_size                    = 239
+
+        except Exception as e:
+            self._log.error(f"Failed to initialize MAVFTP: {e}")
 
     @property
     def system_id(self):          # convenience for log message in proxy.start()
@@ -1233,7 +1525,7 @@ class _BlockingParser:
                             raise RuntimeError(f"Failed to reconnect after {max_retries} attempts") from conn_e
                         continue
                 
-                with self.proxy._mav_lock:
+                with self.proxy._download_lock:
 
                     ret = self.ftp.cmd_get(
                         [remote_path, str(local_path.absolute())],
@@ -1285,7 +1577,7 @@ class _BlockingParser:
             except DownloadCancelledException:
                 # Handle cancellation gracefully at the outer level too
                 self._log.info("Download cancelled by user")
-                with self.proxy._mav_lock:
+                with self.proxy._download_lock:
                     self._reset_ftp_state()
                 if local_path.exists():
                     local_path.unlink()
@@ -1293,7 +1585,7 @@ class _BlockingParser:
             except (OSError, socket.error) as e:
                 # Handle connection errors (including "Bad file descriptor")
                 self._log.error(f"Download error (attempt {attempt + 1}/{max_retries}): {str(e)}")
-                with self.proxy._mav_lock:
+                with self.proxy._download_lock:
                     self._reset_ftp_state()
 
                 # Clean up partial file
@@ -1313,7 +1605,7 @@ class _BlockingParser:
             except Exception as e:
                 self._log.error(f"Download error: {str(e)}")
                 # Always reset FTP state on error
-                with self.proxy._mav_lock:
+                with self.proxy._download_lock:
                     self._reset_ftp_state()
 
                 # Clean up partial file
@@ -1424,7 +1716,7 @@ class _BlockingParser:
                     self._log.warning(f"Connection lost, skipping ls for {path}")
                     return []
                 
-                with self.proxy._mav_lock:
+                with self.proxy._download_lock:
                     ack = self.ftp.cmd_list([path])
                     if ack.return_code == 0:
                         return list(set((e.name, e.size_b, e.is_dir) for e in self.ftp.list_result))
@@ -1500,7 +1792,7 @@ class _BlockingParser:
                     self._log.warning(f"Connection lost, skipping delete for {path}")
                     return
                 
-                with self.proxy._mav_lock:
+                with self.proxy._download_lock:
                     ack = self.ftp.cmd_rm([path])
                     if ack.return_code == 0:
                         self._log.info(f"Successfully deleted {path}")

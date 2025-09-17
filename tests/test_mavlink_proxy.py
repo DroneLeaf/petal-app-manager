@@ -147,7 +147,12 @@ class MockBlockingParser:
         self._log = logger.getChild("MockBlockingParser")
         self.master = master
         self.proxy = mavlink_proxy
-        self.ftp = MockFTP(master, master.target_system, master.target_component)
+        # Handle case where master is None (connection error scenarios)
+        if master is not None:
+            self.ftp = MockFTP(master, master.target_system, master.target_component)
+        else:
+            # Create a mock FTP with default values for testing connection errors
+            self.ftp = MockFTP(None, 1, 1)
         
     def list_ulogs(self, entries=None, base = "fs/microsd/log"):
         return [

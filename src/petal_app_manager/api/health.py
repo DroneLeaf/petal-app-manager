@@ -10,6 +10,7 @@ from ..proxies.external import MavLinkExternalProxy
 from ..proxies.cloud import CloudDBProxy
 from ..proxies.bucket import S3BucketProxy
 from ..proxies.mqtt import MQTTProxy
+from ..organization_manager import get_organization_manager
 from ..api import get_proxies
 
 router = APIRouter(tags=["health"])
@@ -41,6 +42,31 @@ async def health_check():
     logger.info("Health check requested")
     return {"status": "ok"}
 
+@router.get("/health/organization")
+async def organization_health_check():
+    """Get current organization information and status."""
+    logger = get_logger()
+    logger.info("Organization health check requested")
+    
+    try:
+        org_status = await _check_organization_manager()
+        return {
+            "status": "ok",
+            "timestamp": time.time(),
+            "organization_manager": org_status
+        }
+    except Exception as e:
+        logger.error(f"Error in organization health check: {e}")
+        return {
+            "status": "error",
+            "timestamp": time.time(),
+            "error": str(e),
+            "organization_manager": {
+                "status": "error",
+                "error": str(e)
+            }
+        }
+
 @router.get("/health/detailed")
 async def detailed_health_check():
     """Comprehensive health check endpoint that reports the status of each proxy."""
@@ -58,10 +84,26 @@ async def detailed_health_check():
     health_status = {
         "status": "ok",
         "timestamp": time.time(),
+        "organization_manager": {},
         "proxies": {}
     }
     
     overall_healthy = True
+    
+    # Check OrganizationManager first
+    try:
+        org_status = await _check_organization_manager()
+        health_status["organization_manager"] = org_status
+        if org_status["status"] != "healthy":
+            overall_healthy = False
+    except Exception as e:
+        logger.error(f"Error checking OrganizationManager health: {e}")
+        health_status["organization_manager"] = {
+            "status": "error",
+            "error": str(e),
+            "details": "Failed to check OrganizationManager status"
+        }
+        overall_healthy = False
     
     # Check Redis proxy
     if "redis" in proxies:
@@ -301,16 +343,23 @@ async def _check_mavlink_proxy(proxy: MavLinkExternalProxy) -> Dict[str, Any]:
         current_time = time.time()
         
         status_info = {
-            "status": "healthy" if proxy.connected else "unhealthy",
+            "status": "healthy" if proxy.connected and proxy.leaf_fc_connected else "unhealthy",
             "connection": {
                 "endpoint": proxy.endpoint,
                 "baud": proxy.baud,
                 "connected": proxy.connected
             },
-            "heartbeat": {
+            "px4_heartbeat": {
+                "connected": proxy.connected,
                 "last_received": proxy._last_heartbeat_time,
                 "seconds_since_last": current_time - proxy._last_heartbeat_time if proxy._last_heartbeat_time > 0 else None,
                 "timeout_threshold": proxy._heartbeat_timeout
+            },
+            "leaf_fc_heartbeat": {
+                "connected": proxy.leaf_fc_connected,
+                "last_heartbeat": proxy._last_leaf_fc_heartbeat_time,
+                "seconds_since_last": current_time - proxy._last_leaf_fc_heartbeat_time if proxy._last_leaf_fc_heartbeat_time > 0 else None,
+                "timeout_threshold": proxy._leaf_fc_heartbeat_timeout
             },
             "worker_thread": {
                 "running": proxy._running.is_set() if proxy._running else False,
@@ -556,4 +605,42 @@ async def _check_mqtt_proxy(proxy: MQTTProxy) -> Dict[str, Any]:
                 "connected": False
             },
             "details": "Health check failed with exception"
+        }
+
+async def _check_organization_manager() -> Dict[str, Any]:
+    """Check OrganizationManager health."""
+    logger = get_logger()
+    try:
+        org_manager = get_organization_manager()
+        org_info = org_manager.organization_info
+        
+        file_exists = org_manager.file_path.exists() if org_manager.file_path else False
+        
+        status_info = {
+            "status": "healthy" if org_info.organization_id else "warning",
+            "file_path": str(org_manager.file_path) if org_manager.file_path else None,
+            "file_exists": file_exists,
+            "organization_info": {
+                "organization_id": org_info.organization_id,
+                "thing_name": org_info.thing_name,
+                "retrieved_at": org_info.retrieved_at,
+                "last_updated": org_info.last_updated
+            },
+            "monitoring": {
+                "running": org_manager._running,
+                "poll_interval": org_manager.poll_interval
+            }
+        }
+        
+        if not org_info.organization_id:
+            status_info["message"] = "Organization ID not yet available from file"
+        
+        return status_info
+        
+    except Exception as e:
+        logger.error(f"Error checking OrganizationManager health: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "details": "Failed to check OrganizationManager status"
         }

@@ -7,8 +7,10 @@ from .plugins.loader import load_petals
 from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, mqtt_api, config_api, admin_ui
 from . import api
 import logging
+import asyncio
 
 from .logger import setup_logging
+from .organization_manager import get_organization_manager
 from pathlib import Path
 import os
 import dotenv
@@ -84,21 +86,6 @@ def build_app(
 
     allowed_origins = config.get("allowed_origins", ["*"])  # Default to allow all origins if not specified
 
-    app = FastAPI(title="PetalAppManager")
-    
-    # Mount static files for admin dashboard assets
-    assets_path = Path(__file__).parent / "assets"
-    if assets_path.exists():
-        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
-    
-    # Add CORS middleware to allow all origins
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=allowed_origins,  # Allow origins from the JSON file
-        allow_credentials=False,  # Cannot use credentials with wildcard origin
-        allow_methods=["*"],  # Allow all methods
-        allow_headers=["*"],  # Allow all headers
-    )
     # ---------- load enabled proxies from YAML ----------
     proxies_yaml_path = Path(__file__).parent.parent.parent / "proxies.yaml"
     proxies_config = load_proxies_config(proxies_yaml_path)
@@ -150,19 +137,17 @@ def build_app(
                         update_data_url=Config.UPDATE_DATA_URL,
                         set_data_url=Config.SET_DATA_URL,
                     )
-                elif proxy_name == "mqtt" and "db" in proxies:
+                elif proxy_name == "mqtt":
                     proxies["mqtt"] = MQTTProxy(
-                        local_db_proxy=proxies.get("db"),  # May be None if db not loaded
                         ts_client_host=Config.TS_CLIENT_HOST,
                         ts_client_port=Config.TS_CLIENT_PORT,
                         callback_host=Config.CALLBACK_HOST,
                         callback_port=Config.CALLBACK_PORT,
                         enable_callbacks=Config.ENABLE_CALLBACKS,
                     )
-                elif proxy_name == "cloud" and "db" in proxies:
+                elif proxy_name == "cloud":
                     proxies["cloud"] = CloudDBProxy(
                         endpoint=Config.CLOUD_ENDPOINT,
-                        local_db_proxy=proxies.get("db"),  # May be None if db not loaded
                         access_token_url=Config.ACCESS_TOKEN_URL,
                         session_token_url=Config.SESSION_TOKEN_URL,
                         s3_bucket_name=Config.S3_BUCKET_NAME,
@@ -171,11 +156,10 @@ def build_app(
                         update_data_url=Config.UPDATE_DATA_URL,
                         set_data_url=Config.SET_DATA_URL,
                     )
-                elif proxy_name == "bucket" and "db" in proxies:
+                elif proxy_name == "bucket":
                     proxies["bucket"] = S3BucketProxy(
                         session_token_url=Config.SESSION_TOKEN_URL,
                         bucket_name=Config.S3_BUCKET_NAME,
-                        local_db_proxy=proxies.get("db"),  # May be None if db not loaded
                         upload_prefix="flight_logs/"
                     )
                 elif proxy_name == "ftp_mavlink" and "ext_mavlink" in proxies:
@@ -205,10 +189,141 @@ def build_app(
             else:
                 logger.warning(f"Cannot load {proxy_name}: unknown proxy type or circular dependency")
 
-    for p in proxies.values():
-        app.add_event_handler("startup", p.start)
-        app.add_event_handler("shutdown", p.stop)
+    # Note: Proxy startup will be handled in startup_all() after OrganizationManager is ready
+    # for p in proxies.values():
+    #     app.add_event_handler("startup", p.start)
+    #     # Note: proxy shutdown handlers will be registered later in shutdown_all
 
+    # ---------- dynamic plugins ----------
+    # Set up the logger for the plugins loader
+    loader_logger = logging.getLogger("pluginsloader")
+   
+    # Store petals list to manage them during startup/shutdown
+    petals = []
+    
+    async def startup_all():
+        """Initialize OrganizationManager, then start proxies, then load petals"""
+        # Step 1: Start OrganizationManager first
+        logger.info("Starting OrganizationManager...")
+        org_manager = get_organization_manager()
+        await org_manager.start()
+        
+        # Step 2: Start proxies after OrganizationManager is ready
+        logger.info("Starting proxies...")
+        for proxy_name, proxy in proxies.items():
+            try:
+                await proxy.start()
+                logger.info(f"Started proxy: {proxy_name}")
+            except Exception as e:
+                logger.error(f"Failed to start proxy {proxy_name}: {e}")
+                raise
+        
+        # Step 3: Load petals after proxies are started
+        await load_petals_on_startup()
+        
+        # Step 4: Log completion
+        logger.info("=== startup_all() completed successfully ===")
+        logger.info("Application should now be ready to receive requests")
+    
+    async def load_petals_on_startup():
+        """Load petals after proxies have been started"""
+        nonlocal petals
+        petals.extend(load_petals(app, proxies, logger=loader_logger))
+        
+        # Call async_startup method for petals that support it
+        for petal in petals:
+            async_startup_method = getattr(petal, 'async_startup', None)
+            if async_startup_method and asyncio.iscoroutinefunction(async_startup_method):
+                logger.info(f"Starting async_startup for petal: {petal.name}")
+                try:
+                    await asyncio.wait_for(async_startup_method(), timeout=30.0)
+                    logger.info(f"Completed async_startup for petal: {petal.name}")
+                except asyncio.TimeoutError:
+                    logger.error(f"Timeout during async_startup for petal: {petal.name}")
+                    raise
+                except Exception as e:
+                    logger.error(f"Error during async_startup for petal {petal.name}: {e}")
+                    raise
+        
+        # Note: Petal shutdown is handled centrally in shutdown_all, not via individual event handlers
+
+    async def shutdown_petals():
+        """Shutdown petals gracefully"""
+        for petal in petals:
+            async_shutdown_method = getattr(petal, 'async_shutdown', None)
+            if async_shutdown_method and asyncio.iscoroutinefunction(async_shutdown_method):
+                await async_shutdown_method()
+
+    async def shutdown_all():
+        """Shutdown petals first, then proxies, then OrganizationManager"""
+        logger.info("Starting graceful shutdown...")
+        
+        # Step 1: Shutdown petals first (async shutdown if available)
+        logger.info("Shutting down petals (async)...")
+        await shutdown_petals()
+        
+        # Step 2: Shutdown petals (sync shutdown)
+        logger.info("Shutting down petals (sync)...")
+        for petal in petals:
+            try:
+                petal.shutdown()
+            except Exception as e:
+                logger.error(f"Error shutting down petal {getattr(petal, 'name', 'unknown')}: {e}")
+        
+        # Step 3: Shutdown proxies
+        logger.info("Shutting down proxies...")
+        for proxy_name, proxy in proxies.items():
+            try:
+                await proxy.stop()
+                logger.info(f"Shutdown proxy: {proxy_name}")
+            except Exception as e:
+                logger.error(f"Error shutting down proxy {proxy_name}: {e}")
+        
+        # Step 4: Shutdown OrganizationManager last
+        logger.info("Shutting down OrganizationManager...")
+        try:
+            org_manager = get_organization_manager()
+            await org_manager.stop()
+            logger.info("OrganizationManager shutdown completed")
+        except Exception as e:
+            logger.error(f"Error shutting down OrganizationManager: {e}")
+        
+        logger.info("Graceful shutdown completed")
+
+    # Create lifespan context manager for proper startup/shutdown handling
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        """FastAPI lifespan context manager to handle startup and shutdown properly"""
+        # Startup
+        logger.info("Starting FastAPI lifespan...")
+        await startup_all()
+        logger.info("FastAPI lifespan startup completed")
+        
+        yield
+        
+        # Shutdown
+        logger.info("Starting FastAPI lifespan shutdown...")
+        await shutdown_all()
+        logger.info("FastAPI lifespan shutdown completed")
+
+    # Now create the FastAPI app with the lifespan
+    app = FastAPI(title="PetalAppManager", lifespan=lifespan)
+    
+    # Mount static files for admin dashboard assets
+    assets_path = Path(__file__).parent / "assets"
+    if assets_path.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
+    
+    # Add CORS middleware to allow all origins
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,  # Allow origins from the JSON file
+        allow_credentials=False,  # Cannot use credentials with wildcard origin
+        allow_methods=["*"],  # Allow all methods
+        allow_headers=["*"],  # Allow all headers
+    )
+
+    # Configure API proxies and routers
     api.set_proxies(proxies)
     api_logger = logging.getLogger("PetalAppManagerAPI")
 
@@ -239,15 +354,6 @@ def build_app(
     # Configure MQTT API with proxy instances
     mqtt_api._set_logger(api_logger)  # Set the logger for MQTT API endpoints
     app.include_router(mqtt_api.router, prefix="/mqtt")
-
-    # ---------- dynamic plugins ----------
-    # Set up the logger for the plugins loader
-    loader_logger = logging.getLogger("pluginsloader")
-    petals = load_petals(app, proxies, logger=loader_logger)
-
-    for petal in petals:
-        # Register the petal's shutdown methods
-        app.add_event_handler("shutdown", petal.shutdown)
 
     return app
 

@@ -8,77 +8,84 @@ import time
 from unittest.mock import patch, MagicMock, Mock
 from petal_app_manager.proxies.cloud import CloudDBProxy
 from petal_app_manager import Config
+from petal_app_manager.organization_manager import get_organization_manager
 
 from typing import Generator, AsyncGenerator
 
 @pytest_asyncio.fixture
 async def proxy() -> AsyncGenerator[CloudDBProxy, None]:
     """Create a CloudDBProxy instance for testing."""
-    mock_local_db_proxy = MagicMock()
-    mock_local_db_proxy.machine_id = "test-machine-123"
+    # Mock OrganizationManager
+    with patch('petal_app_manager.proxies.cloud.get_organization_manager') as mock_get_org_mgr:
+        mock_org_mgr = MagicMock()
+        mock_org_mgr.machine_id = "test-machine-123"
+        mock_get_org_mgr.return_value = mock_org_mgr
 
-    proxy = CloudDBProxy(
-        access_token_url="https://example.com/token",
-        endpoint="https://api.example.com",
-        local_db_proxy=mock_local_db_proxy,
-        debug=True
-    )
-    
-    # Mock the credentials to avoid actual network calls
-    mock_credentials = {"accessToken": "test-token-123"}
-    proxy._session_cache = {
-        'credentials': mock_credentials,
-        'expires_at': time.time() + 3600  # Valid for 1 hour
-    }
-    
-    await proxy.start()
-    yield proxy
-    await proxy.stop()
+        proxy = CloudDBProxy(
+            access_token_url="https://example.com/token",
+            endpoint="https://api.example.com",
+            debug=True
+        )
+        
+        # Mock the credentials to avoid actual network calls
+        mock_credentials = {"accessToken": "test-token-123"}
+        proxy._session_cache = {
+            'credentials': mock_credentials,
+            'expires_at': time.time() + 3600  # Valid for 1 hour
+        }
+        
+        await proxy.start()
+        yield proxy
+        await proxy.stop()
 
 @pytest.mark.asyncio
 async def test_get_access_token_caching():
     """Test that access tokens are properly cached."""
-    mock_local_db_proxy = MagicMock()
-    mock_local_db_proxy.machine_id = "test-machine-123"
+    # Mock OrganizationManager
+    with patch('petal_app_manager.proxies.cloud.get_organization_manager') as mock_get_org_mgr:
+        mock_org_mgr = MagicMock()
+        mock_org_mgr.machine_id = "test-machine-123"
+        mock_get_org_mgr.return_value = mock_org_mgr
 
-    proxy = CloudDBProxy(
-        access_token_url="https://example.com/token",
-        endpoint="https://api.example.com",
-        local_db_proxy=mock_local_db_proxy,
-        debug=True
-    )
-    
-    mock_credentials = {"accessToken": "test-token-456"}
-    current_time = time.time()
-    
-    # Mock the token fetch to avoid network calls
-    with patch.object(proxy, '_get_access_token', return_value=mock_credentials):
-        await proxy.start()
-    
-    # Set cached credentials
-    proxy._session_cache = {
-        'credentials': mock_credentials,
-        'expires_at': current_time + 3600
-    }
-    
-    # Should return cached credentials without making a request
-    result = await proxy._get_access_token()
-    assert result == mock_credentials
-    
-    await proxy.stop()
+        proxy = CloudDBProxy(
+            access_token_url="https://example.com/token",
+            endpoint="https://api.example.com",
+            debug=True
+        )
+        
+        mock_credentials = {"accessToken": "test-token-456"}
+        current_time = time.time()
+        
+        # Mock the token fetch to avoid network calls
+        with patch.object(proxy, '_get_access_token', return_value=mock_credentials):
+            await proxy.start()
+        
+        # Set cached credentials
+        proxy._session_cache = {
+            'credentials': mock_credentials,
+            'expires_at': current_time + 3600
+        }
+        
+        # Should return cached credentials without making a request
+        result = await proxy._get_access_token()
+        assert result == mock_credentials
+        
+        await proxy.stop()
 
 @pytest.mark.asyncio
 async def test_get_access_token_expired():
     """Test token refresh when cached token is expired."""
-    mock_local_db_proxy = MagicMock()
-    mock_local_db_proxy.machine_id = "test-machine-123"
+    # Mock OrganizationManager
+    with patch('petal_app_manager.proxies.cloud.get_organization_manager') as mock_get_org_mgr:
+        mock_org_mgr = MagicMock()
+        mock_org_mgr.machine_id = "test-machine-123"
+        mock_get_org_mgr.return_value = mock_org_mgr
 
-    proxy = CloudDBProxy(
-        access_token_url="https://example.com/token",
-        endpoint="https://api.example.com",
-        local_db_proxy=mock_local_db_proxy,
-        debug=True
-    )
+        proxy = CloudDBProxy(
+            access_token_url="https://example.com/token",
+            endpoint="https://api.example.com",
+            debug=True
+        )
     
     old_credentials = {"accessToken": "old-token"}
     new_credentials = {"accessToken": "new-token"}
@@ -97,11 +104,11 @@ async def test_get_access_token_expired():
     async def mock_executor(executor, func):
         return new_credentials
     
-    with patch.object(proxy._loop, 'run_in_executor', side_effect=mock_executor):
-        result = await proxy._get_access_token()
-        assert result == new_credentials
-    
-    await proxy.stop()
+        with patch.object(proxy._loop, 'run_in_executor', side_effect=mock_executor):
+            result = await proxy._get_access_token()
+            assert result == new_credentials
+        
+        await proxy.stop()
 
 @pytest.mark.asyncio
 async def test_get_item(proxy: CloudDBProxy):
@@ -356,15 +363,17 @@ async def test_delete_item_not_found(proxy: CloudDBProxy):
 @pytest.mark.asyncio
 async def test_authentication_failure():
     """Test behavior when authentication fails."""
-    mock_local_db_proxy = MagicMock()
-    mock_local_db_proxy.machine_id = "test-machine-123"
+    # Mock OrganizationManager
+    with patch('petal_app_manager.proxies.cloud.get_organization_manager') as mock_get_org_mgr:
+        mock_org_mgr = MagicMock()
+        mock_org_mgr.machine_id = "test-machine-123"
+        mock_get_org_mgr.return_value = mock_org_mgr
 
-    proxy = CloudDBProxy(
-        access_token_url="https://example.com/token",
-        endpoint="https://api.example.com",
-        local_db_proxy=mock_local_db_proxy,
-        debug=True
-    )
+        proxy = CloudDBProxy(
+            access_token_url="https://example.com/token",
+            endpoint="https://api.example.com",
+            debug=True
+        )
     
     # Mock the initial start to succeed, then test auth failure later
     with patch.object(proxy, '_get_access_token', return_value={"accessToken": "test"}):
@@ -380,29 +389,33 @@ async def test_authentication_failure():
         
         assert "error" in result
         assert "Authentication failed" in result["error"]
-        
-    await proxy.stop()
+            
+        await proxy.stop()
 
 @pytest.mark.asyncio
 async def test_configuration_validation():
     """Test that proper configuration is required."""
     
-    # Test missing ACCESS_TOKEN_URL
-    proxy1 = CloudDBProxy(
-        access_token_url="",
-        endpoint="https://api.example.com",
-        local_db_proxy=MagicMock()
-    )
-    
-    with pytest.raises(ValueError, match="ACCESS_TOKEN_URL and CLOUD_ENDPOINT must be configured"):
-        await proxy1.start()
-    
-    # Test missing CLOUD_ENDPOINT
-    proxy2 = CloudDBProxy(
-        access_token_url="https://example.com/token",
-        endpoint="",
-        local_db_proxy=MagicMock()
-    )
-    
-    with pytest.raises(ValueError, match="ACCESS_TOKEN_URL and CLOUD_ENDPOINT must be configured"):
-        await proxy2.start()
+    # Mock OrganizationManager for both tests
+    with patch('petal_app_manager.proxies.cloud.get_organization_manager') as mock_get_org_mgr:
+        mock_org_mgr = MagicMock()
+        mock_org_mgr.machine_id = "test-machine-123"
+        mock_get_org_mgr.return_value = mock_org_mgr
+        
+        # Test missing ACCESS_TOKEN_URL
+        proxy1 = CloudDBProxy(
+            access_token_url="",
+            endpoint="https://api.example.com"
+        )
+        
+        with pytest.raises(ValueError, match="ACCESS_TOKEN_URL and CLOUD_ENDPOINT must be configured"):
+            await proxy1.start()
+        
+        # Test missing CLOUD_ENDPOINT
+        proxy2 = CloudDBProxy(
+            access_token_url="https://example.com/token",
+            endpoint=""
+        )
+        
+        with pytest.raises(ValueError, match="ACCESS_TOKEN_URL and CLOUD_ENDPOINT must be configured"):
+            await proxy2.start()

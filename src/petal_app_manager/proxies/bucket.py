@@ -14,7 +14,7 @@ import requests
 from botocore.exceptions import ClientError, NoCredentialsError
 
 from .base import BaseProxy
-from .localdb import LocalDBProxy
+from ..organization_manager import get_organization_manager
 
 _ULOG_MAGIC   = b"ULog\x01\x12\x35"     # 7‑byte magic    :contentReference[oaicite:0]{index=0}
 _ULOG_VERSION = 1                       # current spec
@@ -34,14 +34,12 @@ class S3BucketProxy(BaseProxy):
         self,
         session_token_url: str,
         bucket_name: str,
-        local_db_proxy: LocalDBProxy,
         upload_prefix: str = 'flight_logs/',
         debug: bool = False,
         request_timeout: int = 30
     ):
         self.session_token_url = session_token_url
         self.bucket_name = bucket_name
-        self.local_db_proxy = local_db_proxy
         self.upload_prefix = upload_prefix.rstrip('/') + '/'
         self.debug = debug
         self.request_timeout = request_timeout
@@ -85,21 +83,39 @@ class S3BucketProxy(BaseProxy):
 
     def _get_machine_id(self) -> Optional[str]:
         """
-        Get the machine ID from the LocalDBProxy.
+        Get the machine ID from the OrganizationManager.
         
         Returns:
             The machine ID if available, None otherwise
         """
-        if not self.local_db_proxy:
-            self.log.error("LocalDBProxy not available")
+        try:
+            org_manager = get_organization_manager()
+            machine_id = org_manager.machine_id
+            if not machine_id:
+                self.log.error("Machine ID not available from OrganizationManager")
+                return None
+            return machine_id
+        except Exception as e:
+            self.log.error(f"Error getting machine ID from OrganizationManager: {e}")
             return None
+
+    def _get_organization_id(self) -> Optional[str]:
+        """
+        Get the organization ID from the OrganizationManager.
         
-        machine_id = self.local_db_proxy.machine_id
-        if not machine_id:
-            self.log.error("Machine ID not available from LocalDBProxy")
+        Returns:
+            The organization ID if available, None otherwise
+        """
+        try:
+            org_manager = get_organization_manager()
+            org_id = org_manager.organization_id
+            if not org_id:
+                self.log.debug("Organization ID not yet available from OrganizationManager")
+                return None
+            return org_id
+        except Exception as e:
+            self.log.error(f"Error getting organization ID from OrganizationManager: {e}")
             return None
-        
-        return machine_id
         
     def _validate_file_extension(self, filename: str) -> bool:
         """
