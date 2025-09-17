@@ -560,7 +560,7 @@ class MQTTProxy(BaseProxy):
 
         # Default topics to subscribe to
         topics = [
-            f"org/{organization_id}/device/{self.device_id}/command",
+            f"org/{organization_id}/device/{self.device_id}/command/edge",
             f"org/{organization_id}/device/{self.device_id}/response",
         ]
 
