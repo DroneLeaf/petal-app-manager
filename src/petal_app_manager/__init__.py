@@ -53,6 +53,7 @@ class Config:
         DB = int(os.environ.get('REDIS_DB', 0))
         PASSWORD = os.environ.get('REDIS_PASSWORD', None)
         UNIX_SOCKET_PATH = os.environ.get('REDIS_UNIX_SOCKET_PATH', None)
+        HEALTH_MESSAGE_RATE = float(os.environ.get('REDIS_HEALTH_MESSAGE_RATE', 3.0))
 
     # URLs for data operations
     GET_DATA_URL    = os.environ.get('GET_DATA_URL', '/drone/onBoard/config/getData')
@@ -98,6 +99,7 @@ class Config:
     REDIS_DB = RedisConfig.DB
     REDIS_PASSWORD = RedisConfig.PASSWORD
     REDIS_UNIX_SOCKET_PATH = RedisConfig.UNIX_SOCKET_PATH
+    REDIS_HEALTH_MESSAGE_RATE = RedisConfig.HEALTH_MESSAGE_RATE
 
     TS_CLIENT_HOST = MQTTConfig.TS_CLIENT_HOST
     TS_CLIENT_PORT = MQTTConfig.TS_CLIENT_PORT

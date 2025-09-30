@@ -17,6 +17,8 @@ import dotenv
 
 import json
 import yaml
+import time
+from datetime import datetime
 
 from contextlib import asynccontextmanager
 from . import Config
@@ -201,8 +203,170 @@ def build_app(
     # Store petals list to manage them during startup/shutdown
     petals = []
     
+    # Health status publisher task
+    health_publisher_task = None
+    
+    async def publish_health_status():
+        """Background task to publish health status to Redis channel."""
+        redis_proxy = proxies.get("redis")
+        if not redis_proxy:
+            logger.warning("Redis proxy not available for health status publishing")
+            return
+            
+        logger.info(f"Starting health status publisher (interval: {Config.REDIS_HEALTH_MESSAGE_RATE}s)")
+            
+        while True:
+            try:
+                # Get detailed health status similar to /health/detailed endpoint
+                health_data = await get_detailed_health_status(proxies)
+                
+                # Convert to the required format
+                health_message = format_health_message(health_data)
+                
+                # Publish to Redis channel
+                channel = "/controller-dashboard/petals-status"
+                message_json = json.dumps(health_message, indent=2)
+                
+                # Use the publish method from Redis proxy
+                result = redis_proxy.publish(channel, message_json)
+                
+                if result > 0:
+                    logger.debug(f"Published health status to {channel} ({result} subscribers)")
+                else:
+                    logger.debug(f"Published health status to {channel} (no subscribers)")
+                
+            except Exception as e:
+                logger.error(f"Error publishing health status: {e}")
+            
+            # Wait for the configured interval
+            await asyncio.sleep(Config.REDIS_HEALTH_MESSAGE_RATE)
+    
+    async def get_detailed_health_status(proxies_dict):
+        """Get detailed health status similar to the /health/detailed endpoint."""
+        from .api.health import (_check_redis_proxy, _check_localdb_proxy, 
+                                 _check_mavlink_proxy, _check_cloud_proxy, 
+                                 _check_bucket_proxy, _check_mqtt_proxy,
+                                 _check_organization_manager)
+        
+        health_status = {
+            "status": "ok",
+            "timestamp": time.time(),
+            "organization_manager": {},
+            "proxies": {}
+        }
+        
+        overall_healthy = True
+        
+        # Check OrganizationManager
+        try:
+            org_status = await _check_organization_manager()
+            health_status["organization_manager"] = org_status
+            if org_status["status"] != "healthy":
+                overall_healthy = False
+        except Exception as e:
+            logger.error(f"Error checking OrganizationManager health: {e}")
+            health_status["organization_manager"] = {
+                "status": "error",
+                "error": str(e)
+            }
+            overall_healthy = False
+        
+        # Check each proxy
+        proxy_checks = [
+            ("redis", _check_redis_proxy),
+            ("db", _check_localdb_proxy),
+            ("ext_mavlink", _check_mavlink_proxy),
+            ("cloud", _check_cloud_proxy),
+            ("bucket", _check_bucket_proxy),
+            ("mqtt", _check_mqtt_proxy)
+        ]
+        
+        for proxy_name, check_func in proxy_checks:
+            if proxy_name in proxies_dict:
+                try:
+                    proxy_status = await check_func(proxies_dict[proxy_name])
+                    health_status["proxies"][proxy_name] = proxy_status
+                    if proxy_status["status"] != "healthy":
+                        overall_healthy = False
+                except Exception as e:
+                    logger.error(f"Error checking {proxy_name} proxy health: {e}")
+                    health_status["proxies"][proxy_name] = {
+                        "status": "error",
+                        "error": str(e)
+                    }
+                    overall_healthy = False
+        
+        health_status["status"] = "healthy" if overall_healthy else "unhealthy"
+        return health_status
+    
+    def format_health_message(health_data):
+        """Format health data into the required message structure."""
+        timestamp = datetime.now().isoformat()
+        
+        # Main status
+        main_status = "healthy" if health_data["status"] == "healthy" else "unhealthy"
+        
+        # Build services array
+        services = []
+        
+        # Add OrganizationManager
+        org_manager = health_data.get("organization_manager", {})
+        org_status = org_manager.get("status", "unknown")
+        services.append({
+            "title": "Organization Manager",
+            "component_name": "organization_manager",
+            "status": "healthy" if org_status == "healthy" else "unhealthy",
+            "message": "Organization management operational" if org_status == "healthy" else f"Organization manager status: {org_status}",
+            "timestamp": timestamp
+        })
+        
+        # Add proxy services
+        proxy_mappings = {
+            "redis": {"title": "Redis Proxy", "healthy_msg": "Redis server works"},
+            "db": {"title": "LocalDB Proxy", "healthy_msg": "Local database works"},
+            "ext_mavlink": {"title": "MAVLink External Proxy", "healthy_msg": "MAVLink server works"},
+            "cloud": {"title": "Cloud DB Proxy", "healthy_msg": "Cloud database works"},
+            "bucket": {"title": "S3 Bucket Proxy", "healthy_msg": "S3 bucket works"},
+            "mqtt": {"title": "MQTT Proxy", "healthy_msg": "MQTT server works"}
+        }
+        
+        for proxy_name, proxy_info in proxy_mappings.items():
+            proxy_data = health_data.get("proxies", {}).get(proxy_name, {})
+            proxy_status = proxy_data.get("status", "unknown")
+            
+            # Determine message based on status
+            if proxy_status == "healthy":
+                message = proxy_info["healthy_msg"]
+            elif proxy_status == "error":
+                error_msg = proxy_data.get("error", "Unknown error")
+                message = f"Error: {error_msg}"
+            elif proxy_status == "unhealthy":
+                details = proxy_data.get("details", "Service unhealthy")
+                message = f"Unhealthy: {details}"
+            else:
+                message = f"Status: {proxy_status}"
+            
+            services.append({
+                "title": proxy_info["title"],
+                "component_name": proxy_name,
+                "status": "healthy" if proxy_status == "healthy" else "unhealthy",
+                "message": message,
+                "timestamp": timestamp
+            })
+        
+        return {
+            "title": "Petal App Manager",
+            "component_name": "petal_app_manager",
+            "status": main_status,
+            "message": "Good conditions" if main_status == "healthy" else "Some issues detected",
+            "timestamp": timestamp,
+            "services": services
+        }
+    
     async def startup_all():
         """Initialize OrganizationManager, then start proxies, then load petals"""
+        nonlocal health_publisher_task
+        
         # Step 1: Start OrganizationManager first
         logger.info("Starting OrganizationManager...")
         org_manager = get_organization_manager()
@@ -221,7 +385,15 @@ def build_app(
         # Step 3: Load petals after proxies are started
         await load_petals_on_startup()
         
-        # Step 4: Log completion
+        # Step 4: Start health status publisher if Redis is available
+        if "redis" in proxies:
+            logger.info("Starting health status publisher...")
+            health_publisher_task = asyncio.create_task(publish_health_status())
+            logger.info("Health status publisher started")
+        else:
+            logger.warning("Redis proxy not available, health status publisher not started")
+        
+        # Step 5: Log completion
         logger.info("=== startup_all() completed successfully ===")
         logger.info("Application should now be ready to receive requests")
     
@@ -258,11 +430,21 @@ def build_app(
         """Shutdown petals first, then proxies, then OrganizationManager"""
         logger.info("Starting graceful shutdown...")
         
-        # Step 1: Shutdown petals first (async shutdown if available)
+        # Step 1: Stop health publisher task
+        if health_publisher_task and not health_publisher_task.done():
+            logger.info("Stopping health status publisher...")
+            health_publisher_task.cancel()
+            try:
+                await health_publisher_task
+            except asyncio.CancelledError:
+                pass
+            logger.info("Health status publisher stopped")
+        
+        # Step 2: Shutdown petals first (async shutdown if available)
         logger.info("Shutting down petals (async)...")
         await shutdown_petals()
         
-        # Step 2: Shutdown petals (sync shutdown)
+        # Step 3: Shutdown petals (sync shutdown)
         logger.info("Shutting down petals (sync)...")
         for petal in petals:
             try:
@@ -270,7 +452,7 @@ def build_app(
             except Exception as e:
                 logger.error(f"Error shutting down petal {getattr(petal, 'name', 'unknown')}: {e}")
         
-        # Step 3: Shutdown proxies
+        # Step 4: Shutdown proxies
         logger.info("Shutting down proxies...")
         for proxy_name, proxy in proxies.items():
             try:
@@ -279,7 +461,7 @@ def build_app(
             except Exception as e:
                 logger.error(f"Error shutting down proxy {proxy_name}: {e}")
         
-        # Step 4: Shutdown OrganizationManager last
+        # Step 5: Shutdown OrganizationManager last
         logger.info("Shutting down OrganizationManager...")
         try:
             org_manager = get_organization_manager()
