@@ -434,7 +434,7 @@ async def _check_cloud_proxy(proxy: CloudDBProxy) -> Dict[str, Any]:
             # Test a simple API call if possible
             try:
                 # Try to make a test call to verify API connectivity
-                test_result = await proxy.scan_items("test_table", [])
+                test_result = await proxy.scan_items("config-robot_instances", [])
                 # Even if the table doesn't exist, we should get a structured response
                 if isinstance(test_result, dict):
                     status_info["api_test"] = {
