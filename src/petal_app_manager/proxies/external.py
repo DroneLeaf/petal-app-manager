@@ -571,6 +571,11 @@ class MavLinkExternalProxy(ExternalProxy):
         """Establish MAVLink connection and wait for heartbeat."""
         try:
             if self.master:
+                # Check if any FTP operations are in progress before closing connection
+                if self._download_lock.locked() or self._mav_lock.locked():
+                    self._log.warning("Cannot establish new connection - FTP operation in progress")
+                    return
+                    
                 try:
                     self.master.close()
                 except:
@@ -596,9 +601,11 @@ class MavLinkExternalProxy(ExternalProxy):
                                 self.master.target_system, self.master.target_component)
                     
                     # Register heartbeat handler to track connection health
-                    self.register_handler(str(mavlink_dialect.MAVLINK_MSG_ID_HEARTBEAT), self._on_heartbeat_received)
-                    self.register_handler(str(mavlink_dialect.MAVLINK_MSG_ID_LEAF_HEARTBEAT), self._on_leaf_fc_heartbeat_received)
-                    
+                    if self._on_heartbeat_received not in self._handlers.get(str(mavlink_dialect.MAVLINK_MSG_ID_HEARTBEAT), []):
+                        self.register_handler(str(mavlink_dialect.MAVLINK_MSG_ID_HEARTBEAT), self._on_heartbeat_received)
+                    if self._on_leaf_fc_heartbeat_received not in self._handlers.get(str(mavlink_dialect.MAVLINK_MSG_ID_LEAF_HEARTBEAT), []):
+                        self.register_handler(str(mavlink_dialect.MAVLINK_MSG_ID_LEAF_HEARTBEAT), self._on_leaf_fc_heartbeat_received)
+
                 else:
                     self.connected = False
                     self._log.warning("No heartbeat received from MAVLink endpoint %s", self.endpoint)
@@ -653,6 +660,15 @@ class MavLinkExternalProxy(ExternalProxy):
         """Monitor connection health and trigger reconnection if needed."""
         while self._running.is_set():
             try:
+
+                # Skip monitoring if _mav_lock is held (FTP operation in progress)
+                if self._download_lock.locked():
+                    self._last_leaf_fc_heartbeat_time += self._connection_check_interval
+                    self._last_heartbeat_time += self._connection_check_interval
+                    self._log.debug("Skipping connection monitoring - FTP operation in progress")
+                    await asyncio.sleep(self._connection_check_interval)
+                    continue
+
                 current_time = time.time()
 
                 # Check if we haven't received a Leaf FC heartbeat recently
@@ -664,11 +680,6 @@ class MavLinkExternalProxy(ExternalProxy):
                     else:
                         self._log.warning("No Leaf FC heartbeat received for %.1fs - still disconnected",
                                           current_time - self._last_leaf_fc_heartbeat_time)
-
-                # Skip monitoring if _mav_lock is held (FTP operation in progress)
-                if self._download_lock.locked():
-                    await asyncio.sleep(self._connection_check_interval)
-                    continue
                                 
                 # Check if we haven't received a heartbeat recently
                 if abs(current_time - self._last_heartbeat_time) > self._heartbeat_timeout:
@@ -680,8 +691,14 @@ class MavLinkExternalProxy(ExternalProxy):
                         self._log.warning("No heartbeat received for %.1fs - still disconnected",
                                         current_time - self._last_heartbeat_time)
                 
-                # Attempt reconnection if not connected
+                # Attempt reconnection if not connected - BUT only if no FTP operations are in progress
                 if not self.connected and self._running.is_set():
+                    # Double-check that no FTP operations are running before attempting reconnection
+                    if self._download_lock.locked() or self._mav_lock.locked():
+                        self._log.debug("Delaying reconnection - FTP operation in progress")
+                        await asyncio.sleep(self._connection_check_interval)
+                        continue
+                        
                     self._log.info("Attempting to reconnect to MAVLink...")
                     await self._establish_connection()
                     
@@ -707,6 +724,11 @@ class MavLinkExternalProxy(ExternalProxy):
         self._reconnect_pending = True
         async def _task():
             try:
+                # Wait for any ongoing FTP operations to complete before reconnecting
+                while self._download_lock.locked() or self._mav_lock.locked():
+                    self._log.debug("Waiting for FTP operations to complete before reconnecting...")
+                    await asyncio.sleep(0.5)
+                    
                 await self._establish_connection()
             except Exception:
                 # force a fresh BlockingParser next time only on failure
@@ -740,7 +762,7 @@ class MavLinkExternalProxy(ExternalProxy):
             
         if not self.connected:
             raise RuntimeError("MAVLink not connected")
-            
+        
         msg = self.master.mav.heartbeat_encode(
             mavutil.mavlink.MAV_TYPE_GCS,  # GCS type
             mavutil.mavlink.MAV_AUTOPILOT_INVALID,  # Autopilot type
@@ -1229,11 +1251,20 @@ class MavLinkFTPProxy(BaseProxy):
         )
 
     # ------------------- exposing blocking parser methods --------- #
-    async def list_ulogs(self, base: str = None) -> List[ULogInfo]:
+    async def list_ulogs(self, base: str = None, connection_timeout: float = 3.0) -> List[ULogInfo]:
         """Return metadata for every *.ulg file on the vehicle."""
         # Check connection and attempt to establish if needed
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
-            raise RuntimeError("MAVLink FTP connection could not be established")
+            self._log.warning("FTP connection not established, attempting to connect...")
+            t_start = time.time()
+            while True:
+                await asyncio.sleep(1.0)  # brief wait before re-checking
+                if self.mavlink_proxy.master and self.mavlink_proxy.connected:
+                    break
+
+                if time.time() - t_start > connection_timeout:
+                    self._log.error("Timeout waiting for MAVLink FTP connection")
+                    raise RuntimeError("MAVLink FTP connection could not be established")
 
         if base is None:
             base = self.mavlink_proxy.root_sd_path
@@ -1272,6 +1303,8 @@ class MavLinkFTPProxy(BaseProxy):
         local_path: Path,
         on_progress: ProgressCB | None = None,
         cancel_event: threading.Event | None = None,
+        connection_timeout: float = 3.0,
+        n_attempts: int = 3,
     ) -> Path:
         """
         Fetch *remote_path* from the vehicle into *local_path*.
@@ -1279,38 +1312,59 @@ class MavLinkFTPProxy(BaseProxy):
         Returns the Path actually written on success or None if cancelled.
         """
         # Check connection and attempt to establish if needed
-        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
-            self._log.warning("FTP connection not established, attempting to connect...")
-            await self.mavlink_proxy._establish_connection()
-            
-        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
-            raise RuntimeError("MAVLink FTP connection could not be established")
 
-        # Initialize parser if not already done (e.g., after reconnection)
-        if not hasattr(self, '_parser') or self._parser is None:
-            await self._init_parser()
+        last_exception = None
+        for attempt in range(n_attempts):
+            if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+                self._log.warning("FTP connection not established, attempting to connect...")
+                t_start = time.time()
+                while True:
+                    await asyncio.sleep(1.0)  # brief wait before re-checking
+                    if self.mavlink_proxy.master and self.mavlink_proxy.connected:
+                        break
 
-        result = await self._loop.run_in_executor(
-            self._exe, 
-            self._parser.download_ulog, 
-            remote_path, 
-            local_path, 
-            on_progress,
-            cancel_event
-        )
-        return local_path if result else None
+                    if time.time() - t_start > connection_timeout:
+                        self._log.error("Timeout waiting for MAVLink FTP connection")
+                        raise RuntimeError("MAVLink FTP connection could not be established")
+
+            # Initialize parser if not already done (e.g., after reconnection)
+            if not hasattr(self, '_parser') or self._parser is None:
+                await self._init_parser()
+
+            try:
+                result = await self._loop.run_in_executor(
+                    self._exe, 
+                    self._parser.download_ulog, 
+                    remote_path, 
+                    local_path, 
+                    on_progress,
+                    cancel_event
+                )
+                return local_path if result else None
+            except Exception as e:
+                self._log.error(f"Failed to download ulog via FTP on attempt {attempt + 1}/{n_attempts}: {e}")
+                last_exception = e
+                
+        if last_exception is not None:
+            self._log.error(f"All {n_attempts} attempts to download ulog failed.")
+            raise last_exception
     
-    async def clear_error_logs(self, remote_path: str):
+    async def clear_error_logs(self, remote_path: str, connection_timeout: float = 3.0):
         """
         Clear error logs under *remote_path* from the vehicle.
         """
         # Check connection and attempt to establish if needed
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
             self._log.warning("FTP connection not established, attempting to connect...")
-            await self.mavlink_proxy._establish_connection()
-            
-        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
-            raise RuntimeError("MAVLink FTP connection could not be established")
+            t_start = time.time()
+            while True:
+                await asyncio.sleep(1.0)  # brief wait before re-checking
+                if self.mavlink_proxy.master and self.mavlink_proxy.connected:
+                    break
+
+                if time.time() - t_start > connection_timeout:
+                    self._log.error("Timeout waiting for MAVLink FTP connection")
+                    raise RuntimeError("MAVLink FTP connection could not be established")
 
         # Initialize parser if not already done (e.g., after reconnection)
         if not hasattr(self, '_parser') or self._parser is None:
@@ -1338,13 +1392,22 @@ class MavLinkFTPProxy(BaseProxy):
             remote_path
         )
 
-    async def list_directory(self, base: str = None) -> List[str]:
+    async def list_directory(self, base: str = None, connection_timeout: float = 3.0) -> List[str]:
         """
         List all files and directories under *base* on the vehicle.
         """
         # Check connection and attempt to establish if needed
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
-            raise RuntimeError("MAVLink FTP connection could not be established")
+            self._log.warning("FTP connection not established, attempting to connect...")
+            t_start = time.time()
+            while True:
+                await asyncio.sleep(1.0)  # brief wait before re-checking
+                if self.mavlink_proxy.master and self.mavlink_proxy.connected:
+                    break
+
+                if time.time() - t_start > connection_timeout:
+                    self._log.error("Timeout waiting for MAVLink FTP connection")
+                    raise RuntimeError("MAVLink FTP connection could not be established")
 
         if base is None:
             base = self.mavlink_proxy.root_sd_path
@@ -1410,9 +1473,10 @@ class _BlockingParser:
                     if self.master is None or not self.proxy.connected:
                         raise RuntimeError("MAVLink master not initialized MAVFTP proxy failed")
                     
-                    self.ftp = mavftp.MAVFTP(
-                        self.master, self.master.target_system, self.master.target_component
-                    )
+                    with self.proxy._mav_lock:
+                        self.ftp = mavftp.MAVFTP(
+                            self.master, self.master.target_system, self.master.target_component
+                        )
                     break
                 except Exception as e:
                     self._log.warning(f"MAVFTP init attempt failed: {e}")
@@ -1503,28 +1567,11 @@ class _BlockingParser:
             )
         # ------------------------------------------------------------------ #
 
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                self._log.info("Downloading %s → %s (attempt %d/%d)", remote_path, local_path, attempt + 1, max_retries)
-                local_path.parent.mkdir(parents=True, exist_ok=True)
-                
-                # Check connection before download attempt
-                if not self.proxy.connected:
-                    self._log.warning("Connection lost, attempting to reconnect...")
-                    # Try to re-establish connection
-                    try:
-                        future = asyncio.run_coroutine_threadsafe(
-                            self.proxy._establish_connection(),
-                            loop=self.proxy._loop
-                        )
-                        future.result(timeout=10)
-                    except Exception as conn_e:
-                        self._log.error(f"Reconnection failed: {conn_e}")
-                        if attempt == max_retries - 1:
-                            raise RuntimeError(f"Failed to reconnect after {max_retries} attempts") from conn_e
-                        continue
-                
+        try:
+            self._log.info("Downloading %s → %s", remote_path, local_path)
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            with self.proxy._mav_lock:
                 with self.proxy._download_lock:
 
                     ret = self.ftp.cmd_get(
@@ -1573,47 +1620,42 @@ class _BlockingParser:
                     self._log.info("Saved %s (%.1f KiB)",
                                 local_path.name, local_path.stat().st_size / 1024)
                     return str(local_path)
-                
-            except DownloadCancelledException:
-                # Handle cancellation gracefully at the outer level too
-                self._log.info("Download cancelled by user")
-                with self.proxy._download_lock:
-                    self._reset_ftp_state()
-                if local_path.exists():
-                    local_path.unlink()
-                return None
-            except (OSError, socket.error) as e:
-                # Handle connection errors (including "Bad file descriptor")
-                self._log.error(f"Download error (attempt {attempt + 1}/{max_retries}): {str(e)}")
-                with self.proxy._download_lock:
-                    self._reset_ftp_state()
-
-                # Clean up partial file
-                if local_path.exists():
-                    local_path.unlink()
-                
-                # Mark connection as lost
-                self.proxy.connected = False
-                
-                if attempt == max_retries - 1:
-                    # Final attempt failed, re-raise
-                    raise
-                else:
-                    # Wait before retry
-                    time.sleep(1)
-                    continue
-            except Exception as e:
-                self._log.error(f"Download error: {str(e)}")
-                # Always reset FTP state on error
+            
+        except DownloadCancelledException:
+            # Handle cancellation gracefully at the outer level too
+            self._log.info("Download cancelled by user")
+            with self.proxy._mav_lock:
+                self._reset_ftp_state()
+            if local_path.exists():
+                local_path.unlink()
+            return None
+        except (OSError, socket.error) as e:
+            # Handle connection errors (including "Bad file descriptor")
+            self._log.error(f"Download error: {str(e)}")
+            with self.proxy._mav_lock:
                 with self.proxy._download_lock:
                     self._reset_ftp_state()
 
-                # Clean up partial file
-                if local_path.exists():
-                    local_path.unlink()
-                    
-                # Re-raise the original exception
-                raise
+            # Clean up partial file
+            if local_path.exists():
+                local_path.unlink()
+
+            # Re-raise the original exception
+            raise
+            
+        except Exception as e:
+            self._log.error(f"Download error: {str(e)}")
+            # Always reset FTP state on error
+            with self.proxy._mav_lock:
+                with self.proxy._download_lock:
+                    self._reset_ftp_state()
+
+            # Clean up partial file
+            if local_path.exists():
+                local_path.unlink()
+                
+            # Re-raise the original exception
+            raise
 
     # 3) clear error logs ---------------------------------------------------- #
     def clear_error_logs(self, base: str = "fs/microsd") -> None:
@@ -1711,42 +1753,57 @@ class _BlockingParser:
     def _ls(self, path: str, retries=5, delay=2.0):
         for n in range(1, retries + 1):
             try:
-                # Check if connection is still valid before attempting operation
-                if not self.master:
-                    self._log.warning(f"Connection lost, skipping ls for {path}")
-                    return []
+                # Check if connection and master are valid before attempting operation
+                if not self.master or not self.proxy.connected:
+                    self._log.warning(f"Connection not available, skipping ls for {path} (attempt {n}/{retries})")
+                    if n >= retries:
+                        return []  # Return empty list if all retries exhausted
+                    time.sleep(delay)
+                    continue
                 
-                with self.proxy._download_lock:
-                    ack = self.ftp.cmd_list([path])
-                    if ack.return_code == 0:
-                        return list(set((e.name, e.size_b, e.is_dir) for e in self.ftp.list_result))
-                    else:
-                        # FTP command failed - check if it's a retryable error
-                        if ack.return_code == 1:
-                            # Error code 1 typically means "file/directory not found" or "permission denied"
-                            # This is not a connection issue, so don't retry
-                            self._log.warning(f"FTP ls failed: path '{path}' not found or not accessible (return code {ack.return_code})")
-                            return []  # Return empty list instead of raising error
-                        else:
-                            # Other error codes might be retryable
-                            self._log.warning(f"FTP ls command failed with return code {ack.return_code} (attempt {n}/{retries})")
+                # Additional check: verify the file descriptor is still valid
+                try:
+                    # Test if the socket is still open by checking its fileno
+                    if hasattr(self.master, 'port') and hasattr(self.master.port, 'fileno'):
+                        fd = self.master.port.fileno()
+                        if fd < 0:
+                            raise OSError("Invalid file descriptor")
+                except (OSError, AttributeError):
+                    self._log.warning(f"File descriptor invalid, marking connection as lost (attempt {n}/{retries})")
+                    if n >= retries:
+                        return []
+                    time.sleep(delay)
+                    continue
+                
+                with self.proxy._mav_lock:
+                    with self.proxy._download_lock:
+                        # Double-check connection inside the lock
+                        if not self.master or not self.proxy.connected:
+                            self._log.warning(f"Connection lost during lock acquisition for {path}")
                             if n >= retries:
-                                raise RuntimeError(f"ls('{path}') failed after {retries} attempts: FTP return code {ack.return_code}")
-                        
+                                return []
+                            continue
+                            
+                        ack = self.ftp.cmd_list([path])
+                        if ack.return_code == 0:
+                            return list(set((e.name, e.size_b, e.is_dir) for e in self.ftp.list_result))
+                        else:
+                            # FTP command failed - check if it's a retryable error
+                            if ack.return_code == 1:
+                                # Error code 1 typically means "file/directory not found" or "permission denied"
+                                # This is not a connection issue, so don't retry
+                                self._log.warning(f"FTP ls failed: path '{path}' not found or not accessible (return code {ack.return_code})")
+                                return []  # Return empty list instead of raising error
+                            else:
+                                # Other error codes might be retryable
+                                self._log.warning(f"FTP ls command failed with return code {ack.return_code} (attempt {n}/{retries})")
+                                if n >= retries:
+                                    raise RuntimeError(f"ls('{path}') failed after {retries} attempts: FTP return code {ack.return_code}")
+                            
             except (OSError, socket.error) as e:
                 # Handle connection errors gracefully
                 if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
-                    self._log.warning(f"Connection lost during ls operation (attempt {n}/{retries}): {e}")
-                    # Mark proxy as disconnected so it can reconnect
-                    self.proxy.connected = False
-                    # Schedule reconnect and wait for connection
-                    awaitable = getattr(self.proxy, "_schedule_reconnect", None)
-                    if callable(awaitable):
-                        awaitable()
-                    for _ in range(10):
-                        if self.proxy.connected and self.master:
-                            break
-                        time.sleep(0.5)
+                    self._log.warning(f"Connection lost during ls operation")
                     if n >= retries:
                         raise RuntimeError(f"ls('{path}') failed after {retries} attempts due to connection loss")
                 else:
@@ -1759,8 +1816,8 @@ class _BlockingParser:
             
             # If we reach here, the operation failed but we can retry
             if n < retries:
+                self._log.info(f"Retrying ls operation for {path} in {delay}s (attempt {n+1}/{retries})")
                 time.sleep(delay)
-                # tell the outer proxy to reconnect instead (already handled above)
 
         raise RuntimeError(f"ls('{path}') failed {retries}×")
 
@@ -1787,35 +1844,49 @@ class _BlockingParser:
         """
         for n in range(1, retries + 1):
             try:
-                # Check if connection is still valid before attempting operation
-                if not self.master:
-                    self._log.warning(f"Connection lost, skipping delete for {path}")
-                    return
+                # Check if connection and master are valid before attempting operation
+                if not self.master or not self.proxy.connected:
+                    self._log.warning(f"Connection not available, skipping delete for {path} (attempt {n}/{retries})")
+                    if n >= retries:
+                        return  # Give up after all retries
+                    time.sleep(delay)
+                    continue
                 
-                with self.proxy._download_lock:
-                    ack = self.ftp.cmd_rm([path])
-                    if ack.return_code == 0:
-                        self._log.info(f"Successfully deleted {path}")
+                # Additional check: verify the file descriptor is still valid
+                try:
+                    if hasattr(self.master, 'port') and hasattr(self.master.port, 'fileno'):
+                        fd = self.master.port.fileno()
+                        if fd < 0:
+                            raise OSError("Invalid file descriptor")
+                except (OSError, AttributeError):
+                    self._log.warning(f"File descriptor invalid for delete, marking connection as lost (attempt {n}/{retries})")
+                    if n >= retries:
                         return
-                    else:
-                        self._log.warning(f"FTP delete failed: {ack.return_code} (attempt {n}/{retries})")
-                        if n >= retries:
-                            raise RuntimeError(f"delete('{path}') failed after {retries} attempts: FTP return code {ack.return_code}")
-                        
+                    time.sleep(delay)
+                    continue
+                
+                with self.proxy._mav_lock:
+                    with self.proxy._download_lock:
+                        # Double-check connection inside the lock
+                        if not self.master or not self.proxy.connected:
+                            self._log.warning(f"Connection lost during lock acquisition for delete {path}")
+                            if n >= retries:
+                                return
+                            continue
+                            
+                        ack = self.ftp.cmd_rm([path])
+                        if ack.return_code == 0:
+                            self._log.info(f"Successfully deleted {path}")
+                            return
+                        else:
+                            self._log.warning(f"FTP delete failed: {ack.return_code} (attempt {n}/{retries})")
+                            if n >= retries:
+                                raise RuntimeError(f"delete('{path}') failed after {retries} attempts: FTP return code {ack.return_code}")
+                            
             except (OSError, socket.error) as e:
                 # Handle connection errors gracefully
                 if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
                     self._log.warning(f"Connection lost during delete operation (attempt {n}/{retries}): {e}")
-                    # Mark proxy as disconnected so it can reconnect
-                    self.proxy.connected = False
-                    # Schedule reconnect and wait for connection
-                    awaitable = getattr(self.proxy, "_schedule_reconnect", None)
-                    if callable(awaitable):
-                        awaitable()
-                    for _ in range(10):
-                        if self.proxy.connected and self.master:
-                            break
-                        time.sleep(0.5)
                     if n >= retries:
                         raise RuntimeError(f"delete('{path}') failed after {retries} attempts due to connection loss")
                 else:
@@ -1828,6 +1899,7 @@ class _BlockingParser:
             
             # If we reach here, the operation failed but we can retry
             if n < retries:
+                self._log.info(f"Retrying delete operation for {path} in {delay}s (attempt {n+1}/{retries})")
                 time.sleep(delay)
 
 # ──────────────────────────────────────────────────────────────────────────────
