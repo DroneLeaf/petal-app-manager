@@ -139,7 +139,7 @@ class CloudDBProxy(BaseProxy):
 
         def _fetch_token():
             try:
-                self.log.info("Fetching new session credentials")
+                self.log.debug("Fetching new session credentials")
                 
                 # Parse the URL to determine connection type
                 parsed_url = urlparse(self.access_token_url)
@@ -194,7 +194,7 @@ class CloudDBProxy(BaseProxy):
                     # Default to 1 hour from now if expiresAt is not provided
                     self._session_cache['expires_at'] = current_time + 3600 - 600
 
-                self.log.info("Session credentials updated successfully")
+                self.log.debug("Session credentials updated successfully")
                 return credentials
 
             except Exception as e:

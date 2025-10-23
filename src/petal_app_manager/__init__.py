@@ -3,6 +3,15 @@ import os
 import dotenv
 dotenv.load_dotenv(dotenv.find_dotenv())
 
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+try:
+    # ⚠️ Use the *distribution* name (what you put in pyproject.toml), not necessarily the import name
+    __version__ = _pkg_version("petal-app-manager")
+except PackageNotFoundError:
+    # Useful during local development before install; pick what you prefer here
+    __version__ = "0.0.0"
+
 class Config:
     # General configuration
     PETAL_LOG_LEVEL = os.environ.get("PETAL_LOG_LEVEL", "INFO").upper()
