@@ -66,4 +66,5 @@ dev = [
     "sphinxcontrib-pseudocode>=0.1.0",
     "sphinxcontrib-qthelp>=1.0.0",
     "sphinxcontrib-serializinghtml>=1.1.0",
+    "graphviz>=0.20.0",
 ]
