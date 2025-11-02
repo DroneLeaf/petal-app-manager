@@ -457,7 +457,8 @@ class HealthService:
                 ),
                 mavlink_info=mavlink_info,
                 parser=parser_info,
-                monitoring=monitoring_info
+                monitoring=monitoring_info,
+                details="MAVLink proxy health checked successfully"
             )
             
         except Exception as e:
@@ -483,7 +484,8 @@ class HealthService:
                     running=False,
                     thread_alive=False
                 ),
-                error=str(e)
+                error=str(e),
+                details="Failed to check MAVLink proxy health"
             )
 
     async def _check_cloud_proxy(self, proxy: CloudDBProxy) -> CloudProxyHealth:

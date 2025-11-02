@@ -125,6 +125,7 @@ class MavlinkProxyHealth(BaseModel):
     parser: Optional[MavlinkParserInfo] = None
     monitoring: Optional[MavlinkMonitoringInfo] = None
     error: Optional[str] = None
+    details: Optional[str] = None
     
     @validator('status')
     def validate_status(cls, v):
