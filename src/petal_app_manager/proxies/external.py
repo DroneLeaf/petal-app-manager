@@ -394,7 +394,7 @@ class ExternalProxy(BaseProxy):
 # ──────────────────────────────────────────────────────────────────────────────
 class MavLinkExternalProxy(ExternalProxy):
     """
-    Threaded MAVLink driver using :pymod:`pymavlink`.
+    Threaded MAVLink driver using `pymavlink`.
 
     Buffers used
     ------------
@@ -1083,19 +1083,18 @@ class MavLinkExternalProxy(ExternalProxy):
         
         Uses proper INT32 encoding where int32 values are encoded as float32 bits for wire transmission.
 
-        ["MAV_PARAM_TYPE"] = {
-            [1] = "MAV_PARAM_TYPE_UINT8",
-            [2] = "MAV_PARAM_TYPE_INT8",
-            [3] = "MAV_PARAM_TYPE_UINT16",
-            [4] = "MAV_PARAM_TYPE_INT16",
-            [5] = "MAV_PARAM_TYPE_UINT32",
-            [6] = "MAV_PARAM_TYPE_INT32",
-            [7] = "MAV_PARAM_TYPE_UINT64",
-            [8] = "MAV_PARAM_TYPE_INT64",
-            [9] = "MAV_PARAM_TYPE_REAL32",
-            [10] = "MAV_PARAM_TYPE_REAL64",
-        },
-
+        >>> ["MAV_PARAM_TYPE"] = {
+        >>>     [1] = "MAV_PARAM_TYPE_UINT8",
+        >>>     [2] = "MAV_PARAM_TYPE_INT8",
+        >>>     [3] = "MAV_PARAM_TYPE_UINT16",
+        >>>     [4] = "MAV_PARAM_TYPE_INT16",
+        >>>     [5] = "MAV_PARAM_TYPE_UINT32",
+        >>>     [6] = "MAV_PARAM_TYPE_INT32",
+        >>>     [7] = "MAV_PARAM_TYPE_UINT64",
+        >>>     [8] = "MAV_PARAM_TYPE_INT64",
+        >>>     [9] = "MAV_PARAM_TYPE_REAL32",
+        >>>     [10] = "MAV_PARAM_TYPE_REAL64",
+        >>> }
         """
         # Pick a MAV_PARAM_TYPE based on Python type (simple heuristic)
         if ptype is None:
@@ -1205,7 +1204,7 @@ class MavLinkExternalProxy(ExternalProxy):
         
 class MavLinkFTPProxy(BaseProxy):
     """
-    Threaded MAVLink FTP driver using :pymod:`pymavlink`.
+    Threaded MAVLink FTP driver using `pymavlink`.
     """
 
     def __init__(
@@ -1252,7 +1251,7 @@ class MavLinkFTPProxy(BaseProxy):
 
     # ------------------- exposing blocking parser methods --------- #
     async def list_ulogs(self, base: str = None, connection_timeout: float = 3.0) -> List[ULogInfo]:
-        """Return metadata for every *.ulg file on the vehicle."""
+        """Return metadata for every .ulg file on the vehicle."""
         # Check connection and attempt to establish if needed
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
             self._log.warning("FTP connection not established, attempting to connect...")
@@ -1448,7 +1447,7 @@ def _match_ls_to_entries(
 
 class _BlockingParser:
     """
-    Thin wrapper around pymavlink / MAVFTP - **runs in a dedicated thread**.
+    Thin wrapper around pymavlink / MAVFTP - runs in a dedicated thread.
     All methods are synchronous and blocking; the proxy wraps them in
     run_in_executor so the event-loop stays responsive.
     """

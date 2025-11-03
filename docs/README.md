@@ -93,8 +93,8 @@ When adding new features or making changes, please update the relevant documenta
 ```bash
 # Terminal 1: Start auto-rebuild server
 cd docs
-sphinx-autobuild . _build/html
+sphinx-autobuild . _build/html --port 8001
 
 # Terminal 2: Edit .rst files
-# Your browser at http://127.0.0.1:8000 will auto-refresh on save
+# Your browser at http://127.0.0.1:8001 will auto-refresh on save
 ```

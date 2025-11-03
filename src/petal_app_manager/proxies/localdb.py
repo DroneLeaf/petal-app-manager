@@ -1,6 +1,6 @@
 """
 LocalDBProxy
-===========
+============
 
 • Provides access to the local DynamoDB instance through the controller dashboard API
 • Handles machine ID retrieval and authentication for requests
