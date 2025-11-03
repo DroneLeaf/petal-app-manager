@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 
 import petal_app_manager
+
 from .models.health import (
     DetailedHealthResponse,
     HealthMessage,
@@ -240,11 +241,43 @@ class HealthService:
         # Create the final health message
         overall_message = "Good conditions" if main_status == HealthStatus.HEALTHY else "Some issues detected"
         
+        try:
+            from petal_qgc_mission_server import __version__ as qgc_mission_server_version
+        except ImportError:
+            qgc_mission_server_version = "not installed"
+
+        try:
+            from petal_user_journey_coordinator import __version__ as user_journey_version
+        except ImportError:
+            user_journey_version = "not installed"
+
+        try:
+            from petal_warehouse import __version__ as warehouse_version
+        except ImportError:
+            warehouse_version = "not installed"
+
+        try:
+            from petal_flight_log import __version__ as flight_log_version
+        except ImportError:
+            flight_log_version = "not installed"
+            
+        try:
+            from petal_leafsdk import __version__ as leafsdk_version
+        except ImportError:
+            leafsdk_version = "not installed"
+
         return HealthMessage(
             title="Petal App Manager",
             component_name="petal_app_manager",
             status=main_status,
             version=petal_app_manager.__version__,
+            petal_versions = {
+                "petal_leafsdk": leafsdk_version,
+                "petal_flight_log": flight_log_version,
+                "petal_warehouse": warehouse_version,
+                "petal_user_journey_coordinator": user_journey_version,
+                "petal_qgc_mission_server": qgc_mission_server_version,
+            },
             message=overall_message,
             timestamp=timestamp,
             services=services
