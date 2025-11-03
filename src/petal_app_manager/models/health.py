@@ -314,6 +314,7 @@ class HealthMessage(BaseModel):
     component_name: str = Field(..., description="Main component name")
     status: str = Field(..., description="Overall health status")
     version: str = Field(..., description="Application version")
+    petal_versions: Optional[Dict[str, str]] = Field(None, description="Versions of Petal components")
     message: str = Field(..., description="Overall status message")
     timestamp: str = Field(..., description="ISO timestamp when status was checked")
     services: List[ServiceHealthInfo] = Field(..., description="List of service health statuses")
