@@ -13,6 +13,7 @@ components that can interact with various systems through a unified proxy archit
    introduction
    getting_started/index
    how_to_use/index
+   development_contribution/index
    changelog
    api_reference/index
    known_issues
