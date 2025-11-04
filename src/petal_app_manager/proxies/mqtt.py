@@ -24,6 +24,7 @@ import os
 import threading
 from datetime import datetime
 import functools
+import uuid
 
 import requests
 from fastapi import FastAPI, HTTPException
@@ -94,10 +95,12 @@ class MQTTProxy(BaseProxy):
         self._buffer_lock = threading.Lock()
         
         # Subscription management
-        self._subscriptions = {}  # topic: callback
-        self._subscription_patterns = {}  # pattern: callback
-        self._handlers: Dict[str, List[Callable[[str, Dict[str, Any]], None]]] = defaultdict(list)
-        
+        self.command_edge_topic = "command"
+        self.response_topic = "response"
+        self.debug_topic = "command"
+        self.command_web_topic = "command/web"
+        self._handlers: Dict[str, List[Dict[str, str | Callable[[str, Dict[str, Any]], None]]]] = defaultdict(list)
+
         self.subscribed_topics = set()
 
         # Connection and worker thread state
@@ -106,6 +109,8 @@ class MQTTProxy(BaseProxy):
         self._worker_running = threading.Event()
         self._worker_threads = []
         
+        self._device_topics = {}
+
         self._loop = None
         self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=self.worker_threads)
         self.log = logging.getLogger("MQTTProxy")
@@ -116,7 +121,7 @@ class MQTTProxy(BaseProxy):
         # Get robot instance ID for basic setup
         self.robot_instance_id = self._get_machine_id()
         self.device_id = f"Instance-{self.robot_instance_id}" if self.robot_instance_id else None
-        
+
         self._loop = asyncio.get_running_loop()
         self.log.info("Initializing MQTTProxy connection")
         
@@ -151,8 +156,13 @@ class MQTTProxy(BaseProxy):
         """Clean up resources when shutting down."""
         self.log.info("Stopping MQTTProxy...")
         
+        # clear all registered handlers
+        self._handlers.clear()
+
         for topic in self.subscribed_topics:
-            await self.unsubscribe_from_topic(topic)
+            await self._unsubscribe_from_topic(topic)
+
+        self.subscribed_topics.clear()
 
         # Set shutdown flag
         self._shutdown_flag = True
@@ -235,6 +245,19 @@ class MQTTProxy(BaseProxy):
         self.log.warning(f"Organization ID not available after {timeout}s timeout")
         return None
 
+    def _get_base_topic(self) -> Optional[str]:
+        """
+        Get the base topic for this device.
+        
+        Returns:
+            Base topic string if organization_id and device_id are available, None otherwise
+        """
+        organization_id = self._get_organization_id()
+        if not organization_id or not self.device_id:
+            self.log.warning("Cannot construct base topic: missing org or device ID")
+            return None
+        return f"org/{organization_id}/device/{self.device_id}"
+
     @property
     def organization_id(self) -> Optional[str]:
         """
@@ -245,7 +268,7 @@ class MQTTProxy(BaseProxy):
             Organization ID if available, None otherwise
         """
         return self._get_organization_id()
-
+    
     # ------ Worker Thread Management ------ #
 
     def _start_worker_threads(self):
@@ -329,27 +352,29 @@ class MQTTProxy(BaseProxy):
             self._message_buffer.append(message)
 
     def _process_message_in_worker(self, message: MQTTMessage):
-        """Process a message in the worker thread context."""
+        """
+        Process a single MQTT message in the worker thread.
+        Args:
+            message: MQTTMessage object to process
+        """
         try:
-            topic = message.topic
+            topic_absolute = message.topic # Extract topic absolute path
             payload = message.payload
-            
-            self.log.debug(f"Processing MQTT message on topic: {topic}")
 
-            # Process direct topic subscriptions
-            if topic in self._subscriptions:
-                callback = self._subscriptions[topic]
-                self._invoke_callback_safely(callback, topic, payload)
+            self.log.debug(f"Processing MQTT message on topic: {topic_absolute}")
 
-            # Process pattern subscriptions
-            for pattern, callback in self._subscription_patterns.items():
-                if self._topic_matches_pattern(topic, pattern):
-                    self._invoke_callback_safely(callback, topic, payload)
-
-            # Process handlers (similar to MavlinkExternalProxy)
-            handlers = self._handlers.get(topic, [])
-            for handler in handlers:
-                self._invoke_callback_safely(handler, topic, payload)
+            # Process topic subscriptions
+            if topic_absolute in self.subscribed_topics:
+                for handler in self._handlers[topic_absolute]:
+                    callback = handler.get("callback")
+                    if callback:
+                        self._invoke_callback_safely(callback, topic_absolute, payload)
+                    else:
+                        subscription_id = handler.get("subscription_id")
+                        if subscription_id:
+                            self.log.debug(f"No callback for topic: {topic_absolute} with subscription ID {subscription_id}")
+                        else:
+                            self.log.debug(f"No callback for topic: {topic_absolute} with no subscription ID")
 
         except Exception as e:
             self.log.error(f"Error processing message in worker: {e}")
@@ -372,24 +397,6 @@ class MQTTProxy(BaseProxy):
                 
         except Exception as e:
             self.log.error(f"Error in callback for topic {topic}: {e}")
-
-    # ------ Handler Registration (MavlinkExternalProxy-style) ------ #
-
-    def register_handler(self, topic: str, handler: Callable[[str, Dict[str, Any]], None]):
-        """Register a handler for a specific topic (similar to MavlinkExternalProxy pattern)."""
-        self._handlers[topic].append(handler)
-        self.log.debug(f"Registered handler for topic: {topic}")
-
-    def unregister_handler(self, topic: str, handler: Callable[[str, Dict[str, Any]], None]):
-        """Unregister a handler for a specific topic."""
-        if topic in self._handlers:
-            try:
-                self._handlers[topic].remove(handler)
-                if not self._handlers[topic]:
-                    del self._handlers[topic]
-                self.log.debug(f"Unregistered handler for topic: {topic}")
-            except ValueError:
-                self.log.warning(f"Handler not found for topic: {topic}")
 
     # ------ TypeScript Client Communication ------ #
     
@@ -483,8 +490,7 @@ class MQTTProxy(BaseProxy):
                 "buffer_size": len(self._message_buffer) if hasattr(self, '_message_buffer') else 0,
                 "max_buffer_size": self.max_message_buffer,
                 "worker_threads": len(self._worker_threads),
-                "subscriptions": len(self._subscriptions),
-                "patterns": len(self._subscription_patterns),
+                "subscriptions": len(self.subscribed_topics),
                 "handlers": sum(len(handlers) for handlers in self._handlers.values()),
                 "worker_running": self._worker_running.is_set() if hasattr(self, '_worker_running') else False
             }
@@ -516,37 +522,67 @@ class MQTTProxy(BaseProxy):
         await asyncio.sleep(1)
         self.log.info(f"Callback server started on {self.callback_host}:{self.callback_port}")
 
-    @staticmethod
-    def _topic_matches_pattern(topic: str, pattern: str) -> bool:
-        """Simple pattern matching for MQTT topics (supports * wildcard)."""
-        import fnmatch
-        return fnmatch.fnmatch(topic, pattern)
-
-    async def _subscribe_to_topic(self, topic: str, callback: Optional[Callable[[str, Dict[str, Any]], Awaitable[None]]] = None) -> bool:
-        """Subscribe to an MQTT topic via TypeScript client."""            
+    async def _subscribe_to_topic(self, topic: str) -> bool:
+        """
+        Subscribe to an MQTT topic via TypeScript client.
+        Args:
+            topic: Topic to subscribe to (relative to base topic)
+        Returns:
+            Subscription ID if successful, None otherwise
+        """
         try:
+            # make sure topic just does not have a leading slash
+            if topic.startswith("/"):
+                topic = topic[1:]
+            
+            # Determine full topic to subscribe to
+            topic_subscribe = f"{self._get_base_topic()}/{topic}"
+
             request_data = {
-                "topic": topic,
+                "topic": topic_subscribe,
                 "callbackUrl": self.callback_url if self.enable_callbacks else None
             }
             
             result = await self._make_ts_request("POST", "/subscribe", request_data)
             
             if "error" in result:
-                self.log.error(f"Failed to subscribe to {topic}: {result['error']}")
+                self.log.error(f"Failed to subscribe to {topic_subscribe}: {result['error']}")
                 return False
-            
-            # Store callback if provided
-            if callback:
-                self._subscriptions[topic] = callback
-            
-            self.subscribed_topics.add(topic)
 
-            self.log.info(f"Subscribed to topic: {topic}")
+
+            self.subscribed_topics.add(topic_subscribe)
+
+            self.log.info(f"Subscribed to topic: {topic_subscribe}")
             return True
             
         except Exception as e:
-            self.log.error(f"Error subscribing to {topic}: {e}")
+            self.log.error(f"Error subscribing to {topic_subscribe}: {e}")
+            return False
+
+    async def _unsubscribe_from_topic(self, topic: str) -> bool:
+        """
+        Unsubscribe from an MQTT topic.
+        Args:
+            topic: Topic to unsubscribe from (relative to base topic)
+        Returns:
+            True if unsubscribed successfully, False otherwise
+        """
+        try:
+            # make sure topic just does not have a leading slash
+            if topic.startswith("/"):
+                topic = topic[1:]
+
+            topic_unsubscribe = f"{self._get_base_topic()}/{topic}"
+
+            # Unsubscribe using the subscription ID
+            if topic_unsubscribe in self.subscribed_topics:
+                self.subscribed_topics.remove(topic_unsubscribe)
+
+            self.log.info(f"Unsubscribed from topic: {topic_unsubscribe}")
+            return True
+            
+        except Exception as e:
+            self.log.error(f"Error unsubscribing from {topic_unsubscribe}: {e}")
             return False
 
     async def _subscribe_to_device_topics(self):
@@ -557,25 +593,29 @@ class MQTTProxy(BaseProxy):
         if not organization_id or not self.device_id:
             self.log.warning("Cannot subscribe to device topics: missing org or device ID")
             return
-
+        
         # Default topics to subscribe to
         topics = [
-            f"org/{organization_id}/device/{self.device_id}/command/edge",
-            f"org/{organization_id}/device/{self.device_id}/response",
+            self.command_edge_topic,
+            self.response_topic,
+            self.debug_topic
         ]
 
         for topic in topics:
-            success = await self._subscribe_to_topic(topic, self._default_message_handler)
+            success = await self._subscribe_to_topic(topic)
+            self.register_handler(self._default_message_handler)
             if success:
                 self.log.info(f"Auto-subscribed to device topic: {topic}")
+            else:
+                self.log.error(f"Failed to auto-subscribe to device topic: {topic}")
 
     async def _default_message_handler(self, topic: str, payload: Dict[str, Any]):
         """Default message handler for device topics."""
+
         self.log.info(f"Received message on {topic}: {payload}")
         
         # Handle command messages
-        if topic.endswith('/command'):
-            await self._process_command(topic, payload)
+        # await self._process_command(topic, payload)
         
     async def _process_command(self, topic: str, payload: Dict[str, Any]):
         """Enhanced command processing."""
@@ -586,23 +626,37 @@ class MQTTProxy(BaseProxy):
         self.log.info(f"Processing command: {payload}")
 
         # Send response back
-        response_topic = topic.replace('/command', '/response')
+        response_topic = f"{self._get_base_topic()}/{self.response_topic}"
         await self.send_command_response(response_topic, message_id, {
             'status': 'success',
             'timestamp': datetime.now().isoformat()
         })
 
-    # ------ Public API methods ------ #
-    
-    async def publish_message(self, topic: str, payload: Dict[str, Any], qos: int = 1) -> bool:
-        """Publish a message to an MQTT topic via TypeScript client."""
+    async def _publish_message(self, topic: str, payload: Dict[str, Any], qos: int = 1) -> bool:
+        """
+        Publish a message to an MQTT topic via TypeScript client.
+        Args:
+            topic: The MQTT topic to publish to
+            payload: Message payload as a dictionary
+            qos: Quality of Service level (0, 1, or 2)
+        Returns:
+            True if published successfully, False otherwise
+        """
+
         if not self.is_connected:
             self.log.error("MQTT proxy is not connected")
             return False
-            
+        
+        # make sure topic just does not have a leading slash
+        if self.topic.startswith("/"):
+            self.topic = self.topic[1:]
+        topic_publish = f"{self._topic_base}/{self.topic}"
+
+        payload["deviceId"] = self.device_id
+
         try:
             request_data = {
-                "topic": topic,
+                "topic": topic_publish,
                 "payload": payload,
                 "qos": qos,
                 "callbackUrl": self.callback_url
@@ -611,69 +665,94 @@ class MQTTProxy(BaseProxy):
             result = await self._make_ts_request("POST", "/publish", request_data)
             
             if "error" in result:
-                self.log.error(f"Failed to publish message to {topic}: {result['error']}")
+                self.log.error(f"Failed to publish message to {topic_publish}: {result['error']}")
                 return False
             
-            self.log.debug(f"Published message to topic: {topic}")
+            self.log.debug(f"Published message to topic: {topic_publish}")
             return True
             
         except Exception as e:
-            self.log.error(f"Error publishing message to {topic}: {e}")
+            self.log.error(f"Error publishing message to {topic_publish}: {e}")
             return False
 
-    async def subscribe_to_topic(self, topic: str, callback: Optional[Callable[[str, Dict[str, Any]], Awaitable[None]]] = None) -> bool:
-        """Subscribe to an MQTT topic via TypeScript client."""
-        if not self.is_connected:
-            self.log.error("MQTT proxy is not connected")
-            return False
-            
-        return await self._subscribe_to_topic(topic, callback)
+    # ------ Public API methods ------ #
+    
+    async def publish_message(self, payload: Dict[str, Any], qos: int = 1) -> bool:
+        """
+        Publish a message to an MQTT topic via TypeScript client to 'command/web' topic.
+        Args:
+            payload: Message payload as a dictionary
+            qos: Quality of Service level (0, 1, or 2)
+        Returns:
+            True if published successfully, False otherwise
+        """
 
-    async def unsubscribe_from_topic(self, topic: str) -> bool:
-        """Unsubscribe from an MQTT topic."""
-        if not self.is_connected:
-            self.log.error("MQTT proxy is not connected")
-            return False
-            
-        try:
-            request_data = {"topic": topic}
-            result = await self._make_ts_request("POST", "/unsubscribe", request_data)
-            
-            if "error" in result:
-                self.log.error(f"Failed to unsubscribe from {topic}: {result['error']}")
-                return False
-            
-            # Remove callback
-            if topic in self._subscriptions:
-                del self._subscriptions[topic]
-            
-            self.log.info(f"Unsubscribed from topic: {topic}")
-            return True
-            
-        except Exception as e:
-            self.log.error(f"Error unsubscribing from {topic}: {e}")
-            return False
+        return await self._publish_message(
+            topic=f"{self._get_base_topic()}/{self.command_web_topic}",
+            payload=payload,
+            qos=qos
+        )
 
-    def subscribe_pattern(self, pattern: str, callback: Callable[[str, Dict[str, Any]], Awaitable[None]]):
-        """Subscribe to topics matching a pattern (local pattern matching)."""
-        self._subscription_patterns[pattern] = callback
-        self.log.info(f"Registered pattern subscription: {pattern}")
+    async def send_command_response(self, message_id: str, response_data: Dict[str, Any]) -> bool:
+        """
+        Send a command response to the response topic.
+        Args:
+            message_id: Original message ID to correlate response
+            response_data: Response payload data
+        Returns:
+            True if published successfully, False otherwise
+        """
+        response_topic = f"{self._get_base_topic()}/{self.response_topic}"
 
-    def unsubscribe_pattern(self, pattern: str):
-        """Unsubscribe from a topic pattern."""
-        if pattern in self._subscription_patterns:
-            del self._subscription_patterns[pattern]
-            self.log.info(f"Removed pattern subscription: {pattern}")
-
-    async def send_command_response(self, response_topic: str, message_id: str, response_data: Dict[str, Any]) -> bool:
-        """Send a command response."""
         response_payload = {
             'messageId': message_id,
             'timestamp': datetime.now().isoformat(),
             **response_data
         }
         
-        return await self.publish_message(response_topic, response_payload)
+        return await self._publish_message(response_topic, response_payload)
+
+    def register_handler(self, handler: Callable[[str, Dict[str, Any]], Awaitable[None]]) -> str:
+        """
+        Register a handler to the 'command/edge' topic.
+        Args:
+            handler: Async callback function to handle messages
+        """
+        topic_subscribe = f"{self._get_base_topic()}/{self.command_edge_topic}"
+
+        # ensure topic is subscribed
+        if topic_subscribe not in self.subscribed_topics:
+            self.log.error(f"Cannot register handler: not subscribed to topic {topic_subscribe}")
+            return None
+
+        # Store callback
+        subscription_id = str(uuid.uuid4())
+        self._handlers[topic_subscribe].append({
+            "callback": handler,
+            "subscription_id": subscription_id
+        })
+
+        self.log.debug(f"Registered handler for topic: {self.command_edge_topic} with subscription ID: {subscription_id}")
+        return subscription_id
+
+    def unregister_handler(self, subscription_id: str) -> bool:
+        """
+        Unregister a handler from the 'command/edge' topic.
+        """
+        topic_unsubscribe = f"{self._get_base_topic()}/{self.command_edge_topic}"
+
+        if topic_unsubscribe in self._handlers:
+            handlers = self._handlers[topic_unsubscribe]
+            for handler in handlers:
+                if handler.get("subscription_id") == subscription_id:
+                    handlers.remove(handler)
+                    self.log.debug(f"Unregistered handler for topic: {self.command_edge_topic} with subscription ID: {subscription_id}")
+                    return True
+                else:
+                    self.log.debug(f"No matching handler found for subscription ID: {subscription_id} on topic: {self.command_edge_topic}")
+        else:
+            self.log.warning(f"No handlers registered for topic: {self.command_edge_topic}")
+        return False
 
     # ------ Health Check Methods ------ #
     
@@ -707,8 +786,7 @@ class MQTTProxy(BaseProxy):
                 "worker_running": self._worker_running.is_set()
             },
             "subscriptions": {
-                "topics": list(self._subscriptions.keys()),
-                "patterns": list(self._subscription_patterns.keys()),
+                "topics": list(self.subscribed_topics),
                 "handlers": {topic: len(handlers) for topic, handlers in self._handlers.items()}
             },
             "device_info": {
