@@ -44,6 +44,120 @@ For local development and debugging, use the SITL (Software In The Loop) setup:
 .. note::
    The SITL setup creates a complete development environment with all petals linked for cross-development.
 
+Development Directory Structure
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The development setup creates the following repository structure with editable installations:
+
+.. graphviz::
+   :caption: Development Repository Structure and Dependencies
+
+   digraph dev_structure {
+       rankdir=LR;
+       node [shape=folder, style=filled];
+       
+       // Main development directory
+       dev_root [label="~/petal-app-manager-dev/", fillcolor=lightyellow, shape=box];
+       
+       // Repositories
+       pam [label="petal-app-manager/\n(Main Framework)", fillcolor=lightblue];
+       leafsdk [label="LeafSDK/\n(Mission SDK)", fillcolor=lightgreen];
+       mavlink [label="mavlink/\n(Protocol)", fillcolor=orange];
+       pymavlink [label="mavlink/pymavlink/\n(Python Library)", fillcolor=orange];
+       
+       // Petals
+       flight_log [label="petal-flight-log/\n(Flight Logs)", fillcolor=palegreen];
+       warehouse [label="petal-warehouse/\n(Data Warehouse)", fillcolor=palegreen];
+       leafsdk_petal [label="petal-leafsdk/\n(SDK Integration)", fillcolor=palegreen];
+       journey [label="petal-user-journey-coordinator/\n(Mission Coord)", fillcolor=palegreen];
+       qgc [label="petal-qgc-mission-server/\n(QGC Server)", fillcolor=palegreen];
+       
+       // Directory structure
+       dev_root -> pam;
+       dev_root -> leafsdk;
+       dev_root -> mavlink;
+       dev_root -> flight_log;
+       dev_root -> warehouse;
+       dev_root -> leafsdk_petal;
+       dev_root -> journey;
+       dev_root -> qgc;
+       
+       mavlink -> pymavlink [label="contains", style=dotted];
+       
+       // Editable installations (development dependencies)
+       pam -> flight_log [label="editable\ninstall", color=blue, style=bold];
+       pam -> warehouse [label="editable\ninstall", color=blue, style=bold];
+       pam -> leafsdk_petal [label="editable\ninstall", color=blue, style=bold];
+       pam -> journey [label="editable\ninstall", color=blue, style=bold];
+       pam -> leafsdk [label="editable\ninstall", color=blue, style=bold];
+       pam -> pymavlink [label="file://\ninstall", color=red, style=bold];
+       
+       // Legend
+       subgraph cluster_legend {
+           label="Legend";
+           style=filled;
+           color=lightgray;
+           rankdir=TB;
+           
+           leg_edit_a [label="", shape=point, width=0];
+           leg_edit_b [label="editable install (changes reflect immediately)", shape=plaintext];
+           
+           leg_file_a [label="", shape=point, width=0];
+           leg_file_b [label="file:// install (requires rebuild)", shape=plaintext];
+           
+           leg_contains_a [label="", shape=point, width=0];
+           leg_contains_b [label="contains", shape=plaintext];
+           
+           leg_edit_a -> leg_edit_b [color=blue, style=bold, arrowhead=vee];
+           leg_file_a -> leg_file_b [color=red, style=bold, arrowhead=vee];
+           leg_contains_a -> leg_contains_b [style=dotted, arrowhead=vee];
+       }
+   }
+
+**Key Structure Points:**
+
+- **Main Framework** (``petal-app-manager``): Central application that loads all petals
+- **Editable Installations**: Changes to petal code are immediately reflected without reinstallation
+- **pymavlink**: Installed via ``file://`` path (not editable) from the mavlink submodule. You must rebuild if changes are made using ``pdm install -G dev --force-rebuild pymavlink``.
+- **Independent Petals**: Each petal has its own virtual environment for isolated testing
+
+**Typical File Locations:**
+
+.. code-block:: text
+
+   ~/petal-app-manager-dev/
+   ├── LeafSDK/
+   │   ├── src/leafsdk/          # SDK source code
+   │   └── tests/                # SDK tests
+   ├── mavlink/
+   │   ├── pymavlink/            # Python MAVLink library
+   │   │   ├── generator/        # Message generator
+   │   │   └── dialects/         # MAVLink dialects
+   │   ├── message_definitions/  # Python MAVLink library
+   │   │   └── v1.0/             # Message definitions (.xml)
+   ├── petal-app-manager/
+   │   ├── src/petal_app_manager/
+   │   │   ├── api/              # REST API endpoints
+   │   │   ├── plugins/          # Petal loader
+   │   │   └── proxies/          # Backend proxies
+   │   ├── docs/                 # This documentation
+   │   └── tests/                # Framework tests
+   ├── petal-flight-log/
+   │   ├── src/petal_flight_log/ # Flight log handling
+   │   └── tests/
+   ├── petal-warehouse/
+   │   ├── src/petal_warehouse/  # Data warehousing
+   │   └── tests/
+   ├── petal-leafsdk/
+   │   ├── src/petal_leafsdk/    # Mission execution
+   │   └── tests/
+   ├── petal-user-journey-coordinator/
+   │   ├── src/petal_user_journey_coordinator/
+   │   └── tests/
+   └── petal-qgc-mission-server/
+       ├── src/petal_qgc_mission_server/
+       └── tests/
+
 Manual Development Setup
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -83,18 +197,6 @@ If you need to set up manually (requires dependencies from previous section):
    
    # Install development dependencies (includes all petals in editable mode)
    pdm install -G dev
-
-**4. Install Other Components**
-
-.. code-block:: bash
-
-   # Install each petal in its own environment
-   for dir in ../petal-*/ ../LeafSDK/; do
-       if [ -d "$dir" ]; then
-           echo "Installing $(basename "$dir")..."
-           (cd "$dir" && pdm use -f /usr/bin/python3.11 && pdm install -G dev)
-       fi
-   done
 
 Production Installation
 -----------------------
@@ -278,6 +380,35 @@ Running the Application
    # Run with auto-reload for development
    uvicorn petal_app_manager.main:app --reload --port 9000
 
+**Development Mode with Debugging (VSCode)**
+
+A VSCode launch configuration is provided for debugging with breakpoint support:
+
+.. code-block:: bash
+
+   # Location: ~/petal-app-manager-dev/petal-app-manager/.vscode/launch.json
+
+To use the debugger:
+
+1. Open the project in VSCode: ``code ~/petal-app-manager-dev/petal-app-manager``
+2. Press ``F5`` or go to **Run and Debug** panel (Ctrl+Shift+D)
+3. Select **"Petal App Manager"** from the launch configuration dropdown
+4. Click the green play button or press ``F5``
+
+The application will start with the debugger attached, allowing you to:
+
+- Set breakpoints in your code
+- Inspect variables and call stacks
+- Step through code execution
+- Hot-reload on file changes (``--reload`` flag is enabled)
+
+.. tip::
+   **Debugging Petals**: Since petals are installed in editable mode, you can also set breakpoints 
+   in petal code (e.g., ``~/petal-app-manager-dev/petal-flight-log/src/petal_flight_log/``). 
+   To debug a petal, open the petal files in the ``petal-app-manager`` workspace in VSCode 
+   (they are linked via editable installation), then set breakpoints and run the debugger. 
+   Changes to petal code will be reflected immediately due to editable installation.
+
 **Production Mode**
 
 .. code-block:: bash
@@ -415,7 +546,8 @@ Troubleshooting
 1. **Python 3.11 not found**: Ensure symlinks were created and PATH is updated
 2. **PDM command not found**: Check that ``~/.local/bin`` is in your PATH
 3. **Redis connection failed**: Verify Redis service is running and socket permissions are correct
-4. **Port 9000 already in use**: Change port with ``--port 8080`` or kill conflicting process
+4. **Port 9000 already in use**: This may occur if you're trying to run Petal App Manager using ``uvicorn`` while the systemd service is currently running. For debugging, you may want to stop the service first with ``sudo systemctl stop petal-app-manager``. Alternatively, kill the conflicting process. You may use the command ``sudo lsof -i :9000`` to identify the process using the port.
+5. **Application errors or unexpected behavior**: Check the ``app.log`` file in the ``petal-app-manager`` directory (``~/petal-app-manager-dev/petal-app-manager/app.log`` or ``~/.droneleaf/petal-app-manager/app.log``) for detailed error messages and stack traces that can help troubleshoot issues.
 
 **Getting Help**
 
