@@ -34,6 +34,28 @@ cicd = [
     "pytest-cov>=6.2.1",
     "leaf-pymavlink>=0.1.11",
 ]
+cicddocs = [
+    "pytest>=8.4.0",
+    "pytest-asyncio>=1.0.0",
+    "anyio>=4.9.0",
+    "pytest-cov>=6.2.1",
+    "leaf-pymavlink>=0.1.11",
+    # Documentation dependencies
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=2.0.0",
+    "sphinx-autobuild>=2024.0.0",
+    "sphinx-autodoc-typehints>=1.24.0",
+    "sphinx-copybutton>=0.5.0",
+    "sphinxcontrib-applehelp>=1.0.0",
+    "sphinxcontrib-bibtex>=2.6.0",
+    "sphinxcontrib-devhelp>=1.0.0",
+    "sphinxcontrib-htmlhelp>=2.0.0",
+    "sphinxcontrib-jsmath>=1.0.0",
+    "sphinxcontrib-pseudocode>=0.1.0",
+    "sphinxcontrib-qthelp>=1.0.0",
+    "sphinxcontrib-serializinghtml>=1.1.0",
+    "graphviz>=0.20.0",
+]
 prod = [
     "leaf-pymavlink>=0.1.11",
     "petal-flight-log @ git+https://github.com/DroneLeaf/petal-flight-log.git@v0.1.6",
@@ -52,4 +74,19 @@ dev = [
     "-e file:///${PROJECT_ROOT}/../petal-leafsdk/#egg=petal-leafsdk",
     "-e file:///${PROJECT_ROOT}/../petal-warehouse/#egg=petal-warehouse",
     "-e file:///${PROJECT_ROOT}/../LeafSDK/#egg=LeafSDK",
+    # Documentation dependencies
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=2.0.0",
+    "sphinx-autobuild>=2024.0.0",
+    "sphinx-autodoc-typehints>=1.24.0",
+    "sphinx-copybutton>=0.5.0",
+    "sphinxcontrib-applehelp>=1.0.0",
+    "sphinxcontrib-bibtex>=2.6.0",
+    "sphinxcontrib-devhelp>=1.0.0",
+    "sphinxcontrib-htmlhelp>=2.0.0",
+    "sphinxcontrib-jsmath>=1.0.0",
+    "sphinxcontrib-pseudocode>=0.1.0",
+    "sphinxcontrib-qthelp>=1.0.0",
+    "sphinxcontrib-serializinghtml>=1.1.0",
+    "graphviz>=0.20.0",
 ]

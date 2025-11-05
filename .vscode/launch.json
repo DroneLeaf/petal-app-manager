@@ -28,6 +28,22 @@
         "request": "launch",
         "url": "http://localhost:9000/petals/petal-warehouse/ui",
         "webRoot": "${workspaceFolder}"
+    },
+    {
+        "name": "build sphinx docs with autoreloader",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/.venv/bin/sphinx-autobuild",
+        "args": [
+            "./docs",
+            "docs/_build/html",
+            "--port", "8001"
+        ],
+        "env": {
+            "PYTHONPATH": "${workspaceFolder}"
+        },
+        "console": "integratedTerminal",
+        "justMyCode": false
     }
   ]
 }
