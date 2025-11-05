@@ -626,8 +626,7 @@ class MQTTProxy(BaseProxy):
         self.log.info(f"Processing command: {payload}")
 
         # Send response back
-        response_topic = f"{self._get_base_topic()}/{self.response_topic}"
-        await self.send_command_response(response_topic, message_id, {
+        await self.send_command_response(message_id, {
             'status': 'success',
             'timestamp': datetime.now().isoformat()
         })
@@ -647,10 +646,8 @@ class MQTTProxy(BaseProxy):
             self.log.error("MQTT proxy is not connected")
             return False
         
-        # make sure topic just does not have a leading slash
-        if self.topic.startswith("/"):
-            self.topic = self.topic[1:]
-        topic_publish = f"{self._topic_base}/{self.topic}"
+        # Topic is already the full topic path
+        topic_publish = topic
 
         payload["deviceId"] = self.device_id
 
@@ -673,6 +670,8 @@ class MQTTProxy(BaseProxy):
             
         except Exception as e:
             self.log.error(f"Error publishing message to {topic_publish}: {e}")
+            return False
+
             return False
 
     # ------ Public API methods ------ #

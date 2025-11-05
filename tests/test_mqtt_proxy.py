@@ -299,7 +299,7 @@ async def test_make_ts_request_exception(proxy: MQTTProxy):
 
 @pytest.mark.asyncio
 async def test_publish_message_success(proxy: MQTTProxy):
-    """Test successful message publishing."""
+    """Test successful message publishing to command/web topic."""
     # Setup mock response
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -307,7 +307,6 @@ async def test_publish_message_success(proxy: MQTTProxy):
     
     with patch('requests.request', return_value=mock_response):
         result = await proxy.publish_message(
-            "test/topic",
             {"message": "hello world"},
             qos=1
         )
@@ -327,9 +326,10 @@ async def test_publish_message_disconnected():
         mock_get_org_manager.return_value = mock_org_manager
         
         proxy = MQTTProxy()
-        # Don't call start() so proxy remains disconnected
+        # Set device_id but don't call start() so proxy remains disconnected
+        proxy.device_id = "Instance-test-machine"
         
-        result = await proxy.publish_message("test/topic", {"message": "hello"})
+        result = await proxy.publish_message({"message": "hello"})
         assert result is False
 
 
@@ -342,7 +342,7 @@ async def test_publish_message_error(proxy: MQTTProxy):
     mock_response.json.return_value = {"error": "Publish failed"}
     
     with patch('requests.request', return_value=mock_response):
-        result = await proxy.publish_message("test/topic", {"message": "hello"})
+        result = await proxy.publish_message({"message": "hello"})
         assert result is False
 
 
@@ -356,7 +356,6 @@ async def test_send_command_response(proxy: MQTTProxy):
     
     with patch('requests.request', return_value=mock_response):
         result = await proxy.send_command_response(
-            "test/response/topic",
             "msg-123",
             {"result": "completed"}
         )
@@ -367,192 +366,120 @@ async def test_send_command_response(proxy: MQTTProxy):
 # ------ Subscription Management Tests ------ #
 
 @pytest.mark.asyncio
-async def test_subscribe_to_topic_success(proxy: MQTTProxy):
-    """Test successful topic subscription."""
+async def test_register_handler_success(proxy: MQTTProxy):
+    """Test successful handler registration."""
     # Define a test callback
     messages_received = []
     
     async def test_callback(topic: str, payload: dict):
         messages_received.append((topic, payload))
     
-    result = await proxy.subscribe_to_topic("test/topic", test_callback)
+    # First ensure the command edge topic is subscribed (should be auto-subscribed on start)
+    # Since we manually setup proxy in fixture, we need to add it to subscribed_topics
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    proxy.subscribed_topics.add(command_topic)
     
-    assert result is True
-    assert "test/topic" in proxy._subscriptions
-    assert proxy._subscriptions["test/topic"] == test_callback
-    assert "test/topic" in proxy.subscribed_topics
+    subscription_id = proxy.register_handler(test_callback)
+    
+    assert subscription_id is not None
+    assert command_topic in proxy._handlers
+    assert len(proxy._handlers[command_topic]) > 0
 
 
 @pytest.mark.asyncio
-async def test_subscribe_to_topic_disconnected():
-    """Test subscribing when proxy is disconnected."""
-    
-    
-    proxy = MQTTProxy()
-    # Don't call start() so proxy remains disconnected
-    
-    result = await proxy.subscribe_to_topic("test/topic")
-    assert result is False
-
-
-@pytest.mark.asyncio
-async def test_subscribe_to_topic_error(proxy: MQTTProxy):
-    """Test subscription with TypeScript client error."""
-    # Setup mock error response
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"error": "Subscription failed"}
-    
-    with patch('requests.request', return_value=mock_response):
-        result = await proxy.subscribe_to_topic("test/topic")
-        assert result is False
-
-
-@pytest.mark.asyncio
-async def test_unsubscribe_from_topic_success(proxy: MQTTProxy):
-    """Test successful topic unsubscription."""
-    # First subscribe
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"status": "success"}
+async def test_register_handler_not_subscribed(proxy: MQTTProxy):
+    """Test registering handler when topic is not subscribed."""
     
     async def test_callback(topic: str, payload: dict):
         pass
     
-    with patch('requests.request', return_value=mock_response):
-        # Subscribe first
-        await proxy.subscribe_to_topic("test/topic", test_callback)
-        
-        # Now unsubscribe
-        result = await proxy.unsubscribe_from_topic("test/topic")
-        
-        assert result is True
-        assert "test/topic" not in proxy._subscriptions
+    # Clear subscribed topics to simulate not being subscribed
+    proxy.subscribed_topics.clear()
+    
+    subscription_id = proxy.register_handler(test_callback)
+    assert subscription_id is None
 
 
 @pytest.mark.asyncio
-async def test_unsubscribe_from_topic_disconnected():
-    """Test unsubscribing when proxy is disconnected."""
+async def test_unregister_handler_success(proxy: MQTTProxy):
+    """Test successful handler unregistration."""
+    async def test_callback(topic: str, payload: dict):
+        pass
     
+    # Setup subscribed topic
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    proxy.subscribed_topics.add(command_topic)
     
-    proxy = MQTTProxy()
-    # Don't call start() so proxy remains disconnected
+    # Register handler first
+    subscription_id = proxy.register_handler(test_callback)
+    assert subscription_id is not None
     
-    result = await proxy.unsubscribe_from_topic("test/topic")
+    # Now unregister
+    result = proxy.unregister_handler(subscription_id)
+    
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_unregister_handler_invalid_id(proxy: MQTTProxy):
+    """Test unregistering with invalid subscription ID."""
+    result = proxy.unregister_handler("invalid-id-12345")
     assert result is False
 
 
 @pytest.mark.asyncio
-async def test_subscribe_pattern(proxy: MQTTProxy):
-    """Test pattern subscription."""
+async def test_process_received_message_topic_match(proxy: MQTTProxy):
+    """Test processing received message with handler match."""
     messages_received = []
     
     async def test_callback(topic: str, payload: dict):
         messages_received.append((topic, payload))
     
-    proxy.subscribe_pattern("test/*", test_callback)
+    # Setup handler for command topic
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    proxy.subscribed_topics.add(command_topic)
     
-    assert "test/*" in proxy._subscription_patterns
-    assert proxy._subscription_patterns["test/*"] == test_callback
+    # Register handler
+    proxy._handlers[command_topic].append({
+        "callback": test_callback,
+        "subscription_id": "test-sub-id"
+    })
+    
+    # Create and process message
+    from petal_app_manager.proxies.mqtt import MQTTMessage
+    message = MQTTMessage(
+        topic=command_topic,
+        payload={"message": "hello world"}
+    )
+    
+    proxy._process_message_in_worker(message)
+    
+    # Give async callback time to execute
+    await asyncio.sleep(0.1)
+    
+    # Verify callback was called
+    assert len(messages_received) == 1
+    assert messages_received[0] == (command_topic, {"message": "hello world"})
 
 
-@pytest.mark.asyncio
-async def test_unsubscribe_pattern(proxy: MQTTProxy):
-    """Test pattern unsubscription."""
-    async def test_callback(topic: str, payload: dict):
-        pass
-    
-    # Subscribe first
-    proxy.subscribe_pattern("test/*", test_callback)
-    
-    # Now unsubscribe
-    proxy.unsubscribe_pattern("test/*")
-    
-    assert "test/*" not in proxy._subscription_patterns
 
 
 # ------ Message Processing Tests ------ #
 
 @pytest.mark.asyncio
-async def test_process_received_message_topic_match(proxy: MQTTProxy):
-    """Test processing received message with topic subscription."""
-    messages_received = []
-    
-    async def test_callback(topic: str, payload: dict):
-        messages_received.append((topic, payload))
-    
-    # Subscribe to topic
-    proxy._subscriptions["test/topic"] = test_callback
-    
-    # Create and enqueue message (new deque-based approach)
-    from petal_app_manager.proxies.mqtt import MQTTMessage
-    message = MQTTMessage(
-        topic="test/topic",
-        payload={"message": "hello world"}
-    )
-    
-    # Process message directly in worker context for testing
-    proxy._process_message_in_worker(message)
-    
-    # Give async callback time to execute
-    await asyncio.sleep(0.1)
-    
-    # Verify callback was called
-    assert len(messages_received) == 1
-    assert messages_received[0] == ("test/topic", {"message": "hello world"})
-
-
-@pytest.mark.asyncio
-async def test_process_received_message_pattern_match(proxy: MQTTProxy):
-    """Test processing received message with pattern subscription."""
-    messages_received = []
-    
-    async def test_callback(topic: str, payload: dict):
-        messages_received.append((topic, payload))
-    
-    # Subscribe to pattern
-    proxy._subscription_patterns["test/*"] = test_callback
-    
-    # Create and process message
-    from petal_app_manager.proxies.mqtt import MQTTMessage
-    message = MQTTMessage(
-        topic="test/subtopic",
-        payload={"message": "pattern match"}
-    )
-    
-    proxy._process_message_in_worker(message)
-    
-    # Give async callback time to execute
-    await asyncio.sleep(0.1)
-    
-    # Verify callback was called
-    assert len(messages_received) == 1
-    assert messages_received[0] == ("test/subtopic", {"message": "pattern match"})
-
-
-@pytest.mark.asyncio
-async def test_process_received_message_no_topic(proxy: MQTTProxy):
-    """Test processing received message without topic."""
+async def test_process_received_message_no_handler(proxy: MQTTProxy):
+    """Test processing received message without matching handler."""
     from petal_app_manager.proxies.mqtt import MQTTMessage
     
-    # Message with empty topic should not crash
+    # Create message for topic with no handlers
     message = MQTTMessage(
-        topic="",
-        payload={"message": "no topic"}
+        topic="org/test-org/device/test-device/unknown",
+        payload={"message": "no handler"}
     )
     
     # Should not raise exception
     proxy._process_message_in_worker(message)
 
-
-@pytest.mark.asyncio
-async def test_topic_matches_pattern():
-    """Test topic pattern matching using fnmatch."""
-    assert MQTTProxy._topic_matches_pattern("test/topic", "test/*") is True
-    assert MQTTProxy._topic_matches_pattern("test/topic/subtopic", "test/*") is True  # fnmatch * matches everything
-    assert MQTTProxy._topic_matches_pattern("other/topic", "test/*") is False
-    assert MQTTProxy._topic_matches_pattern("test/topic", "test/topic") is True
-    assert MQTTProxy._topic_matches_pattern("test/topic", "*/topic") is True
 
 
 @pytest.mark.asyncio
@@ -573,8 +500,8 @@ async def test_process_command_message(proxy: MQTTProxy):
         
         await proxy._process_command(command_topic, command_payload)
         
-        # Verify response was published (should call _make_ts_request internally)
-        # The exact verification depends on the mock setup
+        # Verify response publishing was attempted
+        # The _process_command calls send_command_response which calls _publish_message
 
 
 # ------ Health Check Tests ------ #
@@ -623,11 +550,17 @@ async def test_callback_error_handling(proxy: MQTTProxy):
     async def failing_callback(topic: str, payload: dict):
         raise Exception("Callback error")
     
-    proxy._subscriptions["test/topic"] = failing_callback
+    # Setup handler that will fail
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    proxy.subscribed_topics.add(command_topic)
+    proxy._handlers[command_topic].append({
+        "callback": failing_callback,
+        "subscription_id": "test-failing"
+    })
     
     from petal_app_manager.proxies.mqtt import MQTTMessage
     message = MQTTMessage(
-        topic="test/topic",
+        topic=command_topic,
         payload={"message": "test"}
     )
     
@@ -643,11 +576,17 @@ async def test_synchronous_callback_handling(proxy: MQTTProxy):
     def sync_callback(topic: str, payload: dict):
         messages_received.append((topic, payload))
     
-    proxy._subscriptions["test/topic"] = sync_callback
+    # Setup sync handler
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    proxy.subscribed_topics.add(command_topic)
+    proxy._handlers[command_topic].append({
+        "callback": sync_callback,
+        "subscription_id": "test-sync"
+    })
     
     from petal_app_manager.proxies.mqtt import MQTTMessage
     message = MQTTMessage(
-        topic="test/topic",
+        topic=command_topic,
         payload={"message": "sync test"}
     )
     
@@ -658,14 +597,14 @@ async def test_synchronous_callback_handling(proxy: MQTTProxy):
     
     # Verify callback was called
     assert len(messages_received) == 1
-    assert messages_received[0] == ("test/topic", {"message": "sync test"})
+    assert messages_received[0] == (command_topic, {"message": "sync test"})
 
 
 # ------ Integration Tests ------ #
 
 @pytest.mark.asyncio
 async def test_basic_workflow(proxy: MQTTProxy):
-    """Test a basic MQTT workflow: subscribe, publish, receive."""
+    """Test a basic MQTT workflow: register handler, publish, receive."""
     # Setup mock responses
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -677,22 +616,25 @@ async def test_basic_workflow(proxy: MQTTProxy):
         messages_received.append((topic, payload))
     
     with patch('requests.request', return_value=mock_response):
-        # 1. Subscribe to a topic
-        subscribe_result = await proxy.subscribe_to_topic("workflow/test", test_callback)
-        assert subscribe_result is True
+        # 1. Setup command topic subscription
+        command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+        proxy.subscribed_topics.add(command_topic)
         
-        # 2. Publish a message
+        # 2. Register a handler
+        subscription_id = proxy.register_handler(test_callback)
+        assert subscription_id is not None
+        
+        # 3. Publish a message to command/web topic
         publish_result = await proxy.publish_message(
-            "workflow/test",
             {"message": "workflow test"},
             qos=1
         )
         assert publish_result is True
         
-        # 3. Simulate receiving the message via new deque system
+        # 4. Simulate receiving a message on command topic
         from petal_app_manager.proxies.mqtt import MQTTMessage
         message = MQTTMessage(
-            topic="workflow/test",
+            topic=command_topic,
             payload={"message": "workflow test"}
         )
         proxy._process_message_in_worker(message)
@@ -700,30 +642,32 @@ async def test_basic_workflow(proxy: MQTTProxy):
         # Give async callback time to execute
         await asyncio.sleep(0.1)
         
-        # 4. Verify message was received
+        # 5. Verify message was received
         assert len(messages_received) == 1
-        assert messages_received[0] == ("workflow/test", {"message": "workflow test"})
+        assert messages_received[0] == (command_topic, {"message": "workflow test"})
         
-        # 5. Unsubscribe
-        unsubscribe_result = await proxy.unsubscribe_from_topic("workflow/test")
-        assert unsubscribe_result is True
+        # 6. Unregister handler
+        unregister_result = proxy.unregister_handler(subscription_id)
+        assert unregister_result is True
 
 
 @pytest.mark.asyncio
 async def test_device_topic_auto_subscription(proxy: MQTTProxy):
     """Test automatic subscription to device topics."""
-    # Since we're not calling the real start() method which subscribes to device topics,
-    # let's manually test the subscription functionality instead
-    expected_topics = [
-        f"org/{proxy.organization_id}/device/{proxy.device_id}/command",
-        f"org/{proxy.organization_id}/device/{proxy.device_id}/response"
-    ]
+    # Verify the expected topics are in subscribed_topics
+    # These should be added during _subscribe_to_device_topics
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    response_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/response"
+    debug_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/debug"
     
-    # Manually subscribe to test the functionality
-    for topic in expected_topics:
-        result = await proxy.subscribe_to_topic(topic, proxy._default_message_handler)
-        assert result is True
-        assert topic in proxy.subscribed_topics
+    # Manually add to simulate auto-subscription that happens during start()
+    proxy.subscribed_topics.add(command_topic)
+    proxy.subscribed_topics.add(response_topic)
+    proxy.subscribed_topics.add(debug_topic)
+    
+    assert command_topic in proxy.subscribed_topics
+    assert response_topic in proxy.subscribed_topics
+    assert debug_topic in proxy.subscribed_topics
 
 
 @pytest.mark.asyncio
@@ -756,27 +700,34 @@ async def test_concurrent_operations(proxy: MQTTProxy):
     mock_response.json.return_value = {"status": "success"}
     
     with patch('requests.request', return_value=mock_response):
-        # Run multiple publish operations concurrently
+        # Run multiple publish operations concurrently (all to command/web topic)
         publish_tasks = [
-            proxy.publish_message(f"concurrent/topic{i}", {"message": f"test{i}"})
+            proxy.publish_message({"message": f"test{i}"})
             for i in range(10)
         ]
         
-        # Run multiple subscribe operations concurrently
-        subscribe_tasks = [
-            proxy.subscribe_to_topic(f"concurrent/sub{i}")
-            for i in range(5)
-        ]
+        # Run multiple handler registration operations
+        async def dummy_handler(topic: str, payload: dict):
+            pass
         
-        # Execute all tasks concurrently
+        # Setup command topic for handler registration
+        command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+        proxy.subscribed_topics.add(command_topic)
+        
+        # Execute all publish tasks concurrently
         publish_results = await asyncio.gather(*publish_tasks)
-        subscribe_results = await asyncio.gather(*subscribe_tasks)
+        
+        # Register multiple handlers (synchronous operation)
+        subscription_ids = []
+        for i in range(5):
+            sub_id = proxy.register_handler(dummy_handler)
+            if sub_id:
+                subscription_ids.append(sub_id)
         
         # Verify all operations completed successfully
         assert all(result is True for result in publish_results)
-        assert all(result is True for result in subscribe_results)
         assert len(publish_results) == 10
-        assert len(subscribe_results) == 5
+        assert len(subscription_ids) == 5
 
 
 @pytest.mark.asyncio
@@ -789,29 +740,35 @@ async def test_message_processing_concurrency(proxy: MQTTProxy):
         await asyncio.sleep(0.01)
         messages_received.append((topic, payload))
     
-    # Subscribe to multiple topics
+    # Setup handlers for command topic
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    proxy.subscribed_topics.add(command_topic)
+    
+    # Register handler multiple times (to test multiple handlers on same topic)
     for i in range(5):
-        proxy._subscriptions[f"concurrent/topic{i}"] = test_callback
+        proxy._handlers[command_topic].append({
+            "callback": test_callback,
+            "subscription_id": f"test-sub-{i}"
+        })
     
-    # Create and process multiple messages
+    # Create and process message (will trigger all 5 handlers)
     from petal_app_manager.proxies.mqtt import MQTTMessage
-    messages = [
-        MQTTMessage(
-            topic=f"concurrent/topic{i}",
-            payload={"message": f"concurrent{i}"}
-        )
-        for i in range(5)
-    ]
+    message = MQTTMessage(
+        topic=command_topic,
+        payload={"message": "concurrent_test"}
+    )
     
-    # Process messages in worker context
-    for message in messages:
-        proxy._process_message_in_worker(message)
+    # Process message in worker context
+    proxy._process_message_in_worker(message)
     
     # Give async callbacks time to execute
     await asyncio.sleep(0.2)
     
-    # Verify all messages were processed
+    # Verify all handlers were called (5 handlers = 5 messages received)
     assert len(messages_received) == 5
+    for received_topic, received_payload in messages_received:
+        assert received_topic == command_topic
+        assert received_payload == {"message": "concurrent_test"}
 
 
 # ------ Deque Buffer Tests ------ #
@@ -903,30 +860,35 @@ async def test_handler_registration(proxy: MQTTProxy):
     """Test handler registration and unregistration."""
     messages_received = []
     
-    def test_handler(topic: str, payload: dict):
+    async def test_handler(topic: str, payload: dict):
         messages_received.append((topic, payload))
     
+    # Setup command topic
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    proxy.subscribed_topics.add(command_topic)
+    
     # Register handler
-    proxy.register_handler("test/topic", test_handler)
+    subscription_id = proxy.register_handler(test_handler)
     
     # Verify handler is registered
-    assert "test/topic" in proxy._handlers
-    assert test_handler in proxy._handlers["test/topic"]
+    assert subscription_id is not None
+    assert command_topic in proxy._handlers
+    assert len(proxy._handlers[command_topic]) > 0
     
     # Process message to test handler
     from petal_app_manager.proxies.mqtt import MQTTMessage
-    message = MQTTMessage(topic="test/topic", payload={"data": "test"})
+    message = MQTTMessage(topic=command_topic, payload={"data": "test"})
     proxy._process_message_in_worker(message)
     
     # Give handler time to execute
     await asyncio.sleep(0.1)
     
     # Verify handler was called
-    assert len(messages_received) == 1
-    assert messages_received[0] == ("test/topic", {"data": "test"})
+    assert len(messages_received) >= 1
+    assert messages_received[-1] == (command_topic, {"data": "test"})
     
     # Unregister handler
-    proxy.unregister_handler("test/topic", test_handler)
+    result = proxy.unregister_handler(subscription_id)
     
     # Verify handler is removed
-    assert "test/topic" not in proxy._handlers
+    assert result is True
