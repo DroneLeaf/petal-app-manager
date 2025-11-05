@@ -13,6 +13,13 @@ Accessing the Admin Dashboard
 
 http://localhost:9000/admin-dashboard
 
+or via the controller dashboard at
+
+http://localhost:80/home/petals-proxies-control
+
+.. note::
+    change the localhost:80 to your drone's IP or domain if accessing remotely.
+
 This provides a complete graphical interface with the following features:
 
 **1. System Status Overview**
@@ -85,9 +92,12 @@ Using the Admin Dashboard
 
 **1. Monitor System Status:**
 
-- Visit http://localhost:9000/admin-dashboard
+- Visit http://localhost:9000/admin-dashboard or http://localhost:80/home/petals-proxies-control
 - Click **"Refresh Status"** to load current configuration
 - View enabled petals and proxies in the status section
+
+.. note::
+    change the localhost:80 to your drone's IP or domain if accessing remotely.
 
 **2. Enable/Disable Components:**
 
@@ -278,10 +288,13 @@ Common Use Cases
 
 **Via Admin Dashboard:**
 
-1. Go to http://localhost:9000/admin-dashboard
+1. Go to http://localhost:9000/admin-dashboard or http://localhost:80/home/petals-proxies-control
 2. Use **Proxy Controls** to disable unnecessary proxies
 3. Use **Petal Controls** to disable dependent petals
 4. Monitor changes in the **System Status** section
+
+.. note::
+    change the localhost:80 to your drone's IP or domain if accessing remotely.
 
 **Via API:**
 
@@ -348,6 +361,7 @@ Service Files and Locations
 - Configuration: ``~/petal-app-manager-dev/petal-app-manager/proxies.yaml``
 - Logs: ``~/petal-app-manager-dev/petal-app-manager/app.log``
 - Admin Dashboard: http://localhost:9000/admin-dashboard
+- Admin Dashboard via Controller Dashboard: http://localhost:80/home/petals-proxies-control
 
 **Production Setup:**
 
@@ -356,6 +370,10 @@ Service Files and Locations
 - Logs: ``~/.droneleaf/petal-app-manager/app.log``
 - Service: ``systemctl status petal-app-manager``
 - Admin Dashboard: http://localhost:9000/admin-dashboard
+- Admin Dashboard via Controller Dashboard: http://localhost:80/home/petals-proxies-control
+
+.. note::
+    change the localhost:80 to your drone's IP or domain if accessing remotely.
 
 **Service Management (Production):**
 
