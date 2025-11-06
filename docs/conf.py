@@ -6,10 +6,12 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import petal_app_manager
+
 project = 'Petal App Manager'
 copyright = '2025, DroneLeaf'
 author = 'Khalil Al Handawi'
-release = '0.1.39'
+release = petal_app_manager.__version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
