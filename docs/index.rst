@@ -7,7 +7,7 @@ A modular application framework for building and deploying "Petals" - pluggable
 components that can interact with various systems through a unified proxy architecture.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
    introduction

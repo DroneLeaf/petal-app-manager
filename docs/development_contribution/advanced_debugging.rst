@@ -49,10 +49,10 @@ Configuration Methods
 
 Edit ``config.json`` in the project root:
 
-.. code-block:: json
+.. code-block:: javascript
 
    {
-       "allowed_origins": [...],
+       "allowed_origins": ["..."],
        "logging": {
            "level_outputs": {
                "DEBUG": ["file"],
@@ -447,7 +447,7 @@ Error Handling and Recovery
                self.logger.error(f"Logging failed: {e}")
 
 Integration with Admin Dashboard
--------------------------------
+---------------------------------
 
 **Real-Time Log Monitoring:**
 
@@ -529,7 +529,7 @@ Testing and Validation
        print(f"Logged 100k records in {duration:.2f}s ({100000/duration:.0f} Hz)")
 
 File Management
---------------
+---------------
 
 **Automatic File Naming:**
 
@@ -583,7 +583,7 @@ CSV files are automatically named with timestamps:
                print(f"Removed old log file: {log_file}")
 
 Troubleshooting
---------------
+---------------
 
 **Common Issues:**
 
