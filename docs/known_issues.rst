@@ -6,8 +6,8 @@ Petal Issues
 
 .. _petal-naming-convention:
 
-Petal Name Must Start with "petal-*"
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Petal Name Must Start with ``petal-*``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Symptoms:**
 
@@ -55,7 +55,7 @@ The Petal App Manager framework expects all petals to follow the ``petal-*`` nam
         pdm remove old-name
         pdm add -e ../petal-example --group dev
 
-.. _petal-not-loading:
+.. _petal-not-loading-issues:
 
 Petal Not Getting Loaded
 ~~~~~~~~~~~~~~~~~~~~~~~~~

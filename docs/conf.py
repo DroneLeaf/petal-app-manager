@@ -41,7 +41,28 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
+html_static_path = ['_static', 'assets']
+
+# Theme options
+html_theme_options = {
+    'logo_only': False,
+    'prev_next_buttons_location': 'bottom',
+    'style_external_links': False,
+    'collapse_navigation': False,
+    'sticky_navigation': True,
+    'navigation_depth': 4,
+    'includehidden': True,
+    'titles_only': False
+}
+
+# Logo configuration
+html_logo = 'assets/images/White logo-vertical.png'
+html_favicon = 'assets/images/cropped-site-icon.png'
+
+# Custom CSS for better logo integration
+html_css_files = [
+    'custom.css',
+]
 
 # -- Extension configuration -------------------------------------------------
 

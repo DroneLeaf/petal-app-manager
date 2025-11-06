@@ -21,21 +21,21 @@ Version 0.1.43 (2025-11-05) - Hotfix
 
 .. code-block:: python
 
-   # Register a handler for command/edge topic
-   def register_handler(handler: Callable) -> str:
-       """Returns subscription_id for later unregistration"""
+  # Register a handler for command/edge topic
+  def register_handler(handler: Callable) -> str:
+    """Returns subscription_id for later unregistration"""
 
-   # Unregister a handler
-   def unregister_handler(subscription_id: str) -> bool:
-       """Remove handler using its subscription_id"""
+  # Unregister a handler
+  def unregister_handler(subscription_id: str) -> bool:
+    """Remove handler using its subscription_id"""
 
-   # Publish to command/web topic
-   async def publish_message(payload: Dict[str, Any], qos: int = 1) -> bool:
-       """Publish message to command/web topic"""
+  # Publish to command/web topic
+  async def publish_message(payload: Dict[str, Any], qos: int = 1) -> bool:
+    """Publish message to command/web topic"""
 
-   # Send response to response topic
-   async def send_command_response(message_id: str, response_data: Dict[str, Any]) -> bool:
-       """Send command response with automatic topic routing"""
+  # Send response to response topic
+  async def send_command_response(message_id: str, response_data: Dict[str, Any]) -> bool:
+    """Send command response with automatic topic routing"""
 
 **Dependencies Updated:**
 - Latest ``petal-leafsdk`` compatibility
@@ -45,12 +45,15 @@ Version 0.1.42 (2025-11-03)
 ---------------------------
 
 **Health Reporting Enhancements:**
+
 - ``/health/overview`` endpoint now contains version information for each Petal component:
+
   - ``petal_leafsdk``
   - ``petal_flight_log``
   - ``petal_warehouse``
   - ``petal_user_journey_coordinator``
   - ``petal_qgc_mission_server``
+
 - Components report ``"not installed"`` when not available
 
 **Dependency Updates:**
@@ -76,7 +79,7 @@ Version 0.1.39 (2025-10-23)
 **API Enhancements:**
 - Controller dashboard now includes version field in status responses:
 
-.. code-block:: json
+.. code-block:: javascript
 
    {
      "title": "Petal App Manager",
@@ -124,7 +127,9 @@ Version 0.1.31 (2025-09-25)
 - Improved system reliability and error handling
 
 **Related Releases:**
+
 - **Petal User Journey Coordinator** - MQTT integration for web client applications:
+
   - Multiple handlers for PX4 parameter management
   - ESC calibration with keep-alive streaming
   - Real-time telemetry streaming to web client
@@ -134,13 +139,16 @@ Version 0.1.29 (2025-08-28)
 ---------------------------
 
 **New Features:**
+
 - **MQTT Middleware Proxy**:
+
   - Reduces integration complexity for local applications
   - Unified interface to MQTT communications
   - Enables faster development cycles
   - Centralizes communication logic for easier maintenance
 
 - **Petal & Proxy Control Dashboard**:
+
   - Unified control and transparency for all proxies and petals
   - Real-time health monitoring and dependency tracking
   - Centralized enable/disable controls and API testing
@@ -201,7 +209,9 @@ Version 0.1.18 (2025-07-29)
    hear-cli local_machine run_program --p petal_init
 
 **Related Releases:**
+
 - ``LeafSDK Petal`` v0.1.5:
+
   - Upgraded trajectory polynomial coefficient generation
   - Burst MAVLink messages for improved communication reliability
   - Addressed robustness issues in LeafSDK functionalities

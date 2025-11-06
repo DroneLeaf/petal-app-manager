@@ -306,7 +306,7 @@ Edit ``~/petal-app-manager-dev/petal-app-manager/proxies.yaml`` (or ``~/.dronele
 
 .. warning::
    **Critical**: If your petal is not loading, check that it's registered in ``proxies.yaml``.
-   See :ref:`petal-not-loading` for troubleshooting.
+   See :ref:`petal-not-loading-guide` for troubleshooting.
 
 **Petal Name Mapping**
 
@@ -509,8 +509,8 @@ Common Pitfalls
 
 .. _petal-naming-issues:
 
-Petal Name Must Start with "petal-*"
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Petal Name Must Start with ``petal-*``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If your petal name doesn't follow the ``petal-*`` naming convention, logging and other functionality may not work properly. Always use:
 
@@ -519,7 +519,7 @@ If your petal name doesn't follow the ``petal-*`` naming convention, logging and
 - ❌ ``example-petal``
 - ❌ ``telemetry``
 
-.. _petal-not-loading:
+.. _petal-not-loading-guide:
 
 Petal Not Loading
 ~~~~~~~~~~~~~~~~~
