@@ -1,9 +1,9 @@
 /* Custom CSS for Petal App Manager Documentation */
 
-/* Change sidebar background from blue to light beige */
+/* Change sidebar background from blue to green */
 .wy-side-nav-search {
-    background: #f5f5dc !important; /* Light beige background */
-    background-color: #f5f5dc !important;
+    background: #2e7d32 !important; /* Green background */
+    background-color: #2e7d32 !important;
 }
 
 /* Logo styling in the sidebar - make it span full width while maintaining aspect ratio */
@@ -25,36 +25,41 @@
     padding: 1em 0.5em 0.5em 0.5em; /* More padding for larger logo */
 }
 
-/* Project title styling when logo is present - darker text for beige background */
+/* Project title styling when logo is present - light text for green background */
 .wy-side-nav-search .wy-dropdown > a,
 .wy-side-nav-search > a {
-    color: #2c3e50 !important; /* Dark blue-gray text for better contrast on beige */
+    color: #ffffff !important; /* White text for better contrast on green */
     font-size: 110%; /* Slightly larger text */
     font-weight: bold;
     text-decoration: none;
 }
 
-/* Search input styling for beige background */
+/* Search input styling for green background */
 .wy-side-nav-search input[type=text] {
-    border: 2px solid #d4cfc4; /* Slightly darker beige border */
+    border: 2px solid #1b5e20; /* Darker green border */
     background-color: #ffffff; /* White background for input */
     color: #2c3e50; /* Dark text in input */
 }
 
 .wy-side-nav-search input[type=text]:focus {
-    border-color: #a0956b; /* Darker beige when focused */
+    border-color: #0d3d0f; /* Even darker green when focused */
+}
+
+/* Search input placeholder text */
+.wy-side-nav-search input[type=text]::placeholder {
+    color: #666666; /* Gray placeholder text */
 }
 
 /* Search button styling */
 .wy-side-nav-search .wy-dropdown-caret,
 .wy-side-nav-search > .fa,
 .wy-side-nav-search > .fa-search {
-    color: #2c3e50 !important; /* Dark icon color */
+    color: #ffffff !important; /* White icon color for green background */
 }
 
-/* Version text styling for beige background */
+/* Version text styling for green background */
 .wy-side-nav-search > div.version {
-    color: #5d4e37 !important; /* Brown text for version */
+    color: #e8f5e8 !important; /* Light green text for version */
     margin-top: 0.5em;
 }
 

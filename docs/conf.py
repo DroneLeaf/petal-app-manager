@@ -56,7 +56,7 @@ html_theme_options = {
 }
 
 # Logo configuration
-html_logo = 'assets/images/cropped-site-icon.png'
+html_logo = 'assets/images/White logo-vertical.png'
 html_favicon = 'assets/images/cropped-site-icon.png'
 
 # Custom CSS for better logo integration
