@@ -16,12 +16,24 @@ This will install all development dependencies including Sphinx and related docu
 ### Build HTML Documentation
 
 ```bash
-# On Linux/macOS
+# Standard build (treats warnings as errors - for CI/CD)
 make html
+
+# Development build (allows warnings - for local development)
+make html-dev
 
 # On Windows
 make.bat html
 ```
+
+The standard `make html` command now uses strict mode, treating warnings as errors. This ensures documentation quality and makes CI/CD pipelines fail when there are documentation issues like:
+
+- Indentation errors in code blocks
+- Missing references 
+- Malformed RST syntax
+- Broken cross-references
+
+For local development where you want to see warnings but not fail the build, use `make html-dev`.
 
 The built documentation will be in `_build/html/`. Open `_build/html/index.html` in your browser to view it.
 
