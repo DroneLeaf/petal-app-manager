@@ -148,6 +148,10 @@ def build_app(
                         callback_host=Config.CALLBACK_HOST,
                         callback_port=Config.CALLBACK_PORT,
                         enable_callbacks=Config.ENABLE_CALLBACKS,
+                        command_edge_topic=Config.COMMAND_EDGE_TOPIC,
+                        response_topic=Config.RESPONSE_TOPIC,
+                        test_topic=Config.TEST_TOPIC,
+                        command_web_topic=Config.COMMAND_WEB_TOPIC,
                     )
                 elif proxy_name == "cloud":
                     proxies["cloud"] = CloudDBProxy(
