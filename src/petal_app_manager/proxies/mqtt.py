@@ -602,7 +602,7 @@ class MQTTProxy(BaseProxy):
         topics = [
             self.command_edge_topic,
             self.response_topic,
-            self.debug_topic
+            self.test_topic
         ]
 
         for topic in topics:
