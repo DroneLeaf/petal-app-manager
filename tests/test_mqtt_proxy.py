@@ -376,7 +376,7 @@ async def test_register_handler_success(proxy: MQTTProxy):
     
     # First ensure the command edge topic is subscribed (should be auto-subscribed on start)
     # Since we manually setup proxy in fixture, we need to add it to subscribed_topics
-    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
     proxy.subscribed_topics.add(command_topic)
     
     subscription_id = proxy.register_handler(test_callback)
@@ -407,7 +407,7 @@ async def test_unregister_handler_success(proxy: MQTTProxy):
         pass
     
     # Setup subscribed topic
-    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
     proxy.subscribed_topics.add(command_topic)
     
     # Register handler first
@@ -436,7 +436,7 @@ async def test_process_received_message_topic_match(proxy: MQTTProxy):
         messages_received.append((topic, payload))
     
     # Setup handler for command topic
-    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
     proxy.subscribed_topics.add(command_topic)
     
     # Register handler
@@ -617,7 +617,7 @@ async def test_basic_workflow(proxy: MQTTProxy):
     
     with patch('requests.request', return_value=mock_response):
         # 1. Setup command topic subscription
-        command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+        command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
         proxy.subscribed_topics.add(command_topic)
         
         # 2. Register a handler
@@ -656,18 +656,18 @@ async def test_device_topic_auto_subscription(proxy: MQTTProxy):
     """Test automatic subscription to device topics."""
     # Verify the expected topics are in subscribed_topics
     # These should be added during _subscribe_to_device_topics
-    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
-    response_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/response"
-    debug_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/debug"
+    command_edge_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
+    response_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.response_topic}"
+    test_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.test_topic}"
     
     # Manually add to simulate auto-subscription that happens during start()
-    proxy.subscribed_topics.add(command_topic)
+    proxy.subscribed_topics.add(command_edge_topic)
     proxy.subscribed_topics.add(response_topic)
-    proxy.subscribed_topics.add(debug_topic)
+    proxy.subscribed_topics.add(test_topic)
     
-    assert command_topic in proxy.subscribed_topics
+    assert command_edge_topic in proxy.subscribed_topics
     assert response_topic in proxy.subscribed_topics
-    assert debug_topic in proxy.subscribed_topics
+    assert test_topic in proxy.subscribed_topics
 
 
 @pytest.mark.asyncio
@@ -711,7 +711,7 @@ async def test_concurrent_operations(proxy: MQTTProxy):
             pass
         
         # Setup command topic for handler registration
-        command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+        command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
         proxy.subscribed_topics.add(command_topic)
         
         # Execute all publish tasks concurrently
@@ -741,7 +741,7 @@ async def test_message_processing_concurrency(proxy: MQTTProxy):
         messages_received.append((topic, payload))
     
     # Setup handlers for command topic
-    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
     proxy.subscribed_topics.add(command_topic)
     
     # Register handler multiple times (to test multiple handlers on same topic)
@@ -864,7 +864,7 @@ async def test_handler_registration(proxy: MQTTProxy):
         messages_received.append((topic, payload))
     
     # Setup command topic
-    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
     proxy.subscribed_topics.add(command_topic)
     
     # Register handler
