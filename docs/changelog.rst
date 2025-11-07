@@ -1,6 +1,28 @@
 Changelog
 =========
 
+Version 0.1.44 (2025-11-07)
+---------------------------
+
+**Configuration Enhancements:**
+
+- **MQTTProxy Topic Configuration** - MQTT topic names now configurable via environment variables
+  
+  - Added environment-configurable topic parameters to MQTTProxy class:
+    
+    - ``command_edge_topic`` - Configurable via ``COMMAND_EDGE_TOPIC`` (default: ``command/edge``)
+    - ``response_topic`` - Configurable via ``RESPONSE_TOPIC`` (default: ``response``)
+    - ``test_topic`` - Configurable via ``TEST_TOPIC`` (default: ``command``)
+    - ``command_web_topic`` - Configurable via ``COMMAND_WEB_TOPIC`` (default: ``command/web``)
+
+  - Topics now read from ``Config`` class enabling direct environment control
+  - Improved deployment flexibility across different MQTT broker configurations
+
+**Developer Benefits:**
+- Simplified MQTT topic customization for different environments
+- Enhanced configuration management without code changes
+- Better separation of configuration from implementation
+
 Version 0.1.43 (2025-11-05) - Hotfix
 ------------------------------------
 
