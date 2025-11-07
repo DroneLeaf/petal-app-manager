@@ -77,7 +77,10 @@ class Config:
         CALLBACK_HOST  = os.environ.get('CALLBACK_HOST', 'localhost')
         CALLBACK_PORT  = int(os.environ.get('CALLBACK_PORT', 3005))
         ENABLE_CALLBACKS = os.environ.get('ENABLE_CALLBACKS', 'true').lower() in ('true', '1', 'yes')
-
+        COMMAND_EDGE_TOPIC = os.environ.get('COMMAND_EDGE_TOPIC', 'command/edge')
+        RESPONSE_TOPIC = os.environ.get('RESPONSE_TOPIC', 'response')
+        TEST_TOPIC = os.environ.get('TEST_TOPIC', 'command')
+        COMMAND_WEB_TOPIC = os.environ.get('COMMAND_WEB_TOPIC', 'command/web')
     # Misc
     class PetalUserJourneyCoordinatorConfig:
         DEBUG_SQUARE_TEST = os.environ.get("DEBUG_SQUARE_TEST", "false").lower() in ("true", "1", "yes")
@@ -115,3 +118,7 @@ class Config:
     CALLBACK_HOST = MQTTConfig.CALLBACK_HOST
     CALLBACK_PORT = MQTTConfig.CALLBACK_PORT
     ENABLE_CALLBACKS = MQTTConfig.ENABLE_CALLBACKS
+    COMMAND_EDGE_TOPIC = MQTTConfig.COMMAND_EDGE_TOPIC
+    RESPONSE_TOPIC = MQTTConfig.RESPONSE_TOPIC
+    TEST_TOPIC = MQTTConfig.TEST_TOPIC
+    COMMAND_WEB_TOPIC = MQTTConfig.COMMAND_WEB_TOPIC

@@ -66,7 +66,11 @@ class MQTTProxy(BaseProxy):
         request_timeout: int = 30,
         max_message_buffer: int = 1000,
         worker_threads: int = 4,
-        worker_sleep_ms: float = 10.0
+        worker_sleep_ms: float = 10.0,
+        command_edge_topic: str = "command/edge",
+        response_topic: str = "response",
+        test_topic: str = "command",
+        command_web_topic: str = "command/web"
     ):
         self.ts_client_host = ts_client_host
         self.ts_client_port = ts_client_port
@@ -95,10 +99,10 @@ class MQTTProxy(BaseProxy):
         self._buffer_lock = threading.Lock()
         
         # Subscription management
-        self.command_edge_topic = "command"
-        self.response_topic = "response"
-        self.debug_topic = "command"
-        self.command_web_topic = "command/web"
+        self.command_edge_topic = command_edge_topic
+        self.response_topic = response_topic
+        self.test_topic = test_topic
+        self.command_web_topic = command_web_topic
         self._handlers: Dict[str, List[Dict[str, str | Callable[[str, Dict[str, Any]], None]]]] = defaultdict(list)
 
         self.subscribed_topics = set()
@@ -598,7 +602,7 @@ class MQTTProxy(BaseProxy):
         topics = [
             self.command_edge_topic,
             self.response_topic,
-            self.debug_topic
+            self.test_topic
         ]
 
         for topic in topics:
