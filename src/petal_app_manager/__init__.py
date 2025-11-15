@@ -89,7 +89,8 @@ class Config:
         ENDPOINT = os.environ.get("MAVLINK_ENDPOINT", "udp:127.0.0.1:14551")
         BAUD = int(os.environ.get("MAVLINK_BAUD", 115200))
         MAXLEN = int(os.environ.get("MAVLINK_MAXLEN", 200))
-        WORKER_SLEEP_MS = int(os.environ.get('MAVLINK_WORKER_SLEEP_MS', 1))
+        WORKER_SLEEP_MS = float(os.environ.get('MAVLINK_WORKER_SLEEP_MS', 1))
+        WORKER_THREADS = int(os.environ.get('MAVLINK_WORKER_THREADS', 4))
         HEARTBEAT_SEND_FREQUENCY = float(os.environ.get('MAVLINK_HEARTBEAT_SEND_FREQUENCY', 5.0))
         ROOT_SD_PATH = os.environ.get('ROOT_SD_PATH', 'fs/microsd/log')
 
@@ -103,6 +104,7 @@ class Config:
     MAVLINK_BAUD = MavLinkConfig.BAUD
     MAVLINK_MAXLEN = MavLinkConfig.MAXLEN
     MAVLINK_WORKER_SLEEP_MS = MavLinkConfig.WORKER_SLEEP_MS
+    MAVLINK_WORKER_THREADS = MavLinkConfig.WORKER_THREADS
     MAVLINK_HEARTBEAT_SEND_FREQUENCY = MavLinkConfig.HEARTBEAT_SEND_FREQUENCY
     ROOT_SD_PATH = MavLinkConfig.ROOT_SD_PATH
 

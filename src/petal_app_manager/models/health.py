@@ -94,8 +94,12 @@ class MavlinkHeartbeatInfo(BaseModel):
 
 class MavlinkWorkerThreadInfo(BaseModel):
     """MAVLink worker thread information."""
-    running: bool
-    thread_alive: bool
+    io_threads_running: bool
+    io_thread_send_alive: bool
+    io_thread_recv_alive: bool
+    worker_threads_running: bool
+    worker_thread_count: int
+    worker_threads_alive: int
 
 class MavlinkSystemInfo(BaseModel):
     """MAVLink system information."""
