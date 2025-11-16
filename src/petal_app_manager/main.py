@@ -1,18 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware  # Add this import
 from fastapi.staticfiles import StaticFiles  # Add this import
-from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy, MQTTProxy
-import petal_app_manager
 
-from .plugins.loader import load_petals
-from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, mqtt_api, config_api, admin_ui
-from . import api
 import logging
 import asyncio
 from typing import Optional
 
-from .logger import setup_logging
-from .organization_manager import get_organization_manager
 from pathlib import Path
 import os
 import dotenv
@@ -23,43 +16,28 @@ import time
 from datetime import datetime
 
 from contextlib import asynccontextmanager
-from . import Config
-from .config import load_proxies_config
 
-def build_app(
-    log_level="INFO", 
-    log_to_file=False, 
-) -> FastAPI:
+def build_app() -> FastAPI:
     """
     Builds the FastAPI application with necessary configurations and proxies.
-
-    Parameters
-    ----------
-    log_level : str, optional
-        The logging level to use, by default "INFO". Options include "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL".
-        This controls the verbosity of the logs.
-        For example, "DEBUG" will log all messages, while "ERROR" will only log error messages.
-        See https://docs.python.org/3/library/logging.html#levels for more details.
-        Note that the log level can also be set via the environment variable `LOG_LEVEL`.
-        If not set, it defaults to "INFO".
-        If you want to set the log level via the environment variable, you can do so by
-        exporting `LOG_LEVEL=DEBUG` in your terminal before running the application.
-        This will override the default log level set in the code.
-    log_to_file : bool, optional
-        Whether to log to a file, by default False.
-        If True, logs will be written to a file specified by `log_file_path`.
-        If False, logs will only be printed to the console.
-        Note that if `log_to_file` is True and `log_file_path` is None, the logs will be written to a default location.
-        The default log file location is `~/.petal-app-manager/logs/app.log`.
-        You can change this default location by setting the `log_file_path` parameter.
-    log_file_path : _type_, optional
-        The path to the log file, by default None.
 
     Returns
     -------
     FastAPI
         The FastAPI application instance with configured routers and proxies.
     """
+
+    from . import Config
+    from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy, MQTTProxy
+    from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, mqtt_api, config_api, admin_ui
+    from . import api
+    from .logger import setup_logging
+    from .organization_manager import get_organization_manager
+    from .config import load_proxies_config
+
+    # Allow configuration through environment variables
+    log_level = Config.PETAL_LOG_LEVEL 
+    log_to_file = Config.PETAL_LOG_TO_FILE
 
     # Set up logging
     logger = setup_logging(
@@ -249,8 +227,6 @@ def build_app(
             # Wait for the configured interval
             await asyncio.sleep(Config.REDIS_HEALTH_MESSAGE_RATE)
     
-
-    
     async def startup_all():
         """Initialize OrganizationManager, then start proxies, then load petals"""
         nonlocal health_publisher_task
@@ -266,7 +242,16 @@ def build_app(
         
         # Step 2: Start proxies after OrganizationManager is ready
         logger.info("Starting proxies...")
-        for proxy_name, proxy in proxies.items():
+        # start MQTT proxy, then Mavlink external proxy then FTP proxies last to ensure they have org info
+        order = {'mqtt': 0, 'ext_mavlink': 1, 'ftp_mavlink': 2}
+
+        sorted_proxies = dict(
+            sorted(
+                proxies.items(),
+                key=lambda kv: (kv[0] in order, order.get(kv[0], 0))
+            )
+        )
+        for proxy_name, proxy in sorted_proxies.items():
             try:
                 await proxy.start()
                 logger.info(f"Started proxy: {proxy_name}")
@@ -289,6 +274,8 @@ def build_app(
         logger.info("=== startup_all() completed successfully ===")
         logger.info("Application should now be ready to receive requests")
     
+    from .plugins.loader import load_petals
+
     async def load_petals_on_startup():
         """Load petals after proxies have been started"""
         nonlocal petals
@@ -308,7 +295,7 @@ def build_app(
                     try:
                         await asyncio.wait_for(
                             _mqtt_aware_petal_startup(petal),
-                            timeout=30.0
+                            timeout=5.0
                         )
                         logger.info(f"Completed MQTT-aware startup for petal: {petal.name}")
                     except asyncio.TimeoutError:
@@ -320,7 +307,7 @@ def build_app(
                     
                 # Standard async startup
                 try:
-                    await asyncio.wait_for(async_startup_method(), timeout=30.0)
+                    await asyncio.wait_for(async_startup_method(), timeout=5.0)
                     logger.info(f"Completed async_startup for petal: {petal.name}")
                 except asyncio.TimeoutError:
                     logger.error(f"Timeout during async_startup for petal: {petal.name}")
@@ -370,7 +357,7 @@ def build_app(
         
         logger.info(f"MQTT-aware startup completed for petal: {petal.name}")
     
-    async def _wait_for_organization_id(mqtt_proxy: MQTTProxy, timeout: float = 60.0, retry_interval: float = 1.0) -> Optional[str]:
+    async def _wait_for_organization_id(mqtt_proxy: MQTTProxy, timeout: float = 5.0, retry_interval: float = 1.0) -> Optional[str]:
         """Wait for organization ID to become available from MQTT proxy."""
         start_time = time.time()
         
@@ -536,11 +523,4 @@ def build_app(
 
     return app
 
-# Allow configuration through environment variables
-log_level = Config.PETAL_LOG_LEVEL
-log_to_file = Config.PETAL_LOG_TO_FILE
-
-app = build_app(
-    log_level=log_level, 
-    log_to_file=log_to_file, 
-)
+app = build_app()

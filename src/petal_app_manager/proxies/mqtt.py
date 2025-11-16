@@ -379,10 +379,14 @@ class MQTTProxy(BaseProxy):
                             self.log.debug(f"No callback for topic: {topic_absolute} with subscription ID {subscription_id}")
                         else:
                             self.log.debug(f"No callback for topic: {topic_absolute} with no subscription ID")
+            else:
+                self.log.debug(f"Received message for unsubscribed topic: {topic_absolute}")
+                time.sleep(self.worker_sleep_ms / 1000.0)
 
         except Exception as e:
             self.log.error(f"Error processing message in worker: {e}")
-
+            time.sleep(self.worker_sleep_ms / 1000.0)
+            
     def _invoke_callback_safely(self, callback: Callable, topic: str, payload: Dict[str, Any]):
         """Safely invoke a callback, handling both sync and async functions."""
         try:
@@ -519,7 +523,7 @@ class MQTTProxy(BaseProxy):
             self.callback_server = server
             server.run()
 
-        self.callback_thread = threading.Thread(target=run_server, daemon=True)
+        self.callback_thread = threading.Thread(target=run_server, daemon=True, name="MQTTCallbackServer")
         self.callback_thread.start()
         
         # Wait a moment for server to start

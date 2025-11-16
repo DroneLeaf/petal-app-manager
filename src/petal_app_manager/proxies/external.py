@@ -134,6 +134,7 @@ class ExternalProxy(BaseProxy):
             sleep_time_ms = 0
 
         self._sleep_time_ms = sleep_time_ms
+        self._sleep_time_reader_ms = sleep_time_ms
         self._send: Dict[str, Deque[Any]] = {}
         self._handlers: Dict[str, List[Callable[[Any], None]]] = (
             defaultdict(list)
@@ -147,6 +148,7 @@ class ExternalProxy(BaseProxy):
         self._message_buffer: Dict[str, Deque[Any]] = defaultdict(lambda: deque(maxlen=maxlen))
         self._message_buffer_configs: Dict[str, Dict[str, Any]] = defaultdict(dict)
         self._message_buffer_locks: Dict[str, threading.Lock] = defaultdict(threading.Lock)
+        self._message_buffer_last_message_index: Dict[str, int] = defaultdict(int)
         self._message_buffer_key_lock = threading.Lock()
 
         # Thread management
@@ -230,6 +232,17 @@ class ExternalProxy(BaseProxy):
         if key in self._dedicated_worker_running:
             self._dedicated_worker_running[key].clear()
             self._stop_dedicated_worker_thread(key)
+
+        # Clean up message buffer and locks
+        with self._message_buffer_key_lock:
+            if key in self._message_buffer:
+                del self._message_buffer[key]
+            if key in self._message_buffer_locks:
+                del self._message_buffer_locks[key]
+            if key in self._message_buffer_last_message_index:
+                del self._message_buffer_last_message_index[key]
+            if key in self._message_buffer_configs:
+                del self._message_buffer_configs[key]
 
     def send(self, key: str, msg: Any, burst_count: Optional[int] = None, 
              burst_interval: Optional[float] = None) -> None:
@@ -398,7 +411,7 @@ class ExternalProxy(BaseProxy):
     def _recv_body(self) -> None:
         """I/O thread body - drains send queues, polls recv, enqueues messages for processing."""
         while self._running.is_set():
-            for key, msg in self._io_read_once(timeout=self._sleep_time_ms/1000.0):                
+            for key, msg in self._io_read_once(timeout=self._sleep_time_reader_ms/1000.0):                
                 # Enqueue to message buffer for worker thread processing
                 self._enqueue_message_to_buffer(key, msg)
 
@@ -478,6 +491,7 @@ class ExternalProxy(BaseProxy):
 
                 for key in keys:
                     if key in self._dedicated_worker_threads:
+                        time.sleep(self._sleep_time_ms / 1000.0)
                         continue  # skip keys not assigned to this worker
                     msg = self._get_next_message_from_buffer(key)
                     if msg is not None:
@@ -493,7 +507,7 @@ class ExternalProxy(BaseProxy):
         """Main loop for dedicated worker thread for a specific key."""
         while self._dedicated_worker_running[key].is_set():
             try:
-                msg = self._get_next_message_from_buffer(key)
+                msg = self._get_next_dedicated_message_from_buffer(key)
                 if msg is not None:
                     self._process_message_with_handlers(key, msg)
                 else:
@@ -524,6 +538,22 @@ class ExternalProxy(BaseProxy):
                     return msg
                 
         return None
+
+    def _get_next_dedicated_message_from_buffer(self, key: str) -> Tuple[Optional[str], Optional[Any]]:
+        """Non-thread-safe method to get next message from buffer for dedicated worker."""
+        dq = self._message_buffer.get(key)
+        lock = self._message_buffer_locks.get(key)
+        index = self._message_buffer_last_message_index.get(key, 0)
+        msg = None
+        if dq:
+            if index < len(dq):
+                msg = dq[index]
+                self._message_buffer_last_message_index[key] = index + 1
+            else:
+                # Reset index if we've processed all messages
+                self._message_buffer_last_message_index[key] = len(dq)
+                    
+        return msg
 
     def _process_message_with_handlers(self, key: str, msg: Any):
         """
@@ -987,11 +1017,10 @@ class MavLinkExternalProxy(ExternalProxy):
         out: List[Tuple[str, Any]] = []
         try:
             while True:
-                with self._mav_lock:
-                    msg = self.master.recv_match(blocking=True, timeout=timeout)
-                    if msg is None:
-                        break
-                
+                msg = self.master.recv_match(blocking=True, timeout=timeout)
+                if msg is None:
+                    break
+            
                 msg_type = msg.get_type()
                 msg_id = msg.get_msgId()
                 
@@ -1337,6 +1366,7 @@ class MavLinkExternalProxy(ExternalProxy):
         timeout: float = 3.0,
         queue_length: Optional[int] = None,
         dedicated: bool = False,
+        cancel_event: Optional[threading.Event] = None,
     ) -> None:
         """
         Transmit *request_msg*, register a handler on *match_key* and keep feeding
@@ -1362,6 +1392,8 @@ class MavLinkExternalProxy(ExternalProxy):
         dedicated :
             If True, use a dedicated handler that won't share packets
             with other handlers for the same match_key.
+        cancel_event :
+            Optional threading.Event that can be set to cancel the wait.
         
         Raises
         ------
@@ -1378,7 +1410,7 @@ class MavLinkExternalProxy(ExternalProxy):
 
         loop = asyncio.get_running_loop()
         done = asyncio.Event()
-
+        
         def _handler(pkt):
             try:
                 if collector(pkt):
@@ -1393,11 +1425,25 @@ class MavLinkExternalProxy(ExternalProxy):
             dedicated_worker = dedicated
         )
 
+        # create an asyncio task to monitor cancel_event if provided
+        if cancel_event is not None:
+            def _cancel_checker():
+                while not done.is_set():
+                    if cancel_event.is_set():
+                        loop.call_soon_threadsafe(done.set)
+                        break
+                    time.sleep(0.1)
+
+            cancel_checker = threading.Thread(target=_cancel_checker, daemon=True)
+            cancel_checker.start()
+
         try:
             await asyncio.wait_for(done.wait(), timeout=timeout)
         except asyncio.TimeoutError:
             raise TimeoutError(f"No reply/condition for {match_key} in {timeout}s")
         finally:
+            if cancel_event is not None:
+                cancel_checker.join(timeout=0.1)
             self.unregister_handler(match_key, _handler)
 
     async def get_log_entries(
@@ -1437,6 +1483,7 @@ class MavLinkExternalProxy(ExternalProxy):
         cancel_event: threading.Event | None = None,
         buffer: Optional[bytearray] = None,
         callback: Optional[Callable[[int], Awaitable[None]]] = None,
+        end_of_buffer_timeout: float = 3.0,
     ) -> bytes:
         """
         Download one log file via LOG_REQUEST_DATA / LOG_DATA.
@@ -1480,6 +1527,9 @@ class MavLinkExternalProxy(ExternalProxy):
 
         LOG_DATA_ID = str(mavutil.mavlink.MAVLINK_MSG_ID_LOG_DATA)
 
+        missed_chunk_details = set()
+        last_details = {"ofs": -1, "count": -1, "time": -1}
+
         def _collector(pkt) -> bool:
             # Ignore LOG_DATA for other log IDs
             if getattr(pkt, "id", None) != log_id:
@@ -1489,11 +1539,19 @@ class MavLinkExternalProxy(ExternalProxy):
             if count < 0:
                 count = 0
 
+            index = int(pkt.id)
             ofs = int(pkt.ofs)
+            expected_ofs = last_details["ofs"] + last_details["count"] if last_details["ofs"] != -1 else 0
+
+            if expected_ofs != -1 and ofs != expected_ofs:
+                self._log.warning(
+                    f"LOG_DATA missed chunk(s): expected ofs={expected_ofs}, got ofs={ofs}"
+                )
+                missed_chunk_details.add((last_details["ofs"], last_details["count"]))
+
 
             # We'll compute finished inside the lock, then call callback outside
             finished = False
-
  
             if count > 0:
                 needed_len = ofs + count
@@ -1503,10 +1561,7 @@ class MavLinkExternalProxy(ExternalProxy):
 
                 bytes_received["val"] = len(buffer)
             # --- Termination logic (inside lock so it's consistent with buf) ---
-            if cancel_event and cancel_event.is_set():
-                # Signal to send_and_wait that we’re done; let higher layer decide it was cancelled.
-                finished = True
-            elif count == 0:
+            if count == 0:
                 # 1) Spec: count == 0 => end-of-log if firmware sends it
                 finished = True
                 completed_event.set() if completed_event else None
@@ -1531,7 +1586,29 @@ class MavLinkExternalProxy(ExternalProxy):
                     self._log.warning(f"Progress callback raised: {exc}")
 
             # No sleep here – it just stalls the reader thread
+            
+            last_details["ofs"] = ofs
+            last_details["count"] = count
+            last_details["time"] = time.time()
+            time.sleep(self._sleep_time_ms / 1000.0)
             return finished
+
+        # create a task to monitor when was the last received chunk
+        async def _monitor_timeout():
+            while True:
+                await asyncio.sleep(1.0)
+                if last_details["time"] != -1:
+                    elapsed = time.time() - last_details["time"]
+                    if elapsed > end_of_buffer_timeout:
+                        self._log.warning(
+                            f"Download of log {log_id} timed out after {elapsed:.1f}s since last chunk"
+                        )
+                        # trigger the done event by setting the cancel_event if provided
+                        if cancel_event:
+                            cancel_event.set()
+                        break
+
+        monitor_task = asyncio.create_task(_monitor_timeout())
 
         # Build a single "give me everything" request
         req = self.build_req_msg_log_data(
@@ -1551,8 +1628,16 @@ class MavLinkExternalProxy(ExternalProxy):
                 collector=_collector,
                 timeout=timeout,
                 queue_length=0,
-                dedicated=True
+                dedicated=True,
+                cancel_event=cancel_event,
             )
+
+        monitor_task.cancel()
+        completed_event.set() if completed_event else None
+        try:
+            await monitor_task
+        except asyncio.CancelledError:
+            pass
 
         return bytes(buffer)
 
@@ -1741,9 +1826,9 @@ class MavLinkFTPProxy(BaseProxy):
         # Start the worker thread first
         await super().start()
 
-        # Initialize parser if connection was successful
-        if self.mavlink_proxy.master:
-            await self._init_parser()
+        # # Initialize parser if connection was successful
+        # if self.mavlink_proxy.master:
+        #     await self._init_parser()
 
     async def stop(self):
         """Stop the worker and close the link."""
