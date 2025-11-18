@@ -110,8 +110,10 @@ class HealthService:
                             px4_heartbeat=MavlinkHeartbeatInfo(connected=False, last_received=0, timeout_threshold=0),
                             leaf_fc_heartbeat=MavlinkHeartbeatInfo(connected=False, last_received=0, timeout_threshold=0),
                             worker_thread=MavlinkWorkerThreadInfo(
-                                io_thread_running=False,
-                                io_thread_alive=False,
+                                io_send_thread_running=False,
+                                io_send_thread_alive=False,
+                                io_recv_thread_alive=False,
+                                io_recv_thread_running=False,
                                 worker_threads_running=False,
                                 worker_thread_count=0,
                                 worker_threads_alive=0
@@ -491,7 +493,8 @@ class HealthService:
                     timeout_threshold=proxy._leaf_fc_heartbeat_timeout
                 ),
                 worker_thread=MavlinkWorkerThreadInfo(
-                    io_threads_running=proxy._running.is_set() if proxy._running else False,
+                    io_thread_send_running=proxy._send_running.is_set() if proxy._send_running else False,
+                    io_thread_recv_running=proxy._recv_running.is_set() if proxy._recv_running else False,
                     io_thread_send_alive=proxy._io_thread_send.is_alive() if proxy._io_thread_send else False,
                     io_thread_recv_alive=proxy._io_thread_recv.is_alive() if proxy._io_thread_recv else False,
                     worker_threads_running=proxy._worker_running.is_set() if proxy._worker_running else False,
@@ -524,8 +527,10 @@ class HealthService:
                     timeout_threshold=0
                 ),
                 worker_thread=MavlinkWorkerThreadInfo(
-                    io_thread_running=False,
-                    io_thread_alive=False,
+                    io_send_thread_running=False,
+                    io_send_thread_alive=False,
+                    io_recv_thread_running=False,
+                    io_recv_thread_alive=False,
                     worker_threads_running=False,
                     worker_thread_count=0,
                     worker_threads_alive=0
