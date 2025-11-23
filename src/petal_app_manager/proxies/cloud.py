@@ -72,7 +72,9 @@ class CloudDBProxy(BaseProxy):
         
         # Validate configuration
         if not self.access_token_url or not self.endpoint:
-            raise ValueError("ACCESS_TOKEN_URL and CLOUD_ENDPOINT must be configured")
+            self.log.error("CloudDBProxy requires access_token_url and endpoint to be configured")
+            self.log.warning("CloudDBProxy will remain inactive until properly configured")
+            return
         
         # Fetch initial credentials to validate configuration
         try:
@@ -80,7 +82,7 @@ class CloudDBProxy(BaseProxy):
             self.log.info("CloudDBProxy started successfully")
         except Exception as e:
             self.log.error(f"Failed to initialize CloudDBProxy: {e}")
-            raise
+            self.log.warning("CloudDBProxy connection failed - operations will retry on demand")
         
     async def stop(self):
         """Clean up resources when shutting down."""

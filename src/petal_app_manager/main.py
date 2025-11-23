@@ -257,7 +257,7 @@ def build_app() -> FastAPI:
                 logger.info(f"Started proxy: {proxy_name}")
             except Exception as e:
                 logger.error(f"Failed to start proxy {proxy_name}: {e}")
-                raise
+                logger.warning(f"Proxy {proxy_name} will retry connection on demand")
         
         # Step 3: Load petals after proxies are started
         await load_petals_on_startup()
@@ -281,54 +281,59 @@ def build_app() -> FastAPI:
         nonlocal petals
         petals.extend(load_petals(app, proxies, logger=loader_logger))
         
+        # Get petal dependencies from YAML
+        petal_dependencies = proxies_config.get("petal_dependencies", {})
+        
         # Call async_startup method for petals that support it
         for petal in petals:
             async_startup_method = getattr(petal, 'async_startup', None)
             if async_startup_method and asyncio.iscoroutinefunction(async_startup_method):
                 logger.info(f"Starting async_startup for petal: {petal.name}")
                 
-                # Check if petal uses MQTT proxy
-                use_mqtt_proxy = getattr(petal, 'use_mqtt_proxy', False)
+                # Get petal's dependencies from YAML
+                petal_deps = petal_dependencies.get(petal.name, [])
+                uses_mqtt = 'mqtt' in petal_deps
+                uses_cloud = 'cloud' in petal_deps
                 
-                if use_mqtt_proxy:
-                    logger.info(f"Petal {petal.name} uses MQTT proxy, setting up MQTT-aware startup...")
+                # Set the event loop for safe task creation
+                try:
+                    petal._loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    petal._loop = asyncio.get_event_loop()
+                
+                # Handle MQTT proxy dependency
+                if uses_mqtt:
+                    logger.info(f"Petal {petal.name} depends on MQTT proxy, setting up MQTT-aware startup...")
                     try:
-                        await asyncio.wait_for(
-                            _mqtt_aware_petal_startup(petal),
-                            timeout=5.0
-                        )
-                        logger.info(f"Completed MQTT-aware startup for petal: {petal.name}")
-                    except asyncio.TimeoutError:
-                        logger.error(f"Timeout during MQTT-aware startup for petal: {petal.name}")
-                        raise
+                        await _setup_mqtt_for_petal(petal)
+                        logger.info(f"Completed MQTT setup for petal: {petal.name}")
                     except Exception as e:
-                        logger.error(f"Error during MQTT-aware startup for petal {petal.name}: {e}")
-                        raise
+                        logger.error(f"Error during MQTT setup for petal {petal.name}: {e}")
+                        logger.warning(f"MQTT setup will continue in background for petal {petal.name}")
+                
+                # Handle Cloud proxy dependency
+                if uses_cloud:
+                    logger.info(f"Petal {petal.name} depends on Cloud proxy, setting up Cloud-aware startup...")
+                    try:
+                        await _setup_cloud_for_petal(petal)
+                        logger.info(f"Completed Cloud setup for petal: {petal.name}")
+                    except Exception as e:
+                        logger.error(f"Error during Cloud setup for petal {petal.name}: {e}")
+                        logger.warning(f"Cloud setup will continue in background for petal {petal.name}")
                     
                 # Standard async startup
                 try:
-                    await asyncio.wait_for(async_startup_method(), timeout=5.0)
+                    await async_startup_method()
                     logger.info(f"Completed async_startup for petal: {petal.name}")
-                except asyncio.TimeoutError:
-                    logger.error(f"Timeout during async_startup for petal: {petal.name}")
-                    raise
                 except Exception as e:
                     logger.error(f"Error during async_startup for petal {petal.name}: {e}")
-                    raise
+                    logger.warning(f"Petal {petal.name} async_startup failed, but server will continue")
         
         # Note: Petal shutdown is handled centrally in shutdown_all, not via individual event handlers
     
-    async def _mqtt_aware_petal_startup(petal):
-        """Handle startup for petals that use MQTT proxy with organization ID monitoring."""
-        logger.info(f"Starting MQTT-aware startup for petal: {petal.name}")
-        
-        # Set the event loop for safe task creation
-        try:
-            petal._loop = asyncio.get_running_loop()
-            logger.info(f"Event loop set for petal: {petal.name}")
-        except RuntimeError:
-            petal._loop = asyncio.get_event_loop()
-            logger.info(f"Using fallback event loop for petal: {petal.name}")
+    async def _setup_mqtt_for_petal(petal):
+        """Setup MQTT proxy for petal with organization ID monitoring and retry logic."""
+        logger.info(f"Setting up MQTT for petal: {petal.name}")
         
         mqtt_proxy = proxies.get('mqtt')
         if not mqtt_proxy:
@@ -337,71 +342,183 @@ def build_app() -> FastAPI:
         
         # Try to get organization ID
         logger.info(f"Checking for organization ID availability for petal {petal.name}...")
-        organization_id = await _wait_for_organization_id(mqtt_proxy, timeout=5.0)
-        logger.info(f"Organization ID check completed for {petal.name}, result: {organization_id}")
+        organization_id = mqtt_proxy._get_organization_id()
         
         if organization_id:
-            logger.info(f"Organization ID available: {organization_id}, setting up MQTT topics for {petal.name}...")
+            # Organization ID is available
+            logger.info(f"Organization ID available: {organization_id}")
             
-            # Call petal's _setup_mqtt_topics if it exists
+            # Try to start/reconnect MQTT proxy if not connected
+            if not mqtt_proxy.is_connected:
+                logger.info(f"MQTT proxy not connected, attempting to start...")
+                try:
+                    # Add timeout to prevent freezing
+                    await asyncio.wait_for(mqtt_proxy.start(), timeout=5.0)
+                    logger.info(f"MQTT proxy started successfully for petal {petal.name}")
+                except asyncio.TimeoutError:
+                    logger.error(f"Timeout waiting for MQTT proxy to start")
+                    logger.info(f"Starting MQTT monitoring task for petal {petal.name}...")
+                    petal._loop.create_task(_monitor_mqtt_connection(petal, mqtt_proxy))
+                    return
+                except Exception as e:
+                    logger.error(f"Failed to start MQTT proxy: {e}")
+                    logger.info(f"Starting MQTT monitoring task for petal {petal.name}...")
+                    petal._loop.create_task(_monitor_mqtt_connection(petal, mqtt_proxy))
+                    return
+            
+            # Setup MQTT topics for petal
             setup_mqtt_topics_method = getattr(petal, '_setup_mqtt_topics', None)
             if setup_mqtt_topics_method and asyncio.iscoroutinefunction(setup_mqtt_topics_method):
                 await setup_mqtt_topics_method()
                 logger.info(f"MQTT topics setup completed for petal: {petal.name}")
             else:
-                logger.warning(f"Petal {petal.name} has use_mqtt_proxy=True but no _setup_mqtt_topics method")
+                logger.debug(f"Petal {petal.name} has no _setup_mqtt_topics method")
         else:
-            logger.info(f"Organization ID not yet available for {petal.name}, will set up topics when it becomes available")
-            await _start_organization_id_monitoring(petal, mqtt_proxy)
-            logger.info(f"Organization ID monitoring started for petal: {petal.name}")
+            # Organization ID not available yet - start monitoring
+            logger.info(f"Organization ID not yet available for {petal.name}, starting monitoring task...")
+            petal._loop.create_task(_monitor_mqtt_connection(petal, mqtt_proxy))
         
-        logger.info(f"MQTT-aware startup completed for petal: {petal.name}")
+        logger.info(f"MQTT setup completed for petal: {petal.name}")
     
-    async def _wait_for_organization_id(mqtt_proxy: MQTTProxy, timeout: float = 5.0, retry_interval: float = 1.0) -> Optional[str]:
-        """Wait for organization ID to become available from MQTT proxy."""
-        start_time = time.time()
+    async def _setup_cloud_for_petal(petal):
+        """Setup Cloud proxy for petal with organization ID monitoring and retry logic."""
+        logger.info(f"Setting up Cloud proxy for petal: {petal.name}")
         
-        while time.time() - start_time < timeout:
-            organization_id = mqtt_proxy._get_organization_id()
-            if organization_id:
-                return organization_id
+        cloud_proxy = proxies.get('cloud')
+        if not cloud_proxy:
+            logger.warning(f"Cloud proxy not available for petal {petal.name}, skipping Cloud setup")
+            return
+        
+        org_manager = get_organization_manager()
+        organization_id = org_manager.organization_id
+        
+        if organization_id:
+            # Organization ID is available - try to connect to cloud
+            logger.info(f"Organization ID available: {organization_id}")
             
-            logger.debug(f"Organization ID not yet available, retrying in {retry_interval}s...")
-            await asyncio.sleep(retry_interval)
+            try:
+                # Try to get access token to verify connection (with timeout)
+                await asyncio.wait_for(cloud_proxy._get_access_token(), timeout=5.0)
+                logger.info(f"Cloud proxy connection verified for petal {petal.name}")
+                
+                # Setup cloud-specific petal functionality if needed
+                setup_cloud_method = getattr(petal, '_setup_cloud', None)
+                if setup_cloud_method and asyncio.iscoroutinefunction(setup_cloud_method):
+                    await setup_cloud_method()
+                    logger.info(f"Cloud setup completed for petal: {petal.name}")
+                else:
+                    logger.debug(f"Petal {petal.name} has no _setup_cloud method")
+                    
+            except asyncio.TimeoutError:
+                logger.error(f"Timeout waiting for Cloud proxy connection")
+                logger.info(f"Starting Cloud monitoring task for petal {petal.name}...")
+                petal._loop.create_task(_monitor_cloud_connection(petal, cloud_proxy))
+            except Exception as e:
+                logger.error(f"Failed to connect to Cloud proxy: {e}")
+                logger.info(f"Starting Cloud monitoring task for petal {petal.name}...")
+                petal._loop.create_task(_monitor_cloud_connection(petal, cloud_proxy))
+        else:
+            # Organization ID not available yet - start monitoring
+            logger.info(f"Organization ID not yet available for {petal.name}, starting Cloud monitoring task...")
+            petal._loop.create_task(_monitor_cloud_connection(petal, cloud_proxy))
         
-        logger.warning(f"Timeout waiting for organization ID after {timeout}s")
-        return None
+        logger.info(f"Cloud setup completed for petal: {petal.name}")
     
-    async def _start_organization_id_monitoring(petal, mqtt_proxy: MQTTProxy):
-        """Start monitoring for organization ID availability for a petal."""
-        if hasattr(petal, '_loop') and petal._loop:
-            petal._loop.create_task(_monitor_organization_id(petal, mqtt_proxy))
-    
-    async def _monitor_organization_id(petal, mqtt_proxy: MQTTProxy):
-        """Monitor for organization ID and set up topics when it becomes available."""
-        logger.info(f"Starting organization ID monitoring for petal: {petal.name}")
+    async def _monitor_mqtt_connection(petal, mqtt_proxy: MQTTProxy):
+        """Monitor MQTT connection and retry when organization ID becomes available."""
+        logger.info(f"Starting MQTT connection monitoring for petal: {petal.name}")
+        retry_interval = 10.0
         
         while True:
             try:
-                await asyncio.sleep(10.0)
+                await asyncio.sleep(retry_interval)
                 
+                # Check if organization ID is now available
                 organization_id = mqtt_proxy._get_organization_id()
-                if organization_id:
-                    logger.info(f"Organization ID became available: {organization_id}, setting up MQTT topics for {petal.name}...")
-                    
-                    # Call petal's _setup_mqtt_topics if it exists
-                    setup_mqtt_topics_method = getattr(petal, '_setup_mqtt_topics', None)
-                    if setup_mqtt_topics_method and asyncio.iscoroutinefunction(setup_mqtt_topics_method):
-                        await setup_mqtt_topics_method()
-                        logger.info(f"MQTT topics setup completed for petal: {petal.name}")
-                    else:
-                        logger.warning(f"Petal {petal.name} has no _setup_mqtt_topics method")
-                    
-                    break
+                if not organization_id:
+                    logger.debug(f"Organization ID still not available for {petal.name}, waiting...")
+                    continue
+                
+                # Organization ID is available - try to start MQTT if not connected
+                if not mqtt_proxy.is_connected:
+                    logger.info(f"Organization ID available: {organization_id}, attempting to start MQTT proxy...")
+                    try:
+                        await asyncio.wait_for(mqtt_proxy.start(), timeout=5.0)
+                        logger.info(f"MQTT proxy started successfully for petal {petal.name}")
+                    except asyncio.TimeoutError:
+                        logger.error(f"Timeout starting MQTT proxy for {petal.name}")
+                        logger.info(f"Will retry in {retry_interval}s...")
+                        continue
+                    except Exception as e:
+                        logger.error(f"Failed to start MQTT proxy for {petal.name}: {e}")
+                        logger.info(f"Will retry in {retry_interval}s...")
+                        continue
+                
+                # MQTT is connected - setup topics
+                logger.info(f"Setting up MQTT topics for petal {petal.name}...")
+                setup_mqtt_topics_method = getattr(petal, '_setup_mqtt_topics', None)
+                if setup_mqtt_topics_method and asyncio.iscoroutinefunction(setup_mqtt_topics_method):
+                    await setup_mqtt_topics_method()
+                    logger.info(f"MQTT topics setup completed for petal: {petal.name}")
+                else:
+                    logger.debug(f"Petal {petal.name} has no _setup_mqtt_topics method")
+                
+                # Success - exit monitoring loop
+                logger.info(f"MQTT connection monitoring completed for petal: {petal.name}")
+                break
                     
             except Exception as e:
-                logger.error(f"Error monitoring organization ID for petal {petal.name}: {e}")
-                await asyncio.sleep(10.0)
+                logger.error(f"Error in MQTT connection monitoring for petal {petal.name}: {e}")
+                logger.info(f"Will retry in {retry_interval}s...")
+                await asyncio.sleep(retry_interval)
+    
+    async def _monitor_cloud_connection(petal, cloud_proxy):
+        """Monitor Cloud connection and retry when organization ID becomes available."""
+        logger.info(f"Starting Cloud connection monitoring for petal: {petal.name}")
+        retry_interval = 10.0
+        
+        while True:
+            try:
+                await asyncio.sleep(retry_interval)
+                
+                # Check if organization ID is now available
+                org_manager = get_organization_manager()
+                organization_id = org_manager.organization_id
+                if not organization_id:
+                    logger.debug(f"Organization ID still not available for {petal.name}, waiting...")
+                    continue
+                
+                # Organization ID is available - try to connect to cloud
+                logger.info(f"Organization ID available: {organization_id}, attempting to connect to Cloud proxy...")
+                try:
+                    await asyncio.wait_for(cloud_proxy._get_access_token(), timeout=5.0)
+                    logger.info(f"Cloud proxy connection established for petal {petal.name}")
+                except asyncio.TimeoutError:
+                    logger.error(f"Timeout connecting to Cloud proxy for {petal.name}")
+                    logger.info(f"Will retry in {retry_interval}s...")
+                    continue
+                except Exception as e:
+                    logger.error(f"Failed to connect to Cloud proxy for {petal.name}: {e}")
+                    logger.info(f"Will retry in {retry_interval}s...")
+                    continue
+                
+                # Cloud is connected - setup cloud functionality
+                logger.info(f"Setting up Cloud for petal {petal.name}...")
+                setup_cloud_method = getattr(petal, '_setup_cloud', None)
+                if setup_cloud_method and asyncio.iscoroutinefunction(setup_cloud_method):
+                    await setup_cloud_method()
+                    logger.info(f"Cloud setup completed for petal: {petal.name}")
+                else:
+                    logger.debug(f"Petal {petal.name} has no _setup_cloud method")
+                
+                # Success - exit monitoring loop
+                logger.info(f"Cloud connection monitoring completed for petal: {petal.name}")
+                break
+                    
+            except Exception as e:
+                logger.error(f"Error in Cloud connection monitoring for petal {petal.name}: {e}")
+                logger.info(f"Will retry in {retry_interval}s...")
+                await asyncio.sleep(retry_interval)
 
     async def shutdown_petals():
         """Shutdown petals gracefully"""

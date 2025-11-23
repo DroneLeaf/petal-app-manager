@@ -1,7 +1,7 @@
 enabled_petals:
 - flight_records
 - petal_warehouse
-- mission_planner
+# - mission_planner
 - petal_user_journey_coordinator
 enabled_proxies:
 - mqtt
@@ -22,6 +22,7 @@ petal_dependencies:
   flight_records:
   - redis
   - cloud
+  - mqtt
   mission_planner:
   - redis
   - ext_mavlink
