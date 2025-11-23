@@ -156,7 +156,8 @@ class MQTTProxy(BaseProxy):
             if organization_id:
                 self.log.info("Organization ID available, subscribing to device topics...")
                 try:
-                    await asyncio.wait_for(self._subscribe_to_device_topics(), timeout=5.0)
+                    from .. import Config
+                    await asyncio.wait_for(self._subscribe_to_device_topics(), timeout=Config.MQTT_SUBSCRIBE_TIMEOUT)
                 except asyncio.TimeoutError:
                     self.log.warning("Timeout subscribing to device topics during startup")
                 except Exception as e:

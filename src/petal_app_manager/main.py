@@ -353,7 +353,7 @@ def build_app() -> FastAPI:
                 logger.info(f"MQTT proxy not connected, attempting to start...")
                 try:
                     # Add timeout to prevent freezing
-                    await asyncio.wait_for(mqtt_proxy.start(), timeout=5.0)
+                    await asyncio.wait_for(mqtt_proxy.start(), timeout=Config.MQTT_STARTUP_TIMEOUT)
                     logger.info(f"MQTT proxy started successfully for petal {petal.name}")
                 except asyncio.TimeoutError:
                     logger.error(f"Timeout waiting for MQTT proxy to start")
@@ -398,7 +398,7 @@ def build_app() -> FastAPI:
             
             try:
                 # Try to get access token to verify connection (with timeout)
-                await asyncio.wait_for(cloud_proxy._get_access_token(), timeout=5.0)
+                await asyncio.wait_for(cloud_proxy._get_access_token(), timeout=Config.CLOUD_STARTUP_TIMEOUT)
                 logger.info(f"Cloud proxy connection verified for petal {petal.name}")
                 
                 # Setup cloud-specific petal functionality if needed
@@ -427,7 +427,7 @@ def build_app() -> FastAPI:
     async def _monitor_mqtt_connection(petal, mqtt_proxy: MQTTProxy):
         """Monitor MQTT connection and retry when organization ID becomes available."""
         logger.info(f"Starting MQTT connection monitoring for petal: {petal.name}")
-        retry_interval = 10.0
+        retry_interval = Config.MQTT_RETRY_INTERVAL
         
         while True:
             try:
@@ -443,7 +443,7 @@ def build_app() -> FastAPI:
                 if not mqtt_proxy.is_connected:
                     logger.info(f"Organization ID available: {organization_id}, attempting to start MQTT proxy...")
                     try:
-                        await asyncio.wait_for(mqtt_proxy.start(), timeout=5.0)
+                        await asyncio.wait_for(mqtt_proxy.start(), timeout=Config.MQTT_STARTUP_TIMEOUT)
                         logger.info(f"MQTT proxy started successfully for petal {petal.name}")
                     except asyncio.TimeoutError:
                         logger.error(f"Timeout starting MQTT proxy for {petal.name}")
@@ -475,7 +475,7 @@ def build_app() -> FastAPI:
     async def _monitor_cloud_connection(petal, cloud_proxy):
         """Monitor Cloud connection and retry when organization ID becomes available."""
         logger.info(f"Starting Cloud connection monitoring for petal: {petal.name}")
-        retry_interval = 10.0
+        retry_interval = Config.CLOUD_RETRY_INTERVAL
         
         while True:
             try:
@@ -491,7 +491,7 @@ def build_app() -> FastAPI:
                 # Organization ID is available - try to connect to cloud
                 logger.info(f"Organization ID available: {organization_id}, attempting to connect to Cloud proxy...")
                 try:
-                    await asyncio.wait_for(cloud_proxy._get_access_token(), timeout=5.0)
+                    await asyncio.wait_for(cloud_proxy._get_access_token(), timeout=Config.CLOUD_STARTUP_TIMEOUT)
                     logger.info(f"Cloud proxy connection established for petal {petal.name}")
                 except asyncio.TimeoutError:
                     logger.error(f"Timeout connecting to Cloud proxy for {petal.name}")

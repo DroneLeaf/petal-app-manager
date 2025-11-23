@@ -98,6 +98,17 @@ class Config:
         LEVEL = os.environ.get("PETAL_LOG_LEVEL", "INFO").upper()
         TO_FILE = os.environ.get("PETAL_LOG_TO_FILE", "true").lower() in ("true", "1", "yes")
 
+    # Proxy connection configuration
+    class ProxyConfig:
+        # Retry intervals for proxy connection monitoring (seconds)
+        MQTT_RETRY_INTERVAL = float(os.environ.get('MQTT_RETRY_INTERVAL', 10.0))
+        CLOUD_RETRY_INTERVAL = float(os.environ.get('CLOUD_RETRY_INTERVAL', 10.0))
+        
+        # Timeouts for proxy startup operations (seconds)
+        MQTT_STARTUP_TIMEOUT = float(os.environ.get('MQTT_STARTUP_TIMEOUT', 5.0))
+        CLOUD_STARTUP_TIMEOUT = float(os.environ.get('CLOUD_STARTUP_TIMEOUT', 5.0))
+        MQTT_SUBSCRIBE_TIMEOUT = float(os.environ.get('MQTT_SUBSCRIBE_TIMEOUT', 5.0))
+
     # ------- Backward-compatibility aliases (class attributes, not @property) -------
     # Accessing Config.MAVLINK_BAUD (etc.) now returns an int/str directly.
     MAVLINK_ENDPOINT = MavLinkConfig.ENDPOINT
@@ -124,3 +135,9 @@ class Config:
     RESPONSE_TOPIC = MQTTConfig.RESPONSE_TOPIC
     TEST_TOPIC = MQTTConfig.TEST_TOPIC
     COMMAND_WEB_TOPIC = MQTTConfig.COMMAND_WEB_TOPIC
+
+    MQTT_RETRY_INTERVAL = ProxyConfig.MQTT_RETRY_INTERVAL
+    CLOUD_RETRY_INTERVAL = ProxyConfig.CLOUD_RETRY_INTERVAL
+    MQTT_STARTUP_TIMEOUT = ProxyConfig.MQTT_STARTUP_TIMEOUT
+    CLOUD_STARTUP_TIMEOUT = ProxyConfig.CLOUD_STARTUP_TIMEOUT
+    MQTT_SUBSCRIBE_TIMEOUT = ProxyConfig.MQTT_SUBSCRIBE_TIMEOUT
