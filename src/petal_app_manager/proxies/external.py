@@ -403,6 +403,9 @@ class ExternalProxy(BaseProxy):
                     pending[key].append(dq.popleft())
             if pending:
                 self._io_write_once(pending)
+            else:
+                # Sleep briefly if there's nothing to send to avoid busy-waiting
+                time.sleep(self._sleep_time_ms / 1000.0)
 
     def _recv_body(self) -> None:
         """I/O thread body - drains send queues, polls recv, enqueues messages for processing."""
@@ -447,13 +450,22 @@ class ExternalProxy(BaseProxy):
         while self._worker_running.is_set():
             try:
                 keys = list(self._message_buffer.keys())
-
+                
+                if not keys:
+                    # No keys to process, sleep to avoid busy-waiting
+                    time.sleep(self._sleep_time_ms / 1000.0)
+                    continue
+                
+                processed_any = False
                 for key in keys:
                     msg = self._get_next_message_from_buffer(key)
                     if msg is not None:
                         self._process_message_with_handlers(key, msg)
-                    else:
-                        time.sleep(self._sleep_time_ms / 1000.0)
+                        processed_any = True
+                
+                # If we didn't process any messages, sleep to avoid busy-waiting
+                if not processed_any:
+                    time.sleep(self._sleep_time_ms / 1000.0)
                         
             except Exception as e:
                 self._log.error(f"Error in worker thread: {e}")
