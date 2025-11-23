@@ -398,6 +398,263 @@ MAVLink Connection Issues
 
         pdm list | grep pymavlink
 
+MAVLink Submodule Branch Issues (SITL)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Symptoms:**
+
+- Fresh HEAR-CLI installation in SITL environment
+- ``mavlink`` repository and its ``pymavlink`` submodule pointing to ``main`` branch instead of ``dev-sitl``
+- MAVLink functionality may not work as expected with latest development features
+- Version mismatch between MAVLink libraries and Petal App Manager expectations
+
+**Cause:**
+
+After fresh installation using HEAR-CLI, the MAVLink repository (located at ``~/petal-app-manager-dev/mavlink``) and its ``pymavlink`` submodule default to the ``main`` branch. The HEAR-CLI installation script doesn't force checkout of the correct branch if the MAVLink repository already exists on the system, causing the repository and its submodules to remain on whatever branch they were previously on.
+
+**Repository Structure:**
+
+.. code-block:: text
+
+    ~/petal-app-manager-dev/
+    ├── petal-app-manager/      # Main Petal App Manager repo
+    └── mavlink/                 # MAVLink repository
+        └── pymavlink/           # pymavlink as a submodule of mavlink
+
+**Expected Behavior:**
+
+Both the ``mavlink`` repository and its ``pymavlink`` submodule should be on the ``dev-sitl`` branch for SITL development environments.
+
+**Solutions:**
+
+**Quick Fix (Manual Branch Correction):**
+
+1. **Navigate to the MAVLink directory:**
+
+    .. code-block:: bash
+
+        cd ~/petal-app-manager-dev/mavlink
+
+2. **Check current branches:**
+
+    .. code-block:: bash
+
+        # Check mavlink repo branch
+        git branch
+        
+        # Check pymavlink submodule branch
+        cd pymavlink && git branch && cd ..
+
+3. **Checkout correct branches:**
+
+    .. code-block:: bash
+
+        # For the mavlink repository
+        git checkout dev-sitl
+        
+        # For the pymavlink submodule
+        cd pymavlink
+        git checkout dev-sitl
+        cd ..
+
+4. **Update submodules:**
+
+    .. code-block:: bash
+
+        git submodule update --init --recursive
+
+**Clean Reinstall (Recommended):**
+
+If you encounter persistent branch issues, perform a clean reinstall:
+
+1. **Remove existing MAVLink directory:**
+
+    .. code-block:: bash
+
+        rm -rf ~/petal-app-manager-dev/mavlink
+
+2. **Rerun HEAR-CLI installation:**
+
+    For SITL/x86_64:
+
+    .. code-block:: bash
+
+        hear-cli local_machine run_program --p petal_app_manager_prepare_sitl
+
+    For ARM devices:
+
+    .. code-block:: bash
+
+        hear-cli local_machine run_program --p petal_app_manager_prepare_arm
+
+3. **Verify branches after installation:**
+
+    .. code-block:: bash
+
+        cd ~/petal-app-manager-dev/mavlink
+        echo "MAVLink repo branch: $(git branch --show-current)"
+        echo "pymavlink submodule branch: $(cd pymavlink && git branch --show-current)"
+        cd mavlink && git branch && cd ..
+
+**Verification:**
+
+Confirm the MAVLink repository and its submodule are on the correct branches:
+
+.. code-block:: bash
+
+    cd ~/petal-app-manager-dev/mavlink
+    echo "MAVLink repo branch: $(git branch --show-current)"
+    echo "pymavlink submodule branch: $(cd pymavlink && git branch --show-current)"
+
+Expected output for SITL:
+
+.. code-block:: text
+
+    MAVLink repo branch: dev-sitl
+    pymavlink submodule branch: dev-sitl
+
+.. note::
+
+    **HEAR-CLI Limitation:** The current HEAR-CLI installation script does not clear the MAVLink repository if it already exists on the system. This means:
+    
+    - If ``~/petal-app-manager-dev/mavlink`` already exists, the clone step is skipped
+    - Existing branch configurations are not updated
+    - The ``pymavlink`` submodule may remain on an incorrect branch
+    
+    **Recommended HEAR-CLI Enhancement:** The installation script should either:
+    
+    1. Remove the existing MAVLink directory before cloning, OR
+    2. Explicitly checkout the ``dev-sitl`` branch and update submodules after checking for existence
+
+MQTT Issues
+-----------
+
+MQTT Proxy Fails on Fresh Installation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Symptoms:**
+
+- Petal App Manager fails to start in development environment
+- MQTT proxy shows errors or remains unhealthy
+- Application logs show MQTT connection failures
+- Service fails to start after fresh installation
+
+**Cause:**
+
+On a fresh installation, the MQTT proxy requires organization provisioning to be completed before it can connect properly. Without provisioning, the MQTT proxy lacks necessary organization and device identifiers.
+
+**Solutions:**
+
+**Development Environment:**
+
+1. **Start Petal App Manager manually (ignore MQTT errors initially):**
+
+    .. code-block:: bash
+
+        cd ~/petal-app-manager-dev/petal-app-manager
+        uvicorn petal_app_manager.main:app --reload --port 9000
+
+2. **Complete local provisioning steps:**
+
+   - Open ``http://localhost:80`` in your browser
+   - Follow the provisioning wizard
+   - Use ``fly.droneleaf.io`` to generate the API key when prompted
+   - Complete the additional provisioning steps shown in the localhost interface
+
+3. **Restart Petal App Manager:**
+
+    .. code-block:: bash
+
+        # Stop with Ctrl+C and restart
+        uvicorn petal_app_manager.main:app --reload --port 9000
+
+4. **Complete cloud provisioning:**
+
+   - Finish any remaining provisioning steps on ``fly.droneleaf.io``
+   - Verify the device appears in the cloud dashboard
+
+**Production/Service Environment:**
+
+.. warning::
+
+    **Known Concern:** When running as a systemd service on a fresh installation, the service may fail to start or repeatedly restart due to MQTT provisioning requirements. This behavior needs further investigation.
+
+**Workaround for Service Deployment:**
+
+1. **Temporarily disable MQTT proxy during initial setup:**
+
+    .. code-block:: bash
+
+        cd ~/.droneleaf/petal-app-manager
+        nano proxies.yaml
+
+    Comment out or remove ``mqtt`` from ``enabled_proxies``:
+
+    .. code-block:: yaml
+
+        enabled_proxies:
+        # - mqtt  # Temporarily disabled for provisioning
+        - redis
+        - ext_mavlink
+        - db
+
+2. **Start the service:**
+
+    .. code-block:: bash
+
+        sudo systemctl start petal-app-manager
+        sudo systemctl status petal-app-manager
+
+3. **Complete provisioning via web interface**
+
+4. **Re-enable MQTT proxy:**
+
+    .. code-block:: bash
+
+        nano ~/.droneleaf/petal-app-manager/proxies.yaml
+
+    Uncomment ``mqtt`` in ``enabled_proxies``:
+
+    .. code-block:: yaml
+
+        enabled_proxies:
+        - mqtt  # Re-enabled after provisioning
+        - redis
+        - ext_mavlink
+        - db
+
+5. **Restart the service:**
+
+    .. code-block:: bash
+
+        sudo systemctl restart petal-app-manager
+
+**Alternative: Pre-provision Before Service Installation**
+
+1. Run Petal App Manager manually first
+2. Complete all provisioning steps
+3. Stop manual instance
+4. Install and start as service
+
+**Verification:**
+
+Check MQTT proxy health after provisioning:
+
+.. code-block:: bash
+
+    curl http://localhost:9000/health/detailed | jq '.proxies.mqtt'
+
+Expected healthy output:
+
+.. code-block:: json
+
+    {
+      "status": "healthy",
+      "is_connected": true,
+      "organization_id": "your-org-id",
+      "device_id": "Instance-your-machine-id"
+    }
+
 Port Conflicts
 --------------
 

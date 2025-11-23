@@ -761,11 +761,25 @@ async def test_message_processing_concurrency(proxy: MQTTProxy):
         payload={"message": "concurrent_test"}
     )
     
+    # Store futures from callback invocations
+    callback_futures = []
+    original_invoke = proxy._invoke_callback_safely
+    
+    def wrapped_invoke(callback, topic, payload):
+        if asyncio.iscoroutinefunction(callback):
+            future = asyncio.run_coroutine_threadsafe(callback(topic, payload), proxy._loop)
+            callback_futures.append(future)
+        else:
+            original_invoke(callback, topic, payload)
+    
+    proxy._invoke_callback_safely = wrapped_invoke
+    
     # Process message in worker context
     proxy._process_message_in_worker(message)
     
-    # Give async callbacks time to execute
-    await asyncio.sleep(0.2)
+    # Wait for all callback futures to complete
+    for future in callback_futures:
+        await asyncio.wrap_future(future)
     
     # Verify all handlers were called (5 handlers = 5 messages received)
     assert len(messages_received) == 5
