@@ -355,6 +355,7 @@ Both HEAR-CLI methods automatically create a ``.env`` file. For manual setups, c
    CALLBACK_PORT=3005
    POLL_INTERVAL=1.0
    ENABLE_CALLBACKS=true
+   MQTT_HEALTH_CHECK_INTERVAL=10.0
    # Proxy connection retry configuration
    MQTT_RETRY_INTERVAL=10.0
    CLOUD_RETRY_INTERVAL=10.0

@@ -81,6 +81,7 @@ class Config:
         RESPONSE_TOPIC = os.environ.get('RESPONSE_TOPIC', 'response')
         TEST_TOPIC = os.environ.get('TEST_TOPIC', 'command')
         COMMAND_WEB_TOPIC = os.environ.get('COMMAND_WEB_TOPIC', 'command/web')
+        HEALTH_CHECK_INTERVAL = float(os.environ.get('MQTT_HEALTH_CHECK_INTERVAL', 10.0))
     # Misc
     class PetalUserJourneyCoordinatorConfig:
         DEBUG_SQUARE_TEST = os.environ.get("DEBUG_SQUARE_TEST", "false").lower() in ("true", "1", "yes")
@@ -135,6 +136,7 @@ class Config:
     RESPONSE_TOPIC = MQTTConfig.RESPONSE_TOPIC
     TEST_TOPIC = MQTTConfig.TEST_TOPIC
     COMMAND_WEB_TOPIC = MQTTConfig.COMMAND_WEB_TOPIC
+    MQTT_HEALTH_CHECK_INTERVAL = MQTTConfig.HEALTH_CHECK_INTERVAL
 
     MQTT_RETRY_INTERVAL = ProxyConfig.MQTT_RETRY_INTERVAL
     CLOUD_RETRY_INTERVAL = ProxyConfig.CLOUD_RETRY_INTERVAL

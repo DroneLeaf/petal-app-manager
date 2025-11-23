@@ -218,6 +218,7 @@ COMMAND_EDGE_TOPIC=command/edge
 RESPONSE_TOPIC=response
 TEST_TOPIC=command
 COMMAND_WEB_TOPIC=command/web
+MQTT_HEALTH_CHECK_INTERVAL=10.0
 # Petal User Journey Coordinator configuration
 DEBUG_SQUARE_TEST=false
 EOF

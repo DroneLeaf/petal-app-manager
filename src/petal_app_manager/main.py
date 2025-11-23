@@ -131,6 +131,7 @@ def build_app() -> FastAPI:
                         response_topic=Config.RESPONSE_TOPIC,
                         test_topic=Config.TEST_TOPIC,
                         command_web_topic=Config.COMMAND_WEB_TOPIC,
+                        health_check_interval=Config.MQTT_HEALTH_CHECK_INTERVAL,
                     )
                 elif proxy_name == "cloud":
                     proxies["cloud"] = CloudDBProxy(
@@ -439,22 +440,27 @@ def build_app() -> FastAPI:
                     logger.debug(f"Organization ID still not available for {petal.name}, waiting...")
                     continue
                 
-                # Organization ID is available - try to start MQTT if not connected
+                # Organization ID is available - try to subscribe to device topics (connection attempt)
                 if not mqtt_proxy.is_connected:
-                    logger.info(f"Organization ID available: {organization_id}, attempting to start MQTT proxy...")
+                    logger.info(f"Organization ID available: {organization_id}, attempting to subscribe to MQTT device topics...")
                     try:
-                        await asyncio.wait_for(mqtt_proxy.start(), timeout=Config.MQTT_STARTUP_TIMEOUT)
-                        logger.info(f"MQTT proxy started successfully for petal {petal.name}")
+                        # Subscribe to device topics - this is the actual connection attempt
+                        await asyncio.wait_for(
+                            mqtt_proxy._subscribe_to_device_topics(), 
+                            timeout=Config.MQTT_SUBSCRIBE_TIMEOUT
+                        )
+                        mqtt_proxy.is_connected = True
+                        logger.info(f"MQTT proxy connected successfully for petal {petal.name}")
                     except asyncio.TimeoutError:
-                        logger.error(f"Timeout starting MQTT proxy for {petal.name}")
+                        logger.error(f"Timeout subscribing to MQTT device topics for {petal.name}")
                         logger.info(f"Will retry in {retry_interval}s...")
                         continue
                     except Exception as e:
-                        logger.error(f"Failed to start MQTT proxy for {petal.name}: {e}")
+                        logger.error(f"Failed to subscribe to MQTT device topics for {petal.name}: {e}")
                         logger.info(f"Will retry in {retry_interval}s...")
                         continue
                 
-                # MQTT is connected - setup topics
+                # MQTT is connected - setup petal-specific topics
                 logger.info(f"Setting up MQTT topics for petal {petal.name}...")
                 setup_mqtt_topics_method = getattr(petal, '_setup_mqtt_topics', None)
                 if setup_mqtt_topics_method and asyncio.iscoroutinefunction(setup_mqtt_topics_method):
