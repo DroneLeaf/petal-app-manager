@@ -158,19 +158,23 @@ class MQTTProxy(BaseProxy):
                 try:
                     from .. import Config
                     await asyncio.wait_for(self._subscribe_to_device_topics(), timeout=Config.MQTT_SUBSCRIBE_TIMEOUT)
+                    self.is_connected = True
                 except asyncio.TimeoutError:
                     self.log.warning("Timeout subscribing to device topics during startup")
+                    self.is_connected = False
                 except Exception as e:
                     self.log.error(f"Failed to subscribe to device topics: {e}")
+                    self.is_connected = False
             else:
                 self.log.info("Organization ID not available, skipping device topic subscription")
-            
-            self.is_connected = True
+                self.is_connected = False
+
             self.log.info("MQTTProxy started successfully")
             
         except Exception as e:
             self.log.error(f"Failed to initialize MQTTProxy: {e}")
             self.log.warning("MQTTProxy connection failed - will retry on demand")
+            self.is_connected = False
         
     async def stop(self):
         """Clean up resources when shutting down."""

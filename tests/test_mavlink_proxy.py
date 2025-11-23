@@ -431,10 +431,12 @@ async def test_download(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     async def on_prog(frac):
         progress.append(frac)
 
-    await proxy.download_ulog(remote, local, on_prog)
+    completed_event = threading.Event()
+    await proxy.download_ulog(remote, local, completed_event, on_prog)
 
     assert local.exists() and local.read_text() == "mock data"
     assert progress[-1] == 1.0
+    assert completed_event.is_set()
     await proxy.stop()
 
 # --------------------------------------------------------------------------- #
