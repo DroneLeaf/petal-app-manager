@@ -81,7 +81,6 @@ class Config:
         RESPONSE_TOPIC = os.environ.get('RESPONSE_TOPIC', 'response')
         TEST_TOPIC = os.environ.get('TEST_TOPIC', 'command')
         COMMAND_WEB_TOPIC = os.environ.get('COMMAND_WEB_TOPIC', 'command/web')
-        HEALTH_CHECK_INTERVAL = float(os.environ.get('MQTT_HEALTH_CHECK_INTERVAL', 10.0))
     # Misc
     class PetalUserJourneyCoordinatorConfig:
         DEBUG_SQUARE_TEST = os.environ.get("DEBUG_SQUARE_TEST", "false").lower() in ("true", "1", "yes")
@@ -90,8 +89,7 @@ class Config:
         ENDPOINT = os.environ.get("MAVLINK_ENDPOINT", "udp:127.0.0.1:14551")
         BAUD = int(os.environ.get("MAVLINK_BAUD", 115200))
         MAXLEN = int(os.environ.get("MAVLINK_MAXLEN", 200))
-        WORKER_SLEEP_MS = float(os.environ.get('MAVLINK_WORKER_SLEEP_MS', 1))
-        WORKER_THREADS = int(os.environ.get('MAVLINK_WORKER_THREADS', 4))
+        WORKER_SLEEP_MS = int(os.environ.get('MAVLINK_WORKER_SLEEP_MS', 1))
         HEARTBEAT_SEND_FREQUENCY = float(os.environ.get('MAVLINK_HEARTBEAT_SEND_FREQUENCY', 5.0))
         ROOT_SD_PATH = os.environ.get('ROOT_SD_PATH', 'fs/microsd/log')
 
@@ -99,24 +97,12 @@ class Config:
         LEVEL = os.environ.get("PETAL_LOG_LEVEL", "INFO").upper()
         TO_FILE = os.environ.get("PETAL_LOG_TO_FILE", "true").lower() in ("true", "1", "yes")
 
-    # Proxy connection configuration
-    class ProxyConfig:
-        # Retry intervals for proxy connection monitoring (seconds)
-        MQTT_RETRY_INTERVAL = float(os.environ.get('MQTT_RETRY_INTERVAL', 10.0))
-        CLOUD_RETRY_INTERVAL = float(os.environ.get('CLOUD_RETRY_INTERVAL', 10.0))
-        
-        # Timeouts for proxy startup operations (seconds)
-        MQTT_STARTUP_TIMEOUT = float(os.environ.get('MQTT_STARTUP_TIMEOUT', 5.0))
-        CLOUD_STARTUP_TIMEOUT = float(os.environ.get('CLOUD_STARTUP_TIMEOUT', 5.0))
-        MQTT_SUBSCRIBE_TIMEOUT = float(os.environ.get('MQTT_SUBSCRIBE_TIMEOUT', 5.0))
-
     # ------- Backward-compatibility aliases (class attributes, not @property) -------
     # Accessing Config.MAVLINK_BAUD (etc.) now returns an int/str directly.
     MAVLINK_ENDPOINT = MavLinkConfig.ENDPOINT
     MAVLINK_BAUD = MavLinkConfig.BAUD
     MAVLINK_MAXLEN = MavLinkConfig.MAXLEN
     MAVLINK_WORKER_SLEEP_MS = MavLinkConfig.WORKER_SLEEP_MS
-    MAVLINK_WORKER_THREADS = MavLinkConfig.WORKER_THREADS
     MAVLINK_HEARTBEAT_SEND_FREQUENCY = MavLinkConfig.HEARTBEAT_SEND_FREQUENCY
     ROOT_SD_PATH = MavLinkConfig.ROOT_SD_PATH
 
@@ -136,10 +122,3 @@ class Config:
     RESPONSE_TOPIC = MQTTConfig.RESPONSE_TOPIC
     TEST_TOPIC = MQTTConfig.TEST_TOPIC
     COMMAND_WEB_TOPIC = MQTTConfig.COMMAND_WEB_TOPIC
-    MQTT_HEALTH_CHECK_INTERVAL = MQTTConfig.HEALTH_CHECK_INTERVAL
-
-    MQTT_RETRY_INTERVAL = ProxyConfig.MQTT_RETRY_INTERVAL
-    CLOUD_RETRY_INTERVAL = ProxyConfig.CLOUD_RETRY_INTERVAL
-    MQTT_STARTUP_TIMEOUT = ProxyConfig.MQTT_STARTUP_TIMEOUT
-    CLOUD_STARTUP_TIMEOUT = ProxyConfig.CLOUD_STARTUP_TIMEOUT
-    MQTT_SUBSCRIBE_TIMEOUT = ProxyConfig.MQTT_SUBSCRIBE_TIMEOUT

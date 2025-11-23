@@ -99,9 +99,7 @@ jobs:
     - name: Build documentation
       run: |
         cd docs
-        pdm run make html 2>&1 | tee build.log
-        # Exit with error code if build failed
-        exit ${PIPESTATUS[0]}
+        pdm run make html
         
     - name: Upload documentation artifacts
       uses: actions/upload-artifact@v4

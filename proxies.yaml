@@ -11,13 +11,6 @@ enabled_proxies:
 - ext_mavlink
 - redis
 - cloud
-# Fast loading: direct import paths (bypasses entry point discovery)
-petals:
-  flight_records: "petal_flight_log.plugin:FlightLogPetal"
-  petal_warehouse: "petal_warehouse.plugin:PetalWarehouse"
-  mission_planner: "petal_leafsdk.plugin:PetalMissionPlanner"
-  petal_user_journey_coordinator: "petal_user_journey_coordinator.plugin:PetalUserJourneyCoordinator"
-  qgc_petal: "petal_qgc_mission_server.plugin:PetalQGCMissionServer"
 petal_dependencies:
   flight_records:
   - redis

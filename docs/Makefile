@@ -9,8 +9,7 @@ SOURCEDIR     = .
 BUILDDIR      = _build
 
 # Sphinx options for strict builds (treat warnings as errors)
-# -v: verbose output, -W: treat warnings as errors, --keep-going: continue on errors to see all warnings
-SPHINXOPTS_STRICT = -v -W --keep-going
+SPHINXOPTS_STRICT = -W --keep-going
 
 # Put it first so that "make" without argument is like "make help".
 help:

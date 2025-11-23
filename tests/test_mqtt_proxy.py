@@ -179,8 +179,9 @@ async def test_connection_error_handling():
             # Make health check fail
             mock_get.side_effect = Exception("Connection failed")
             
-            # Should not raise exception - returns early and logs warning
-            await proxy.start()
+            # This should raise an exception
+            with pytest.raises(ConnectionError):
+                await proxy.start()
             
             # Client should not be connected
             assert proxy.is_connected is False
@@ -224,12 +225,8 @@ async def test_missing_machine_id():
         
         proxy = MQTTProxy()
         
-        # Should not raise exception - returns early and logs warning
-        await proxy.start()
-        
-        # Proxy should remain inactive
-        assert proxy.is_connected is False
-        assert proxy.device_id is None
+        with pytest.raises(ValueError, match="Robot Instance ID must be available from OrganizationManager"):
+            await proxy.start()
 
 
 # ------ TypeScript Client Communication Tests ------ #

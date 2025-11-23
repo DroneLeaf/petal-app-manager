@@ -92,9 +92,6 @@ class MockExternalProxy(MavLinkExternalProxy):
         self.sent_messages = defaultdict(list)
         self.received_messages = []
         self.master = None  # Override to avoid MAVLink connection
-        # Initialize _recv for message buffering (needed for duplicate filtering test)
-        from collections import deque
-        self._recv: Dict[str, Deque[Any]] = {}
         
     async def start(self):
         """Override start to avoid MAVLink connection tasks."""
@@ -372,8 +369,8 @@ async def test_burst_timing_precision():
     
     start_time = time.time()
     
-    # Send a burst of 3 messages with 0.1 second intervals (more reliable timing)
-    proxy.send("test_key", "timed_burst", burst_count=3, burst_interval=0.1)
+    # Send a burst of 3 messages with 0.05 second intervals (faster for testing)
+    proxy.send("test_key", "timed_burst", burst_count=3, burst_interval=0.05)
     
     # Wait for the burst to complete properly
     await proxy.wait_for_burst_completion()
@@ -386,10 +383,9 @@ async def test_burst_timing_precision():
         interval1 = proxy.message_timestamps[1] - proxy.message_timestamps[0]
         interval2 = proxy.message_timestamps[2] - proxy.message_timestamps[1]
         
-        # Allow more tolerance for timing in CI environments and system load (±80ms)
-        # The worker threads can cause some delay in event loop scheduling
-        assert abs(interval1 - 0.1) < 0.08, f"First interval: {interval1:.3f}s, expected ~0.1s"
-        assert abs(interval2 - 0.1) < 0.08, f"Second interval: {interval2:.3f}s, expected ~0.1s"
+        # Allow some tolerance for timing (±20ms)
+        assert abs(interval1 - 0.05) < 0.02, f"First interval: {interval1:.3f}s, expected ~0.05s"
+        assert abs(interval2 - 0.05) < 0.02, f"Second interval: {interval2:.3f}s, expected ~0.05s"
     
     await proxy.stop()
 

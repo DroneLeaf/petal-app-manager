@@ -402,20 +402,20 @@ async def test_configuration_validation():
         mock_org_mgr.machine_id = "test-machine-123"
         mock_get_org_mgr.return_value = mock_org_mgr
         
-        # Test missing ACCESS_TOKEN_URL - should not raise exception
+        # Test missing ACCESS_TOKEN_URL
         proxy1 = CloudDBProxy(
             access_token_url="",
             endpoint="https://api.example.com"
         )
         
-        # Should return early and log warning
-        await proxy1.start()
+        with pytest.raises(ValueError, match="ACCESS_TOKEN_URL and CLOUD_ENDPOINT must be configured"):
+            await proxy1.start()
         
-        # Test missing CLOUD_ENDPOINT - should not raise exception
+        # Test missing CLOUD_ENDPOINT
         proxy2 = CloudDBProxy(
             access_token_url="https://example.com/token",
             endpoint=""
         )
         
-        # Should return early and log warning
-        await proxy2.start()
+        with pytest.raises(ValueError, match="ACCESS_TOKEN_URL and CLOUD_ENDPOINT must be configured"):
+            await proxy2.start()

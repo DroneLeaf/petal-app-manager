@@ -70,8 +70,7 @@ class MQTTProxy(BaseProxy):
         command_edge_topic: str = "command/edge",
         response_topic: str = "response",
         test_topic: str = "command",
-        command_web_topic: str = "command/web",
-        health_check_interval: float = 10.0
+        command_web_topic: str = "command/web"
     ):
         self.ts_client_host = ts_client_host
         self.ts_client_port = ts_client_port
@@ -115,10 +114,6 @@ class MQTTProxy(BaseProxy):
         self._worker_threads = []
         
         self._device_topics = {}
-        
-        # Health monitoring
-        self._health_monitor_task = None
-        self._health_check_interval = health_check_interval
 
         self._loop = None
         self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=self.worker_threads)
@@ -136,67 +131,34 @@ class MQTTProxy(BaseProxy):
         
         # Validate basic configuration (organization_id will be fetched on-demand)
         if not self.device_id:
-            self.log.error("Robot Instance ID must be available from OrganizationManager")
-            self.log.warning("MQTTProxy will remain inactive until Robot Instance ID is available")
-            return
+            raise ValueError("Robot Instance ID must be available from OrganizationManager")
         
         try:
-            # Start worker threads for message processing (always needed for callbacks)
+            # Check TypeScript client health
+            if not await self._check_ts_client_health():
+                raise ConnectionError("TypeScript MQTT client is not accessible")
+            
+            # Start worker threads for message processing
             self._start_worker_threads()
             
-            # Setup and start callback server if enabled (always needed)
+            # Setup and start callback server if enabled
             if self.enable_callbacks:
                 await self._setup_callback_server()
                 await self._start_callback_server()
             
-            # Check TypeScript client health
-            is_healthy = await self._check_ts_client_health()
+            # Subscribe to default device topics (will get org_id on-demand)
+            await self._subscribe_to_device_topics()
             
-            if is_healthy:
-                self.log.info("TypeScript MQTT client is healthy")
-                # Mark as connected since TypeScript client is healthy
-                self.is_connected = True
-                
-                # Try to subscribe to default device topics if organization ID is available
-                organization_id = self._get_organization_id()
-                if organization_id:
-                    self.log.info("Organization ID available, subscribing to device topics...")
-                    try:
-                        from .. import Config
-                        await asyncio.wait_for(self._subscribe_to_device_topics(), timeout=Config.MQTT_SUBSCRIBE_TIMEOUT)
-                        self.log.info("Successfully subscribed to device topics")
-                    except asyncio.TimeoutError:
-                        self.log.warning("Timeout subscribing to device topics during startup")
-                    except Exception as e:
-                        self.log.error(f"Failed to subscribe to device topics: {e}")
-                else:
-                    self.log.info("Organization ID not available, skipping device topic subscription")
-            else:
-                self.log.warning("TypeScript MQTT client is not accessible - will monitor and retry")
-                self.is_connected = False
-
-            # Always start health monitoring task to detect connectivity restoration
-            self._health_monitor_task = asyncio.create_task(self._health_monitor_loop())
-            self.log.info("MQTTProxy started with health monitoring")
+            self.is_connected = True
+            self.log.info("MQTTProxy started successfully")
             
         except Exception as e:
             self.log.error(f"Failed to initialize MQTTProxy: {e}")
-            self.log.warning("MQTTProxy connection failed - will monitor and retry")
-            self.is_connected = False
-            # Still start health monitor to detect when things recover
-            self._health_monitor_task = asyncio.create_task(self._health_monitor_loop())
+            raise
         
     async def stop(self):
         """Clean up resources when shutting down."""
         self.log.info("Stopping MQTTProxy...")
-        
-        # Cancel health monitor task
-        if self._health_monitor_task and not self._health_monitor_task.done():
-            self._health_monitor_task.cancel()
-            try:
-                await self._health_monitor_task
-            except asyncio.CancelledError:
-                pass
         
         # clear all registered handlers
         self._handlers.clear()
@@ -417,14 +379,10 @@ class MQTTProxy(BaseProxy):
                             self.log.debug(f"No callback for topic: {topic_absolute} with subscription ID {subscription_id}")
                         else:
                             self.log.debug(f"No callback for topic: {topic_absolute} with no subscription ID")
-            else:
-                self.log.debug(f"Received message for unsubscribed topic: {topic_absolute}")
-                time.sleep(self.worker_sleep_ms / 1000.0)
 
         except Exception as e:
             self.log.error(f"Error processing message in worker: {e}")
-            time.sleep(self.worker_sleep_ms / 1000.0)
-            
+
     def _invoke_callback_safely(self, callback: Callable, topic: str, payload: Dict[str, Any]):
         """Safely invoke a callback, handling both sync and async functions."""
         try:
@@ -455,66 +413,8 @@ class MQTTProxy(BaseProxy):
             )
             return response.status_code == 200
         except Exception as e:
-            self.log.debug(f"TypeScript client unreachable: {type(e).__name__}")
+            self.log.error(f"TypeScript client health check failed: {e}")
             return False
-
-    async def _health_monitor_loop(self):
-        """Background task to monitor TypeScript client health and restore device topic subscriptions."""
-        self.log.info("Health monitor started")
-        last_health_status = self.is_connected
-        
-        while not self._shutdown_flag:
-            try:
-                await asyncio.sleep(self._health_check_interval)
-                
-                # Check TypeScript client health
-                is_healthy = await self._check_ts_client_health()
-                
-                # If health status changed
-                if is_healthy != last_health_status:
-                    if is_healthy:
-                        self.log.info("TypeScript client health restored")
-                        # Check if we have organization ID
-                        organization_id = self._get_organization_id()
-                        if organization_id:
-                            # Get expected device topics
-                            expected_topics = [
-                                f"{self._get_base_topic()}/{self.command_edge_topic}",
-                                f"{self._get_base_topic()}/{self.response_topic}",
-                                f"{self._get_base_topic()}/{self.test_topic}"
-                            ]
-                            
-                            # Check which topics are missing
-                            missing_topics = [t for t in expected_topics if t not in self.subscribed_topics]
-                            
-                            if missing_topics:
-                                self.log.info(f"Re-subscribing to {len(missing_topics)} missing device topics...")
-                                for topic in missing_topics:
-                                    # Extract relative topic from full path
-                                    base_topic = self._get_base_topic()
-                                    relative_topic = topic[len(base_topic)+1:] if topic.startswith(base_topic) else topic
-                                    await self._subscribe_to_topic(relative_topic)
-                                self.log.info("Device topic subscriptions restored")
-                            else:
-                                self.log.info("All device topics already subscribed")
-                            
-                            self.is_connected = True
-                        else:
-                            self.log.debug("Health restored but organization ID not available yet")
-                    else:
-                        self.log.warning("TypeScript client health check failed - marking as disconnected")
-                        self.is_connected = False
-                    
-                    last_health_status = is_healthy
-                    
-            except asyncio.CancelledError:
-                self.log.info("Health monitor cancelled")
-                break
-            except Exception as e:
-                self.log.error(f"Error in health monitor loop: {e}")
-                # Continue monitoring despite errors
-                
-        self.log.info("Health monitor stopped")
 
     async def _make_ts_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
         """Make HTTP request to TypeScript client."""
@@ -619,7 +519,7 @@ class MQTTProxy(BaseProxy):
             self.callback_server = server
             server.run()
 
-        self.callback_thread = threading.Thread(target=run_server, daemon=True, name="MQTTCallbackServer")
+        self.callback_thread = threading.Thread(target=run_server, daemon=True)
         self.callback_thread.start()
         
         # Wait a moment for server to start
@@ -627,7 +527,8 @@ class MQTTProxy(BaseProxy):
         self.log.info(f"Callback server started on {self.callback_host}:{self.callback_port}")
 
     async def _subscribe_to_topic(self, topic: str) -> bool:
-        """Subscribe to an MQTT topic via TypeScript client.
+        """
+        Subscribe to an MQTT topic via TypeScript client.
         Args:
             topic: Topic to subscribe to (relative to base topic)
         Returns:
@@ -638,14 +539,8 @@ class MQTTProxy(BaseProxy):
             if topic.startswith("/"):
                 topic = topic[1:]
             
-            # Get base topic
-            base_topic = self._get_base_topic()
-            if not base_topic:
-                self.log.error(f"Cannot subscribe to {topic}: base topic not available")
-                return False
-            
             # Determine full topic to subscribe to
-            topic_subscribe = f"{base_topic}/{topic}"
+            topic_subscribe = f"{self._get_base_topic()}/{topic}"
 
             request_data = {
                 "topic": topic_subscribe,
@@ -696,10 +591,10 @@ class MQTTProxy(BaseProxy):
 
     async def _subscribe_to_device_topics(self):
         """Subscribe to common device topics automatically."""
-        # Get base topic (requires org ID and device ID)
-        base_topic = self._get_base_topic()
+        # Get organization ID on-demand
+        organization_id = self._get_organization_id()
         
-        if not base_topic:
+        if not organization_id or not self.device_id:
             self.log.warning("Cannot subscribe to device topics: missing org or device ID")
             return
         

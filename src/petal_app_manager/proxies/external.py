@@ -104,40 +104,26 @@ class ExternalProxy(BaseProxy):
     A dedicated thread calls :py:meth:`_io_read_once` / :py:meth:`_io_write_once`
     in a tight loop while the FastAPI event-loop thread stays unblocked.
 
-    * **Send buffers** - ``self._send[key]`` (deque, newest → right side)
-      Outbound messages are enqueued here via :py:meth:`send`.
-      The I/O thread drains these buffers by calling
-      :py:meth:`_io_write_once` with all pending messages.
+    *   **Send buffers**  - ``self._send[key]``  (deque, newest → right side)
+    *   **Recv buffers**  - ``self._recv[key]``  (deque, newest → right side)
 
-    * **Handlers** - ``self._handlers[key]``
-      Callbacks registered via :py:meth:`register_handler` are stored here.
-      When new messages arrive via :py:meth:`_io_read_once`, they are
-      enqueued to a message buffer for processing by worker threads.
-
-      * **Worker threads** - process the message buffer in parallel,
-        calling all registered handlers for each message.
+    When a message arrives on ``_recv[key]`` every registered handler for
+    that *key* is invoked in the worker thread.  Handlers should be fast or
+    off-load work to an `asyncio` task via `loop.call_soon_threadsafe`.
     """
 
     # ──────────────────────────────────────────────────────── public helpers ──
-    def __init__(self, maxlen: int, worker_threads: int = 4, sleep_time_ms: float = 1.0) -> None:
+    def __init__(self, maxlen: int) -> None:
         """
         Parameters
         ----------
         maxlen :
             Maximum number of messages kept *per key* in both send/recv maps.
             A value of 0 or ``None`` means *unbounded* (not recommended).
-        worker_threads :
-            Number of worker threads for parallel handler processing.
         """
         self._maxlen = maxlen
-        self._worker_thread_count = worker_threads
-
-        if sleep_time_ms < 0:
-            sleep_time_ms = 0
-
-        self._sleep_time_ms = sleep_time_ms
-        self._sleep_time_reader_ms = sleep_time_ms
         self._send: Dict[str, Deque[Any]] = {}
+        self._recv: Dict[str, Deque[Any]] = {}
         self._handlers: Dict[str, List[Callable[[Any], None]]] = (
             defaultdict(list)
         )
@@ -145,31 +131,13 @@ class ExternalProxy(BaseProxy):
             defaultdict(dict)
         )
         self._last_message_times: Dict[str, Dict[str, float]] = defaultdict(dict)
-        
-        # Message buffer for parallel processing (similar to MQTT proxy)
-        self._message_buffer: Dict[str, Deque[Any]] = defaultdict(lambda: deque(maxlen=maxlen))
-        self._message_buffer_configs: Dict[str, Dict[str, Any]] = defaultdict(dict)
-        self._message_buffer_locks: Dict[str, threading.Lock] = defaultdict(threading.Lock)
-        self._message_buffer_last_message_index: Dict[str, int] = defaultdict(int)
-        self._message_buffer_key_lock = threading.Lock()
-
-        # Thread management
-        self._send_running = threading.Event()
-        self._recv_running = threading.Event()
-        self._worker_running = threading.Event()
-        self._io_thread_send: threading.Thread | None = None
-        self._io_thread_recv: threading.Thread | None = None
-        self._worker_threads: List[threading.Thread] = []
-        
+        self._running = threading.Event()
+        self._thread: threading.Thread | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._log = logging.getLogger(self.__class__.__name__)
 
-    def register_handler(self, 
-        key: str, 
-        fn: Callable[[Any], None], 
-        duplicate_filter_interval: Optional[float] = None,
-        queue_length: Optional[int] = None
-    ) -> None:
+    def register_handler(self, key: str, fn: Callable[[Any], None], 
+                        duplicate_filter_interval: Optional[float] = None) -> None:
         """
         Attach *fn* so it fires for **every** message appended to ``_recv[key]``.
 
@@ -184,21 +152,11 @@ class ExternalProxy(BaseProxy):
         duplicate_filter_interval : Optional[float]
             If specified, duplicate messages received within this interval (in seconds)
             will be filtered out and the handler will not be called. None disables filtering.
-        queue_length : Optional[int]
-            If specified, sets the maximum length of the message buffer for *key*.
-            New messages overwrite the oldest when the buffer is full.
-            If None, the default maxlen from proxy initialization is used.
         """
         self._handlers[key].append(fn)
         self._handler_configs[key][fn] = {
             'duplicate_filter_interval': duplicate_filter_interval
         }
-        if queue_length is not None:
-            self._message_buffer_configs[key]['maxlen'] = queue_length
-            if queue_length == 0:
-                queue_length = None  # unbounded
-            with self._message_buffer_locks[key]:
-                self._message_buffer[key] = deque(maxlen=queue_length)
 
     def unregister_handler(self, key: str, fn: Callable[[Any], None]) -> None:
         """
@@ -229,17 +187,6 @@ class ExternalProxy(BaseProxy):
             del self._handlers[key]
             if key in self._handler_configs:
                 del self._handler_configs[key]
-
-        # Clean up message buffer and locks
-        with self._message_buffer_key_lock:
-            if key in self._message_buffer:
-                del self._message_buffer[key]
-            if key in self._message_buffer_locks:
-                del self._message_buffer_locks[key]
-            if key in self._message_buffer_last_message_index:
-                del self._message_buffer_last_message_index[key]
-            if key in self._message_buffer_configs:
-                del self._message_buffer_configs[key]
 
     def send(self, key: str, msg: Any, burst_count: Optional[int] = None, 
              burst_interval: Optional[float] = None) -> None:
@@ -331,27 +278,16 @@ class ExternalProxy(BaseProxy):
 
     # ───────────────────────────────────────────── FastAPI life-cycle hooks ──
     async def start(self) -> None:
-        """Create the I/O thread and worker threads and begin polling/writing."""
+        """Create the worker thread and begin polling/writing."""
         self._loop = asyncio.get_running_loop()
         self._burst_tasks = set()  # Initialize burst tasks tracking
-        self._send_running.set()
-        self._recv_running.set()
-        self._worker_running.set()
-
-        # Start I/O threads for send/recv and worker threads for processing
-        self._io_thread_recv = threading.Thread(target=self._recv_body, daemon=True, name=f"{self.__class__.__name__}-Recv")
-        self._io_thread_send = threading.Thread(target=self._send_body, daemon=True, name=f"{self.__class__.__name__}-Send")
-        self._create_worker_threads()
-
-        self._io_thread_recv.start()
-        self._io_thread_send.start()
-        self._start_worker_threads()
+        self._running.set()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
 
     async def stop(self) -> None:
         """Ask the worker to exit and join it (best-effort, 5 s timeout)."""
-        self._send_running.clear()
-        self._recv_running.clear()
-        self._worker_running.clear()
+        self._running.clear()
         
         # Cancel any pending burst tasks
         if hasattr(self, '_burst_tasks'):
@@ -363,17 +299,8 @@ class ExternalProxy(BaseProxy):
                 await asyncio.gather(*self._burst_tasks, return_exceptions=True)
                 self._burst_tasks.clear()
         
-        # Stop worker threads
-        await self._stop_worker_threads()
-        
-        # Stop I/O send thread
-        if self._io_thread_send and self._io_thread_send.is_alive():
-            self._io_thread_send.join(timeout=5)
-        self._io_thread_send = None
-        # Stop I/O recv thread
-        if self._io_thread_recv and self._io_thread_recv.is_alive():
-            self._io_thread_recv.join(timeout=5)
-        self._io_thread_recv = None
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=5)
 
     # ─────────────────────────────────────────────── subclass responsibilities ─
     @abstractmethod
@@ -394,149 +321,75 @@ class ExternalProxy(BaseProxy):
         """
 
     # ─────────────────────────────────────────── internal worker main-loop ──
-    def _send_body(self) -> None:
-        """I/O thread body - drains send queues."""
-        while self._send_running.is_set():
+    def _run(self) -> None:
+        """Worker thread body - drains send queues, polls recv, fires handlers."""
+        
+        # Initialize sleep time for the worker loop
+        sleep_time = 0.010  # Default 10ms
+        try:
+            if self.mavlink_worker_sleep_ms is not None:
+                sleep_time_ms = int(self.mavlink_worker_sleep_ms)
+                if sleep_time_ms < 0:
+                    self._log.error("self.mavlink_worker_sleep_ms must be non-negative")
+                    sleep_time_ms = 10
+                sleep_time = sleep_time_ms / 1000.0  # convert ms to seconds
+        except (ValueError, TypeError) as exc:
+            self._log.error(f"Invalid self.mavlink_worker_sleep_ms: {exc}, using default 10ms")
+            sleep_time = 0.010
+
+        while self._running.is_set():
+            # 1 - DRIVE OUTBOUND
             pending: Dict[str, List[Any]] = defaultdict(list)
             for key, dq in list(self._send.items()):
                 while dq:
                     pending[key].append(dq.popleft())
             if pending:
                 self._io_write_once(pending)
-            else:
-                # Sleep briefly if there's nothing to send to avoid busy-waiting
-                time.sleep(self._sleep_time_ms / 1000.0)
 
-    def _recv_body(self) -> None:
-        """I/O thread body - drains send queues, polls recv, enqueues messages for processing."""
-        while self._recv_running.is_set():
-            for key, msg in self._io_read_once(timeout=self._sleep_time_reader_ms/1000.0):                
-                # Enqueue to message buffer for worker thread processing
-                self._enqueue_message_to_buffer(key, msg)
-            
-    def _create_worker_threads(self):
-        """Start worker threads for processing message buffer."""
-        for i in range(self._worker_thread_count):
-            worker_thread = threading.Thread(
-                target=self._worker_thread_main,
-                name=f"{self.__class__.__name__}-Worker-{i}",
-                daemon=True
-            )
-            self._worker_threads.append(worker_thread)
-            
-        self._log.info(f"Created {self._worker_thread_count} worker threads for handler processing")
-
-    def _start_worker_threads(self):
-        """Start worker threads for processing message buffer."""
-        for worker_thread in self._worker_threads:
-            worker_thread.start()
-            
-        self._log.info(f"Started {self._worker_thread_count} worker threads for handler processing")
-
-    async def _stop_worker_threads(self):
-        """Stop all worker threads gracefully."""
-        self._worker_running.clear()
-        
-        # Wait for threads to finish
-        for thread in self._worker_threads:
-            if thread.is_alive():
-                thread.join(timeout=2)
-                
-        self._worker_threads.clear()
-        self._log.info("Stopped all worker threads")
-
-    def _worker_thread_main(self):
-        """Main loop for worker threads - processes messages from buffer."""        
-        while self._worker_running.is_set():
-            try:
-                keys = list(self._message_buffer.keys())
-                
-                if not keys:
-                    # No keys to process, sleep to avoid busy-waiting
-                    time.sleep(self._sleep_time_ms / 1000.0)
-                    continue
-                
-                processed_any = False
-                for key in keys:
-                    msg = self._get_next_message_from_buffer(key)
-                    if msg is not None:
-                        self._process_message_with_handlers(key, msg)
-                        processed_any = True
-                
-                # If we didn't process any messages, sleep to avoid busy-waiting
-                if not processed_any:
-                    time.sleep(self._sleep_time_ms / 1000.0)
+            # 2 - POLL INBOUND
+            for key, msg in self._io_read_once(timeout=sleep_time):
+                dq = self._recv.setdefault(key, deque(maxlen=self._maxlen))
+                dq.append(msg)
+                # broadcast with duplicate filtering
+                current_time = time.time()
+                for cb in self._handlers.get(key, []):
+                    try:
+                        # Check if duplicate filtering is enabled for this handler
+                        handler_config = self._handler_configs.get(key, {}).get(cb, {})
+                        filter_interval = handler_config.get('duplicate_filter_interval')
                         
-            except Exception as e:
-                self._log.error(f"Error in worker thread: {e}")
-                time.sleep(self._sleep_time_ms / 1000.0)
-
-    def _enqueue_message_to_buffer(self, key: str, msg: Any):
-        """Thread-safe method to add message to buffer."""
-        maxlen = self._message_buffer_configs.get(key, {}).get('maxlen', self._maxlen)
-        if maxlen == 0:
-            maxlen = None  # unbounded
-
-        with self._message_buffer_locks[key]:
-            dq = self._message_buffer.setdefault(key, deque(maxlen=maxlen))
-            dq.append(msg)
-
-    def _get_next_message_from_buffer(self, key: str) -> Tuple[Optional[str], Optional[Any]]:
-        """Thread-safe method to get next message from buffer."""
-        dq = self._message_buffer.get(key)
-        lock = self._message_buffer_locks.get(key)
-        if lock is not None:
-            with lock:
-                if dq:
-                    msg = dq.popleft()
-                    return msg
-                
-        return None
-
-    def _process_message_with_handlers(self, key: str, msg: Any):
-        """
-        Process a single message by invoking all registered handlers for the key.
-        This runs in a worker thread and handles duplicate filtering.
-        """
-        current_time = time.time()
-        for cb in self._handlers.get(key, []):
-            try:
-                # Check if duplicate filtering is enabled for this handler
-                handler_config = self._handler_configs.get(key, {}).get(cb, {})
-                filter_interval = handler_config.get('duplicate_filter_interval')
-                
-                should_call_handler = True
-                if filter_interval is not None:
-                    # Convert message to string for comparison
-                    msg_str = str(msg)
-                    handler_key = f"{key}_{id(cb)}"
-                    
-                    # Check if we've seen this exact message recently for this handler
-                    if handler_key in self._last_message_times:
-                        last_msg_str, last_time = self._last_message_times[handler_key]
-                        if (msg_str == last_msg_str and 
-                            current_time - last_time < filter_interval):
-                            should_call_handler = False
+                        should_call_handler = True
+                        if filter_interval is not None:
+                            # Convert message to string for comparison
+                            msg_str = str(msg)
+                            handler_key = f"{key}_{id(cb)}"
+                            
+                            # Check if we've seen this exact message recently for this handler
+                            if handler_key in self._last_message_times:
+                                last_msg_str, last_time = self._last_message_times[handler_key]
+                                if (msg_str == last_msg_str and 
+                                    current_time - last_time < filter_interval):
+                                    should_call_handler = False
+                                    self._log.debug(
+                                        "[ExternalProxy] Filtered duplicate message for handler %s on key '%s'",
+                                        cb, key
+                                    )
+                            
+                            # Update last message time for this handler
+                            if should_call_handler:
+                                self._last_message_times[handler_key] = (msg_str, current_time)
+                        
+                        if should_call_handler:
+                            cb(msg)
                             self._log.debug(
-                                "[ExternalProxy] Filtered duplicate message for handler %s on key '%s'",
-                                cb, key
+                                "[ExternalProxy] handler %s called for key '%s': %s",
+                                cb, key, msg
                             )
-                    
-                    # Update last message time for this handler
-                    if should_call_handler:
-                        self._last_message_times[handler_key] = (msg_str, current_time)
-                
-                if should_call_handler:
-                    cb(msg)
-                    self._log.debug(
-                        "[ExternalProxy] handler %s called for key '%s': %s",
-                        cb, key, msg
-                    )
-            except Exception as exc:          # never kill the loop
-                self._log.error(
-                    "[ExternalProxy] handler %s raised: %s",
-                    cb, exc
-                )
+                    except Exception as exc:          # never kill the loop
+                        self._log.error(
+                            "[ExternalProxy] handler %s raised: %s",
+                            cb, exc
+                        )
 
 # ──────────────────────────────────────────────────────────────────────────────
 class MavLinkExternalProxy(ExternalProxy):
@@ -556,14 +409,14 @@ class MavLinkExternalProxy(ExternalProxy):
         endpoint: str,
         baud: int,
         maxlen: int,
-        mavlink_worker_sleep_ms: float = 1.0,
+        mavlink_worker_sleep_ms: float = 1,
         mavlink_heartbeat_send_frequency: float = 5.0,
-        root_sd_path: str = 'fs/microsd/log',
-        worker_threads: int = 4
+        root_sd_path: str = 'fs/microsd/log'
     ):
-        super().__init__(maxlen=maxlen, worker_threads=worker_threads, sleep_time_ms=mavlink_worker_sleep_ms)
+        super().__init__(maxlen=maxlen)
         self.endpoint = endpoint
         self.baud = baud
+        self.mavlink_worker_sleep_ms = mavlink_worker_sleep_ms
         self.mavlink_heartbeat_send_frequency = mavlink_heartbeat_send_frequency
         self.root_sd_path = root_sd_path
         self.master: mavutil.mavfile | None = None
@@ -681,10 +534,6 @@ class MavLinkExternalProxy(ExternalProxy):
         """Open the MAVLink connection then launch the worker thread."""
         self._loop = asyncio.get_running_loop()
         
-        # Schedule initial connection attempt in background (non-blocking)
-        # This allows the server to start immediately without waiting for MAVLink
-        asyncio.create_task(self._initial_connection_attempt())
-
         # Start the worker thread first
         await super().start()
         
@@ -701,6 +550,10 @@ class MavLinkExternalProxy(ExternalProxy):
                 self._log.error(f"Invalid self.mavlink_heartbeat_send_frequency: {exc}")
                 frequency = 5.0
             self._heartbeat_task = asyncio.create_task(self._send_heartbeat_periodically(frequency=frequency))
+        
+        # Schedule initial connection attempt in background (non-blocking)
+        # This allows the server to start immediately without waiting for MAVLink
+        asyncio.create_task(self._initial_connection_attempt())
 
     async def _initial_connection_attempt(self):
         """Attempt initial MAVLink connection in the background."""
@@ -805,7 +658,7 @@ class MavLinkExternalProxy(ExternalProxy):
 
     async def _monitor_connection(self):
         """Monitor connection health and trigger reconnection if needed."""
-        while self._recv_running.is_set():
+        while self._running.is_set():
             try:
 
                 # Skip monitoring if _mav_lock is held (FTP operation in progress)
@@ -839,7 +692,7 @@ class MavLinkExternalProxy(ExternalProxy):
                                         current_time - self._last_heartbeat_time)
                 
                 # Attempt reconnection if not connected - BUT only if no FTP operations are in progress
-                if not self.connected and self._recv_running.is_set():
+                if not self.connected and self._running.is_set():
                     # Double-check that no FTP operations are running before attempting reconnection
                     if self._download_lock.locked() or self._mav_lock.locked():
                         self._log.debug("Delaying reconnection - FTP operation in progress")
@@ -863,7 +716,7 @@ class MavLinkExternalProxy(ExternalProxy):
 
     def _schedule_reconnect(self) -> None:
         """Called from the FTP thread when it detects a dead FD."""
-        if not self._recv_running.is_set():
+        if not self._running.is_set():
             return
         # avoid stampeding: only schedule once
         if getattr(self, "_reconnect_pending", False):
@@ -889,7 +742,7 @@ class MavLinkExternalProxy(ExternalProxy):
         """Periodically send a MAVLink heartbeat message."""
         interval = 1.0 / frequency
         
-        while self._send_running.is_set():
+        while self._running.is_set():
             try:
                 if self.connected and self.master:
                     await self.send_heartbeat()
@@ -954,18 +807,22 @@ class MavLinkExternalProxy(ExternalProxy):
 
         out: List[Tuple[str, Any]] = []
         try:
-            while True:
-                with self._mav_lock:
+            with self._mav_lock:
+                while True:
                     msg = self.master.recv_match(blocking=True, timeout=timeout)
                     if msg is None:
                         break
-            
-                msg_type = msg.get_type()
-                msg_id = msg.get_msgId()
-                
-                out.append(("mav", msg))
-                out.append((str(msg_id), msg))
-                out.append((msg_type, msg))
+                    
+                    msg_type = msg.get_type()
+                    msg_id = msg.get_msgId()
+                    
+                    # Only log if rate limiting allows
+                    if self._should_log_message(msg_type):
+                        self._log_msgs.debug(f"📥 MAVLink RX: {msg_type} (ID: {msg_id}) - {msg}")
+                    
+                    out.append(("mav", msg))
+                    out.append((str(msg_id), msg))
+                    out.append((msg_type, msg))
 
         except (OSError, socket.error) as e:
             # Handle connection errors gracefully
@@ -974,11 +831,9 @@ class MavLinkExternalProxy(ExternalProxy):
                 # Don't mark as disconnected here, let the heartbeat monitor handle it
             else:
                 self._log_msgs.error(f"Unexpected error reading MAVLink messages: {e}")
-            time.sleep(timeout)
         except Exception as e:
             self._log_msgs.error(f"Error reading MAVLink messages: {e}")
             # Don't mark as disconnected here, let the heartbeat monitor handle it
-            time.sleep(timeout)
         
         return out
 
@@ -989,29 +844,29 @@ class MavLinkExternalProxy(ExternalProxy):
             
         for key, msgs in batches.items():
             for msg in msgs:
-                try:
-                    msg_type = msg.get_type() if hasattr(msg, 'get_type') else 'UNKNOWN'
-                    msg_id = msg.get_msgId() if hasattr(msg, 'get_msgId') else 'N/A'
-                    
-                    # Only log if rate limiting allows
-                    if self._should_log_message(msg_type):
-                        self._log_msgs.info(f"📤 MAVLink TX: {msg_type} (ID: {msg_id}) - {msg}")
-                    
-                    with self._mav_lock:
+                with self._mav_lock:
+                    try:
+                        msg_type = msg.get_type() if hasattr(msg, 'get_type') else 'UNKNOWN'
+                        msg_id = msg.get_msgId() if hasattr(msg, 'get_msgId') else 'N/A'
+                        
+                        # Only log if rate limiting allows
+                        if self._should_log_message(msg_type):
+                            self._log_msgs.info(f"📤 MAVLink TX: {msg_type} (ID: {msg_id}) - {msg}")
+                        
                         self.master.mav.send(msg)
-                except (OSError, socket.error) as e:
-                    if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
-                        self._log_msgs.debug(f"MAVLink connection lost during write: {e}")
+                    except (OSError, socket.error) as e:
+                        if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED, errno.EPIPE]:
+                            self._log_msgs.debug(f"MAVLink connection lost during write: {e}")
+                            # Don't mark as disconnected here, let the heartbeat monitor handle it
+                            break  # Stop trying to send more messages
+                        else:
+                            self._log_msgs.error(f"Unexpected error sending MAVLink message {key}: {e}")
+                    except Exception as exc:
+                        self._log_msgs.error(
+                            "Failed to send MAVLink message %s: %s",
+                            key, exc
+                        )
                         # Don't mark as disconnected here, let the heartbeat monitor handle it
-                        break  # Stop trying to send more messages
-                    else:
-                        self._log_msgs.error(f"Unexpected error sending MAVLink message {key}: {e}")
-                except Exception as exc:
-                    self._log_msgs.error(
-                        "Failed to send MAVLink message %s: %s",
-                        key, exc
-                    )
-                    # Don't mark as disconnected here, let the heartbeat monitor handle it
 
     # ------------------- helpers exposed to petals --------- #
     def build_req_msg_long(self, message_id: int) -> mavutil.mavlink.MAVLink_command_long_message:
@@ -1081,36 +936,6 @@ class MavLinkExternalProxy(ExternalProxy):
         )
 
         return cmd
-
-    def build_req_msg_log_data(
-        self,
-        log_id: int,
-        ofs: int = 0,
-        count: int = 0xFFFFFFFF,
-    ) -> mavutil.mavlink.MAVLink_log_request_data_message:
-        """
-        Build LOG_REQUEST_DATA for a given log.
-
-        Parameters
-        ----------
-        log_id : int
-            The log id from LOG_ENTRY.id
-        ofs : int
-            Offset into the log (usually 0 for first request)
-        count : int
-            Number of bytes requested. For PX4/ArduPilot it's common
-            to use 0xFFFFFFFF to say "send the whole log".
-        """
-        if not self.master or not self.connected:
-            raise RuntimeError("MAVLink connection not established")
-
-        return self.master.mav.log_request_data_encode(
-            self.master.target_system,
-            self.master.target_component,
-            log_id,
-            ofs,
-            count,
-        )
 
     def build_param_request_read(self, name: str, index: int = -1):
         """
@@ -1301,8 +1126,6 @@ class MavLinkExternalProxy(ExternalProxy):
         request_msg: mavutil.mavlink.MAVLink_message,
         collector: Callable[[mavutil.mavlink.MAVLink_message], bool],
         timeout: float = 3.0,
-        queue_length: Optional[int] = None,
-        cancel_event: Optional[threading.Event] = None,
     ) -> None:
         """
         Transmit *request_msg*, register a handler on *match_key* and keep feeding
@@ -1314,19 +1137,13 @@ class MavLinkExternalProxy(ExternalProxy):
             The key used when the proxy dispatches inbound messages
             (numeric ID as string, e.g. `"147"`).
         request_msg :
-            Encoded MAVLink message to send - COMMAND_LONG, LOG_REQUEST_LIST, ...
+            Encoded MAVLink message to send – COMMAND_LONG, LOG_REQUEST_LIST, …
         collector :
             Callback that receives each matching packet.  Must return **True**
             once the desired condition is satisfied; returning **False** keeps
             waiting.
         timeout :
             Maximum seconds to block.
-        queue_length :
-            Optional maximum queue length for the handler. If the queue
-            exceeds this length, older packets will be dropped. If None,
-            the default queue length is used.
-        cancel_event :
-            Optional threading.Event that can be set to cancel the wait.
         
         Raises
         ------
@@ -1338,45 +1155,25 @@ class MavLinkExternalProxy(ExternalProxy):
         if not self.connected:
             raise RuntimeError("MAVLink connection not established")
 
-        loop = asyncio.get_running_loop()
-        done = asyncio.Event()
-        
+        # always transmit on "mav" so the proxy's writer thread sees it
+        self.send("mav", request_msg)
+
+        done = threading.Event()
+
         def _handler(pkt):
             try:
-                if collector(pkt):
-                    loop.call_soon_threadsafe(done.set)
+                if collector(pkt):        # True => finished
+                    done.set()
             except Exception as exc:
                 self._log.error(f"[collector] raised: {exc}")
 
-        self.register_handler(
-            key = match_key, 
-            fn = _handler, 
-            queue_length = queue_length
-        )
+        self.register_handler(match_key, _handler)
 
-        # send the request message after registering the handler
-        self.send("mav", request_msg)
-
-        # create an asyncio task to monitor cancel_event if provided
-        if cancel_event is not None:
-            def _cancel_checker():
-                while not done.is_set():
-                    if cancel_event.is_set():
-                        loop.call_soon_threadsafe(done.set)
-                        break
-                    time.sleep(0.1)
-
-            cancel_checker = threading.Thread(target=_cancel_checker, daemon=True)
-            cancel_checker.start()
-
-        try:
-            await asyncio.wait_for(done.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
-            raise TimeoutError(f"No reply/condition for {match_key} in {timeout}s")
-        finally:
-            if cancel_event is not None:
-                cancel_checker.join(timeout=0.1)
+        if not done.wait(timeout):
             self.unregister_handler(match_key, _handler)
+            raise TimeoutError(f"No reply/condition for message id {match_key} in {timeout}s")
+
+        self.unregister_handler(match_key, _handler)
 
     async def get_log_entries(
         self,
@@ -1404,512 +1201,7 @@ class MavLinkExternalProxy(ExternalProxy):
             timeout=timeout,
         )
         return entries
-
-    async def _request_chunk(
-            self,
-            log_id: int,
-            ofs: int, 
-            chunk_size: int, 
-            max_retries: int = 3,
-            timeout: float = 5.0,
-        ) -> mavutil.mavlink.MAVLink_log_data_message:
-
-        LOG_DATA_ID = str(mavutil.mavlink.MAVLINK_MSG_ID_LOG_DATA)
-
-        # Holder for this specific chunk
-        holder_lock = threading.Lock()
-        holder: dict[str, mavutil.mavlink.MAVLink_log_data_message] = {}
-
-        def _collector(pkt) -> bool:
-            # Only accept LOG_DATA for the correct log id
-            if getattr(pkt, "id", None) != log_id:
-                return False
-
-            # Enforce the expected offset to avoid eating someone else's chunk
-            if int(pkt.ofs) != ofs:
-                return False
-            
-            with holder_lock:
-                holder["pkt"] = pkt
-
-            return True
-
-        # Build LOG_REQUEST_DATA for *this* chunk
-        req = self.master.mav.log_request_data_encode(
-            self.master.target_system,
-            self.master.target_component,
-            log_id,
-            ofs,
-            chunk_size,
-        )
-
-        # Try a few times per chunk
-        attempt = 0
-        while True:
-            try:
-                await self.send_and_wait(
-                    match_key=LOG_DATA_ID,
-                    request_msg=req,
-                    collector=_collector,
-                    timeout=timeout,
-                )
-                break  # got the chunk
-            except TimeoutError:
-                attempt += 1
-                if attempt >= max_retries:
-                    raise TimeoutError(
-                        f"Timeout while waiting for LOG_DATA "
-                        f"log_id={log_id} ofs={ofs} after {max_retries} attempts"
-                    )
-                self._log.warning(
-                    f"Timeout for LOG_DATA (log_id={log_id}, ofs={ofs}), "
-                    f"retry {attempt}/{max_retries}"
-                )
-                # re-send the same request and loop again
-
-        return holder["pkt"]
-
-    def _request_log_sync(
-        self,
-        *,
-        log_id: int,
-        completed_event: threading.Event,
-        timeout: float = 60.0,
-        size_bytes: Optional[int] = None,
-        cancel_event: threading.Event | None = None,
-        callback: Optional[Callable[[int], None]] = None,
-        end_of_buffer_timeout: float = 3.0,
-    ) -> bytes:
-        """
-        Synchronous helper: request LOG_DATA for a given log_id and return raw bytes.
-        Assembles data by offset so out-of-order / duplicate packets are tolerated.
-        """
-
-        self._log.info(f"Attempting to download Log ID: {log_id}")
-
-        # 1) Send LOG_REQUEST_DATA (from offset 0, full log)
-        self.master.mav.log_request_data_send(
-            self.master.target_system,
-            self.master.target_component,
-            log_id,
-            0,          # offset
-            0xFFFFFFFF  # count: all data from offset
-        )
-
-        self._log.info(f"Requested data for Log ID {log_id}, waiting for data...")
-
-        # Chunks keyed by offset
-        received_chunks: dict[int, bytes] = {}
-        max_end = 0                       # highest offset+length we've seen
-        total_unique_bytes = 0            # bytes from non-duplicate chunks
-
-        completed_event.clear()
-        start_time = time.time()
-        last_data_time = start_time
-
-        with self._mav_lock:
-            while True:
-                now = time.time()
-
-                # Global timeout
-                if timeout is not None and (now - start_time) > timeout:
-                    self._log.error("Timeout while downloading log data (global timeout).")
-                    raise TimeoutError("Log data download timed out.")
-
-                # End-of-buffer timeout (only after we've actually received something)
-                if (
-                    end_of_buffer_timeout is not None
-                    and total_unique_bytes > 0
-                    and (now - last_data_time) > end_of_buffer_timeout
-                ):
-                    self._log.info(
-                        f"No new data for {end_of_buffer_timeout:.1f}s, "
-                        "assuming end of log."
-                    )
-                    break
-
-                # Cancellation support
-                if cancel_event is not None and cancel_event.is_set():
-                    self._log.warning("Log download cancelled.")
-                    break
-
-                # Use a small timeout so the loop can check the conditions above
-                msg = self.master.recv_match(
-                    type="LOG_DATA",
-                    blocking=True,
-                    timeout=1.0,
-                )
-
-                if msg is None:
-                    # No message in this 1-second interval; loop again
-                    continue
-
-                if msg.id != log_id:
-                    # Not our log; ignore
-                    continue
-
-                ofs = int(msg.ofs)
-                count = int(msg.count)
-                data_bytes = bytes(msg.data[:count])
-                end = ofs + count
-
-                # Duplicate chunk (same starting offset): ignore
-                if ofs in received_chunks:
-                    self._log.debug(
-                        f"Duplicate LOG_DATA chunk at ofs={ofs}, count={count}, ignoring."
-                    )
-                    # We *could* update last_data_time here since link is still active,
-                    # but usually you care about new data only.
-                    continue
-
-                # New chunk
-                received_chunks[ofs] = data_bytes
-                total_unique_bytes += len(data_bytes)
-                last_data_time = time.time()
-
-                if end > max_end:
-                    max_end = end
-
-                # Progress callback (sync)
-                if callback is not None:
-                    try:
-                        callback(total_unique_bytes)
-                    except Exception as e:
-                        self._log.warning(f"Callback raised exception: {e!r}")
-
-                # If we know the size, we can stop once we have at least that range
-                if size_bytes is not None and max_end >= size_bytes:
-                    self._log.info(
-                        f"Reached expected size ({size_bytes} bytes) for log {log_id}."
-                    )
-                    break
-
-            # --- Assemble the final buffer ---
-
-            if size_bytes is not None:
-                total_size = size_bytes
-            else:
-                total_size = max_end  # best guess from largest end offset
-
-            if total_size <= 0:
-                self._log.warning(
-                    f"No LOG_DATA received for log {log_id}, returning empty bytes."
-                )
-                completed_event.set()
-                return b""
-
-            result = bytearray(total_size)
-            sorted_ofs = sorted(received_chunks.keys())
-            current = 0
-
-            for ofs in sorted_ofs:
-                chunk = received_chunks[ofs]
-                end = ofs + len(chunk)
-
-                # Detect gaps between chunks
-                if ofs > current:
-                    self._log.warning(
-                        f"Gap detected in log {log_id}: {current} -> {ofs} "
-                        "(missing bytes in this range)."
-                    )
-
-                # Skip chunks fully beyond the expected size
-                if ofs >= total_size:
-                    self._log.warning(
-                        f"Chunk at ofs={ofs} (len={len(chunk)}) is beyond total_size={total_size}, skipping."
-                    )
-                    continue
-
-                # Trim chunk if it extends past total_size
-                if end > total_size:
-                    chunk = chunk[: total_size - ofs]
-                    end = total_size
-
-                result[ofs:end] = chunk
-                current = max(current, end)
-
-        self._log.info(
-            f"Total unique bytes received for log {log_id}: {total_unique_bytes}, "
-            f"assembled length={len(result)}"
-        )
-
-        completed_event.set()
-        return bytes(result)
-
-    async def download_log(
-        self,
-        *,
-        log_id: int,
-        completed_event: threading.Event,
-        timeout: float = 60.0,
-        buffer: Optional[bytearray] = None,
-        callback: Optional[Callable[[int], Awaitable[None]]] = None,
-        end_of_buffer_timeout: float = 10.0,
-        size_bytes: Optional[int] = None
-    ) -> bytes:
-        """
-        Download one log file via LOG_REQUEST_DATA / LOG_DATA.
-
-        Parameters
-        ----------
-        log_id :
-            The LOG_ENTRY.id of the log to download.
-        completed_event :
-            threading.Event that will be set when download completes.
-        timeout :
-            Total time allowed for the whole transfer.
-        buffer :
-            Optional bytearray to use as the download buffer.
-        callback :
-            Optional async function called as callback(received_bytes)
-            after each LOG_DATA packet is processed.
-        end_of_buffer_timeout :
-            Timeout in seconds to wait for new data before aborting.
-        size_bytes :
-            Optional total size of the log in bytes., if known.
-
-        Returns
-        -------
-        bytes
-            Raw log bytes (ULog/Dataflash).
-
-        Raises
-        ------
-        RuntimeError
-            If MAVLink connection is not established.
-        TimeoutError
-            If no complete log is received within the timeout.
-        """
-        if not self.connected:
-            raise RuntimeError("MAVLink connection not established")
-    
-        cancel_event = threading.Event()
-
-        # If you want to support an *async* callback, we wrap it so the sync
-        loop = asyncio.get_running_loop()
-        def sync_callback(received_bytes: int):
-            if callback is not None:
-                # Schedule the async callback safely from another thread
-                loop.call_soon_threadsafe(
-                    asyncio.create_task,
-                    callback(received_bytes),
-                )
-        sync_cb = sync_callback if callback is not None else None
-
-        try:
-            with self._download_lock:
-                log_bytes: bytes = await asyncio.to_thread(
-                    self._request_log_sync,
-                    log_id=log_id,
-                    completed_event=completed_event,
-                    timeout=timeout,
-                    size_bytes=size_bytes,
-                    cancel_event=cancel_event,
-                    callback=sync_cb,
-                    end_of_buffer_timeout=end_of_buffer_timeout,
-                )
-        except TimeoutError as exc:
-            self._log.error(f"Failed to download log {log_id}: {exc}")
-            raise
-        except Exception as exc:
-            self._log.error(f"Error downloading log {log_id}: {exc}")
-            raise
-
-        # process all messages in the buffer
-        if buffer is None:
-            buffer = bytearray()
-
-        # sort messages and data by offset
-        sorted_msgs = sorted(zip(msgs_ofs, msgs_data), key=lambda x: x[0])
-        msgs_ofs, msgs_data = zip(*sorted_msgs) if sorted_msgs else ([], [])
-
-        # verify the integrity and reconstruct the log
-        last_chunk_details = {"ofs": -1, "count": -1}
-        bytes_received = 0
-        for ofs, data in zip(msgs_ofs, msgs_data):
-            
-            count = len(data)
-            if count < 0:
-                count = 0
-
-            # make sure the ofs is as expected (increasing in increments of count)
-            if last_chunk_details["ofs"] != -1:
-                expected_ofs = last_chunk_details["ofs"] + last_chunk_details["count"]
-            else:
-                expected_ofs = 0
-            if ofs != expected_ofs:
-                self._log.warning(
-                    f"Log {log_id} chunk out of order or missing: "
-                    f"expected ofs={expected_ofs}, "
-                    f"got ofs={ofs}"
-                )
-                # rerequest the missing chunk(s)
-                with self._download_lock:
-                    try:
-                        pkt_expected = await self._request_chunk(
-                            log_id=log_id,
-                            ofs=expected_ofs,
-                            chunk_size=90,
-                            max_retries=3,
-                            timeout=timeout
-                        )
-                        ofs = int(pkt_expected.ofs)
-                        count = int(pkt_expected.count)
-                        if count < 0:
-                            count = 0
-                        data = bytes(pkt_expected.data[:count])
-                    except TimeoutError as exc:
-                        self._log.error(f"Failed to download log {log_id} at ofs={expected_ofs}: {exc}")
-                        raise
-                    except Exception as exc:
-                        self._log.error(f"Error downloading log {log_id} at ofs={expected_ofs}: {exc}")
-                        raise
-
-                # Append this chunk into the buffer
-                needed_len = ofs + count
-                if len(buffer) < needed_len:
-                    buffer.extend(b"\x00" * (needed_len - len(buffer)))
-                buffer[ofs:ofs + count] = data
-                bytes_received += count
-
-                # Progress callback (in bytes)
-                if callback is not None:
-                    try:
-                        await callback(bytes_received, "processing")
-                    except Exception as exc:
-                        self._log.warning(f"download_log callback raised: {exc}")
-
-                last_chunk_details["ofs"] = ofs
-                last_chunk_details["count"] = count
-
-        completed_event.set()
-        return bytes(buffer)
-
-    async def download_log_buffered(
-        self,
-        *,
-        log_id: int,
-        completed_event: threading.Event,
-        size_bytes: Optional[int] = None,
-        timeout: float = 3.0,
-        chunk_size: int = 90,
-        max_retries: int = 3,
-        cancel_event: threading.Event | None = None,
-        buffer: Optional[bytearray] = None,
-        callback: Optional[Callable[[int], Awaitable[None]]] = None
-    ) -> bytes:
-        """
-        Download one log file via repeated LOG_REQUEST_DATA / LOG_DATA exchanges.
-
-        Strategy:
-
-        * For ofs = 0, chunk_size, 2*chunk_size, ...
-
-          * send LOG_REQUEST_DATA(log_id, ofs, chunk_size)
-          * wait for LOG_DATA(log_id, ofs, ...)
-          * append data[:count]
-          * stop when:
-
-            * count == 0 (end-of-log by spec), or
-            * ofs + count >= size_bytes (if known)
-
-        Parameters
-        ----------
-        log_id :
-            LOG_ENTRY.id of the log to download.
-        completed_event :
-            threading.Event set when download is fully complete.
-        size_bytes :
-            Optional total size of the log from LOG_ENTRY.size; if given, used as
-            termination condition and sanity cap.
-        timeout :
-            Timeout per chunk request (seconds).
-        chunk_size :
-            Requested count per chunk. For MAVLink v1, LOG_DATA carries 90 bytes.
-        max_retries :
-            Number of retries per chunk on timeout.
-        cancel_event :
-            Optional threading.Event to cancel the download.
-        buffer :
-            Optional bytearray; if None, a new one is created.
-        callback :
-            Optional sync or async callback called as callback(total_bytes_received)
-            after each successful chunk.
-
-        Returns
-        -------
-        bytes
-            Raw log data.
-        """
-        if not self.connected:
-            raise RuntimeError("MAVLink connection not established")
-
-        if buffer is None:
-            buffer = bytearray()
-
-        LOG_DATA_ID = str(mavutil.mavlink.MAVLINK_MSG_ID_LOG_DATA)
-
-        ofs = 0
-
-        while True:
-            if cancel_event and cancel_event.is_set():
-                # Let caller decide what to do; could also raise here
-                self._log.info(f"Download of log {log_id} cancelled at ofs={ofs}")
-                break
-
-            # If we know the size and we've already covered it, stop
-            if size_bytes is not None and ofs >= size_bytes:
-                break
-            
-            try:
-                pkt = await self._request_chunk(
-                    log_id=log_id,
-                    ofs=ofs,
-                    chunk_size=chunk_size,
-                    max_retries=max_retries,
-                    timeout=timeout
-                )
-            except TimeoutError as exc:
-                self._log.error(f"Failed to download log {log_id} at ofs={ofs}: {exc}")
-                raise
-
-            count = int(pkt.count)
-            if count < 0:
-                count = 0
-
-            # Termination condition from spec: count == 0 => end-of-log
-            if count == 0:
-                break
-
-            # Append this chunk into the buffer
-            needed_len = ofs + count
-            if len(buffer) < needed_len:
-                buffer.extend(b"\x00" * (needed_len - len(buffer)))
-            buffer[ofs:ofs + count] = bytes(pkt.data[:count])
-
-            # Progress callback (in bytes)
-            if callback is not None:
-                try:
-                    await callback(len(buffer))
-                except Exception as exc:
-                    self._log.warning(f"download_log callback raised: {exc}")
-
-            ofs += count
-
-            # If we know the total size and we've just covered it, stop
-            if size_bytes is not None and ofs >= size_bytes:
-                completed_event.set()
-                break
-
-            # If size_bytes is unknown and we received less than chunk_size,
-            # it's probably the last chunk, so we can stop.
-            if size_bytes is None and count < chunk_size:
-                completed_event.set()
-                break
-
-        return bytes(buffer)
-
-
+        
 class MavLinkFTPProxy(BaseProxy):
     """
     Threaded MAVLink FTP driver using `pymavlink`.
@@ -1923,6 +1215,7 @@ class MavLinkFTPProxy(BaseProxy):
         self._loop: asyncio.AbstractEventLoop | None = None
         self._exe = ThreadPoolExecutor(max_workers=1)
         self.mavlink_proxy: MavLinkExternalProxy = mavlink_proxy
+        self._mav_lock = threading.Lock()
 
     # ------------------------ life-cycle --------------------- #
     async def start(self):
@@ -1932,9 +1225,9 @@ class MavLinkFTPProxy(BaseProxy):
         # Start the worker thread first
         await super().start()
 
-        # # Initialize parser if connection was successful
-        # if self.mavlink_proxy.master:
-        #     await self._init_parser()
+        # Initialize parser if connection was successful
+        if self.mavlink_proxy.master:
+            await self._init_parser()
 
     async def stop(self):
         """Stop the worker and close the link."""
@@ -2007,7 +1300,6 @@ class MavLinkFTPProxy(BaseProxy):
         self,
         remote_path: str,
         local_path: Path,
-        completed_event: threading.Event,
         on_progress: ProgressCB | None = None,
         cancel_event: threading.Event | None = None,
         connection_timeout: float = 3.0,
@@ -2047,8 +1339,6 @@ class MavLinkFTPProxy(BaseProxy):
                     on_progress,
                     cancel_event
                 )
-                if result:
-                    completed_event.set()
                 return local_path if result else None
             except Exception as e:
                 self._log.error(f"Failed to download ulog via FTP on attempt {attempt + 1}/{n_attempts}: {e}")
@@ -2153,6 +1443,7 @@ def _match_ls_to_entries(
                 mapping[log_id] = (name, sz, info['utc'])
                 break
     return mapping
+
 
 class _BlockingParser:
     """
@@ -2609,3 +1900,90 @@ class _BlockingParser:
             if n < retries:
                 self._log.info(f"Retrying delete operation for {path} in {delay}s (attempt {n+1}/{retries})")
                 time.sleep(delay)
+
+# ──────────────────────────────────────────────────────────────────────────────
+class ROS1ExternalProxy(ExternalProxy):
+    """
+    ROS 1 driver (rospy).  Buffers and key naming convention:
+
+    * ``send["pub/<topic>"]``        - outbound topic messages
+    * ``send["svc_client/<srv>"]``   - outbound service requests
+    * ``recv["sub/<topic>"]``        - inbound topic messages
+    * ``recv["svc_server/<srv>"]``   - inbound service calls
+    """
+
+    def __init__(self, node_name: str = "petal_ros_proxy", maxlen: int = 200):
+        super().__init__(maxlen=maxlen)
+        self.node_name = node_name
+        self._pub_cache = {}        # type: Dict[str, Any]  # rospy.Publisher
+        self._srv_client_cache = {} # type: Dict[str, Any]  # rospy.ServiceProxy
+        self._log = logging.getLogger("ROS1ExternalProxy")
+
+    # ------------------------ life-cycle --------------------- #
+    async def start(self):
+        """
+        Initialise the rospy node (only once per process) and start worker.
+        """
+        # if not rospy.core.is_initialized():
+        #     rospy.init_node(self.node_name, anonymous=True, disable_signals=True)
+        return await super().start()
+
+    # ------------------- I/O primitives --------------------- #
+    def _io_read_once(self) -> List[Tuple[str, Any]]:
+        """
+        rospy delivers messages via callbacks → nothing to poll here.
+        """
+        return []
+
+    def _io_write_once(self, batches):
+        """Publish topic messages or invoke service clients."""
+        for key, msgs in batches.items():
+            if key.startswith("pub/"):
+                topic = key[4:]
+                pub = self._pub_cache.get(topic)
+                if not pub:
+                    # from rospy.msg import AnyMsg
+                    # pub = rospy.Publisher(topic, AnyMsg, queue_size=10)
+                    self._pub_cache[topic] = pub
+                for m in msgs:
+                    pub.publish(m)
+
+            elif key.startswith("svc_client/"):
+                srv = key[12:]
+                proxy = self._srv_client_cache.get(srv)
+                if not proxy:
+                    continue
+                for req in msgs:
+                    try:
+                        proxy.call(req)
+                    except Exception as exc:
+                        self._log.error(
+                            "Failed to call service %s with request %s: %s",
+                            srv, req, exc
+                        )
+
+    # ------------------- helpers exposed to petals --------- #
+    def _enqueue_recv(self, key: str, msg: Any) -> None:
+        """
+        Internal helper to push an inbound ROS message / request into
+        ``_recv`` while honouring the maxlen bound.
+        """
+        self._recv.setdefault(key, deque(maxlen=self._maxlen)).append(msg)
+        for fn in self._handlers.get(key, []):
+            fn(msg)
+
+    # The following wrappers use the helper above so that the deque logic
+    # is applied consistently even for rospy callbacks.
+
+    def subscribe(self, topic: str, msg_class, queue_size: int = 10):
+        """Create a rospy subscriber and route messages into recv buffer."""
+        def _cb(msg):  # noqa: ANN001 (rospy gives a concrete type)
+            self._enqueue_recv(f"sub/{topic}", msg)
+        # rospy.Subscriber(topic, msg_class, _cb, queue_size=queue_size)
+
+    def advertise_service(self, srv_name: str, srv_class, handler):
+        """Expose a service server whose requests flow through the recv buffer."""
+        def _wrapper(req):  # noqa: ANN001
+            self._enqueue_recv(f"svc_server/{srv_name}", req)
+            return handler(req)
+        # rospy.Service(srv_name, srv_class, _wrapper)

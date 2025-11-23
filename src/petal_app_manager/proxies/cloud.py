@@ -72,9 +72,7 @@ class CloudDBProxy(BaseProxy):
         
         # Validate configuration
         if not self.access_token_url or not self.endpoint:
-            self.log.error("CloudDBProxy requires access_token_url and endpoint to be configured")
-            self.log.warning("CloudDBProxy will remain inactive until properly configured")
-            return
+            raise ValueError("ACCESS_TOKEN_URL and CLOUD_ENDPOINT must be configured")
         
         # Fetch initial credentials to validate configuration
         try:
@@ -82,7 +80,7 @@ class CloudDBProxy(BaseProxy):
             self.log.info("CloudDBProxy started successfully")
         except Exception as e:
             self.log.error(f"Failed to initialize CloudDBProxy: {e}")
-            self.log.warning("CloudDBProxy connection failed - operations will retry on demand")
+            raise
         
     async def stop(self):
         """Clean up resources when shutting down."""
@@ -168,7 +166,7 @@ class CloudDBProxy(BaseProxy):
                     try:
                         raise Exception(f"HTTP {response.status}: {response.reason}")
                     except Exception as e:
-                        self.log.debug(f"Session service unavailable: {response.status}")
+                        self.log.error(f"Failed to fetch session credentials: {str(e)}")
                         conn.close()
                         return {"error": str(e)}
                 raw_data = response.read()
@@ -200,7 +198,7 @@ class CloudDBProxy(BaseProxy):
                 return credentials
 
             except Exception as e:
-                self.log.debug(f"Session service error: {type(e).__name__}")
+                self.log.error(f"Failed to fetch session credentials: {str(e)}")
                 raise Exception(f"Authentication service error: {str(e)}")
 
         return await self._loop.run_in_executor(self._exe, _fetch_token)
