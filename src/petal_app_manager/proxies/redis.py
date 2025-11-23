@@ -47,7 +47,7 @@ class RedisProxy(BaseProxy):
         self._pubsub = None
         self._pubsub_pattern = None
         self._loop = None
-        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="RedisProxyThread")
         self.log = logging.getLogger("RedisProxy")
         
         # Communication and health check attributes

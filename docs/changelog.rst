@@ -1,6 +1,72 @@
 Changelog
 =========
 
+Version 0.1.45 (2025-11-23)
+---------------------------
+
+**Architecture Enhancements:**
+
+- **Multi-Threaded MAVLink Processing** - Significant performance improvements for MAVLink message handling:
+  
+  - **ExternalProxy and MavLinkExternalProxy**: Now use I/O thread + multiple worker threads architecture
+  - **I/O Thread**: Dedicated thread for reading/writing MAVLink messages (non-blocking)
+  - **Worker Threads**: Configurable pool of threads for processing handlers in parallel (default: 4)
+  - **Thread-Safe Message Buffer**: Deque-based buffer with thread-safe enqueue/dequeue operations
+  - **Configuration**: ``MAVLINK_WORKER_THREADS`` environment variable (default: 4)
+  - **Performance**: 2x throughput improvement with parallel handler processing
+
+- **Resilient Proxy Startup** - Enhanced reliability and stability:
+  
+  - **Non-Blocking Startup**: MQTT and Cloud proxies no longer crash the FastAPI server on connection failures
+  - **Graceful Degradation**: Proxies log warnings and remain inactive until dependencies are available
+  - **Background Monitoring**: Automatic retry tasks monitor and reconnect failed proxies
+  - **Configurable Retry Intervals**: All timeout/retry values centralized in ``ProxyConfig`` class
+  - **Environment Control**: Override timeouts via environment variables without code changes
+
+**Configuration Management:**
+
+- **Centralized ProxyConfig Class** - New configuration section for proxy connection management:
+  
+  - ``MQTT_RETRY_INTERVAL`` - Monitoring task retry interval (default: 10.0 seconds)
+  - ``CLOUD_RETRY_INTERVAL`` - Cloud proxy retry interval (default: 10.0 seconds)
+  - ``MQTT_STARTUP_TIMEOUT`` - MQTT startup timeout (default: 5.0 seconds)
+  - ``CLOUD_STARTUP_TIMEOUT`` - Cloud token fetch timeout (default: 5.0 seconds)
+  - ``MQTT_SUBSCRIBE_TIMEOUT`` - Topic subscription timeout (default: 5.0 seconds)
+
+- **Hybrid Petal Loading** - Massive performance improvement for petal initialization:
+  
+  - **Direct Path Import**: Load petals from ``module.submodule:ClassName`` paths (~0.002ms)
+  - **Entry Point Fallback**: Falls back to traditional entry point discovery if path fails (~67ms)
+  - **4355x Speedup**: Direct path loading is 4355 times faster than entry point discovery
+  - **Configuration**: Define petal paths in ``proxies.yaml`` under ``petals`` section
+
+**Health Monitoring Updates:**
+
+- **Enhanced Thread Tracking** - Updated health check models for multi-threaded architecture:
+  
+  - ``MavlinkWorkerThreadInfo``: Separate tracking for I/O thread and worker threads
+  - ``io_thread_running``: Boolean status for I/O thread
+  - ``io_thread_alive``: Health status for I/O thread
+  - ``worker_threads_running``: Boolean status for worker threads
+  - ``worker_thread_count``: Number of configured worker threads
+  - ``worker_threads_alive``: Count of healthy worker threads
+
+**Stability Improvements:**
+
+- Fixed server freeze during startup when TypeScript MQTT client is unavailable
+- Fixed 30-second timeout blocking in MQTT proxy subscription operations
+- Improved error handling for missing organization IDs during proxy startup
+- Enhanced monitoring tasks with proper timeout protection
+- All proxy operations respect configurable timeout values
+
+**Developer Benefits:**
+
+- Faster petal loading during development (4355x speedup)
+- No server crashes when cloud/MQTT services are unavailable
+- Easy timeout/retry configuration via environment variables
+- Better visibility into proxy connection status via health endpoints
+- Improved multi-threading performance for high-throughput scenarios
+
 Version 0.1.44 (2025-11-07)
 ---------------------------
 

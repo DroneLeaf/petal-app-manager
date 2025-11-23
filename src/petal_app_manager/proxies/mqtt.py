@@ -131,12 +131,16 @@ class MQTTProxy(BaseProxy):
         
         # Validate basic configuration (organization_id will be fetched on-demand)
         if not self.device_id:
-            raise ValueError("Robot Instance ID must be available from OrganizationManager")
+            self.log.error("Robot Instance ID must be available from OrganizationManager")
+            self.log.warning("MQTTProxy will remain inactive until Robot Instance ID is available")
+            return
         
         try:
             # Check TypeScript client health
             if not await self._check_ts_client_health():
-                raise ConnectionError("TypeScript MQTT client is not accessible")
+                self.log.error("TypeScript MQTT client is not accessible")
+                self.log.warning("MQTTProxy connection failed - will retry on demand")
+                return
             
             # Start worker threads for message processing
             self._start_worker_threads()
@@ -146,15 +150,27 @@ class MQTTProxy(BaseProxy):
                 await self._setup_callback_server()
                 await self._start_callback_server()
             
-            # Subscribe to default device topics (will get org_id on-demand)
-            await self._subscribe_to_device_topics()
+            # Try to subscribe to default device topics if organization ID is available
+            # Skip if not available - will be done later when org ID becomes available
+            organization_id = self._get_organization_id()
+            if organization_id:
+                self.log.info("Organization ID available, subscribing to device topics...")
+                try:
+                    from .. import Config
+                    await asyncio.wait_for(self._subscribe_to_device_topics(), timeout=Config.MQTT_SUBSCRIBE_TIMEOUT)
+                except asyncio.TimeoutError:
+                    self.log.warning("Timeout subscribing to device topics during startup")
+                except Exception as e:
+                    self.log.error(f"Failed to subscribe to device topics: {e}")
+            else:
+                self.log.info("Organization ID not available, skipping device topic subscription")
             
             self.is_connected = True
             self.log.info("MQTTProxy started successfully")
             
         except Exception as e:
             self.log.error(f"Failed to initialize MQTTProxy: {e}")
-            raise
+            self.log.warning("MQTTProxy connection failed - will retry on demand")
         
     async def stop(self):
         """Clean up resources when shutting down."""
@@ -379,10 +395,14 @@ class MQTTProxy(BaseProxy):
                             self.log.debug(f"No callback for topic: {topic_absolute} with subscription ID {subscription_id}")
                         else:
                             self.log.debug(f"No callback for topic: {topic_absolute} with no subscription ID")
+            else:
+                self.log.debug(f"Received message for unsubscribed topic: {topic_absolute}")
+                time.sleep(self.worker_sleep_ms / 1000.0)
 
         except Exception as e:
             self.log.error(f"Error processing message in worker: {e}")
-
+            time.sleep(self.worker_sleep_ms / 1000.0)
+            
     def _invoke_callback_safely(self, callback: Callable, topic: str, payload: Dict[str, Any]):
         """Safely invoke a callback, handling both sync and async functions."""
         try:
@@ -519,7 +539,7 @@ class MQTTProxy(BaseProxy):
             self.callback_server = server
             server.run()
 
-        self.callback_thread = threading.Thread(target=run_server, daemon=True)
+        self.callback_thread = threading.Thread(target=run_server, daemon=True, name="MQTTCallbackServer")
         self.callback_thread.start()
         
         # Wait a moment for server to start
@@ -527,8 +547,7 @@ class MQTTProxy(BaseProxy):
         self.log.info(f"Callback server started on {self.callback_host}:{self.callback_port}")
 
     async def _subscribe_to_topic(self, topic: str) -> bool:
-        """
-        Subscribe to an MQTT topic via TypeScript client.
+        """Subscribe to an MQTT topic via TypeScript client.
         Args:
             topic: Topic to subscribe to (relative to base topic)
         Returns:
@@ -539,8 +558,14 @@ class MQTTProxy(BaseProxy):
             if topic.startswith("/"):
                 topic = topic[1:]
             
+            # Get base topic
+            base_topic = self._get_base_topic()
+            if not base_topic:
+                self.log.error(f"Cannot subscribe to {topic}: base topic not available")
+                return False
+            
             # Determine full topic to subscribe to
-            topic_subscribe = f"{self._get_base_topic()}/{topic}"
+            topic_subscribe = f"{base_topic}/{topic}"
 
             request_data = {
                 "topic": topic_subscribe,
@@ -591,10 +616,10 @@ class MQTTProxy(BaseProxy):
 
     async def _subscribe_to_device_topics(self):
         """Subscribe to common device topics automatically."""
-        # Get organization ID on-demand
-        organization_id = self._get_organization_id()
+        # Get base topic (requires org ID and device ID)
+        base_topic = self._get_base_topic()
         
-        if not organization_id or not self.device_id:
+        if not base_topic:
             self.log.warning("Cannot subscribe to device topics: missing org or device ID")
             return
         

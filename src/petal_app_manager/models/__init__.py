@@ -21,6 +21,10 @@ from .health import (
     OrganizationHealthResponse,
 )
 
+from .mqtt import (
+    MQTTMessage
+)
+
 __all__ = [
     "HealthStatus",
     # Proxy-specific health models
@@ -38,4 +42,6 @@ __all__ = [
     "HealthMessage",
     "BasicHealthResponse",
     "OrganizationHealthResponse",
+    # MQTTMessage
+    "MQTTMessage",
 ]
