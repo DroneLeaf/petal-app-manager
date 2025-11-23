@@ -286,11 +286,13 @@ async def build_ftp_proxy(px4_time_msg=None) -> MavLinkFTPProxy:
         # Force connection establishment for testing
         # Since the new logic uses _schedule_reconnect(), we need to wait for it
         # and ensure the connection gets established with our mocks
-        await asyncio.sleep(0.1)  # Allow background tasks to run
+        await asyncio.sleep(0.2)  # Allow more time for background tasks
         
         # Manually set connected status and initialize parser if needed
         if not proxy.connected:
             proxy.connected = True
+            # Also set the master to the mock
+            proxy.master = MockMavlink(log_entry=True, px4_time_msg=px4_time_msg)
             
         # Even if connected, the parser might still be None due to timing issues
         # with the async _schedule_reconnect() task, so ensure it's initialized

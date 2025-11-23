@@ -60,23 +60,34 @@ def test_petals_loaded_when_dependencies_met(tmp_path, monkeypatch, dummy_app, d
     with open(proxies_yaml, "w") as f:
         yaml.safe_dump(config, f)
     
-    # Patch the specific path construction instead of Path itself
-    def mock_path_construction(*args, **kwargs):
-        if len(args) == 1 and str(args[0]).endswith('loader.py'):
-            # This is the __file__ call, return a mock that builds to our test yaml
-            class MockPath:
-                @property
-                def parent(self):
-                    return MockPath()
-                def __truediv__(self, other):
-                    if other == "proxies.yaml":
-                        return proxies_yaml
-                    return MockPath()
-            return MockPath()
-        return proxies_yaml
-    
+    # Mock the config file path directly in the loader module
     import petal_app_manager.plugins.loader as loader_mod
-    monkeypatch.setattr(loader_mod, "Path", mock_path_construction)
+    original_path = loader_mod.Path
+    
+    class MockPathCls:
+        def __init__(self, *args):
+            if args and str(args[0]).endswith('loader.py'):
+                self._is_loader = True
+            else:
+                self._path = original_path(*args) if args else original_path()
+                self._is_loader = False
+        
+        @property
+        def parent(self):
+            if self._is_loader:
+                # Return a mock that knows about proxies.yaml
+                result = MockPathCls()
+                result._is_loader = False
+                result._is_parent = True
+                return result
+            return self
+        
+        def __truediv__(self, other):
+            if hasattr(self, '_is_parent') and other == "proxies.yaml":
+                return proxies_yaml
+            return MockPathCls()
+    
+    monkeypatch.setattr(loader_mod, "Path", MockPathCls)
 
     petals = load_petals(dummy_app, dummy_proxies, mock_logger)
     loaded_names = [p.name for p in petals]
@@ -97,23 +108,34 @@ def test_petals_skipped_when_proxy_missing(tmp_path, monkeypatch, dummy_app, dum
     with open(proxies_yaml, "w") as f:
         yaml.safe_dump(config, f)
     
-    # Patch the specific path construction instead of Path itself
-    def mock_path_construction(*args, **kwargs):
-        if len(args) == 1 and str(args[0]).endswith('loader.py'):
-            # This is the __file__ call, return a mock that builds to our test yaml
-            class MockPath:
-                @property
-                def parent(self):
-                    return MockPath()
-                def __truediv__(self, other):
-                    if other == "proxies.yaml":
-                        return proxies_yaml
-                    return MockPath()
-            return MockPath()
-        return proxies_yaml
-    
+    # Mock the config file path directly in the loader module
     import petal_app_manager.plugins.loader as loader_mod
-    monkeypatch.setattr(loader_mod, "Path", mock_path_construction)
+    original_path = loader_mod.Path
+    
+    class MockPathCls:
+        def __init__(self, *args):
+            if args and str(args[0]).endswith('loader.py'):
+                self._is_loader = True
+            else:
+                self._path = original_path(*args) if args else original_path()
+                self._is_loader = False
+        
+        @property
+        def parent(self):
+            if self._is_loader:
+                # Return a mock that knows about proxies.yaml
+                result = MockPathCls()
+                result._is_loader = False
+                result._is_parent = True
+                return result
+            return self
+        
+        def __truediv__(self, other):
+            if hasattr(self, '_is_parent') and other == "proxies.yaml":
+                return proxies_yaml
+            return MockPathCls()
+    
+    monkeypatch.setattr(loader_mod, "Path", MockPathCls)
 
     petals = load_petals(dummy_app, {"redis": MagicMock()}, mock_logger)
     loaded_names = [p.name for p in petals]
@@ -136,23 +158,34 @@ def test_partial_petals_loaded(tmp_path, monkeypatch, dummy_app, dummy_proxies, 
     with open(proxies_yaml, "w") as f:
         yaml.safe_dump(config, f)
     
-    # Patch the specific path construction instead of Path itself
-    def mock_path_construction(*args, **kwargs):
-        if len(args) == 1 and str(args[0]).endswith('loader.py'):
-            # This is the __file__ call, return a mock that builds to our test yaml
-            class MockPath:
-                @property
-                def parent(self):
-                    return MockPath()
-                def __truediv__(self, other):
-                    if other == "proxies.yaml":
-                        return proxies_yaml
-                    return MockPath()
-            return MockPath()
-        return proxies_yaml
-    
+    # Mock the config file path directly in the loader module
     import petal_app_manager.plugins.loader as loader_mod
-    monkeypatch.setattr(loader_mod, "Path", mock_path_construction)
+    original_path = loader_mod.Path
+    
+    class MockPathCls:
+        def __init__(self, *args):
+            if args and str(args[0]).endswith('loader.py'):
+                self._is_loader = True
+            else:
+                self._path = original_path(*args) if args else original_path()
+                self._is_loader = False
+        
+        @property
+        def parent(self):
+            if self._is_loader:
+                # Return a mock that knows about proxies.yaml
+                result = MockPathCls()
+                result._is_loader = False
+                result._is_parent = True
+                return result
+            return self
+        
+        def __truediv__(self, other):
+            if hasattr(self, '_is_parent') and other == "proxies.yaml":
+                return proxies_yaml
+            return MockPathCls()
+    
+    monkeypatch.setattr(loader_mod, "Path", MockPathCls)
 
     petals = load_petals(dummy_app, {"redis": MagicMock(), "ext_mavlink": MagicMock()}, mock_logger)
     loaded_names = [p.name for p in petals]
