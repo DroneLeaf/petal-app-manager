@@ -104,16 +104,18 @@ class ExternalProxy(BaseProxy):
     A dedicated thread calls :py:meth:`_io_read_once` / :py:meth:`_io_write_once`
     in a tight loop while the FastAPI event-loop thread stays unblocked.
 
-    *   **Send buffers**  - ``self._send[key]``  (deque, newest → right side)
-        Outbound messages are enqueued here via :py:meth:`send`.
-        The I/O thread drains these buffers by calling
-        :py:meth:`_io_write_once` with all pending messages.
-    *   **Handlers**      - ``self._handlers[key]``
-        Callbacks registered via :py:meth:`register_handler` are stored here.
-        When new messages arrive via :py:meth:`_io_read_once`, they are
-        enqueued to a message buffer for processing by worker threads.
-        *   **Worker threads** - process the message buffer in parallel,
-            calling all registered handlers for each message.
+    * **Send buffers** - ``self._send[key]`` (deque, newest → right side)
+      Outbound messages are enqueued here via :py:meth:`send`.
+      The I/O thread drains these buffers by calling
+      :py:meth:`_io_write_once` with all pending messages.
+
+    * **Handlers** - ``self._handlers[key]``
+      Callbacks registered via :py:meth:`register_handler` are stored here.
+      When new messages arrive via :py:meth:`_io_read_once`, they are
+      enqueued to a message buffer for processing by worker threads.
+
+      * **Worker threads** - process the message buffer in parallel,
+        calling all registered handlers for each message.
     """
 
     # ──────────────────────────────────────────────────────── public helpers ──
@@ -1788,13 +1790,16 @@ class MavLinkExternalProxy(ExternalProxy):
         Download one log file via repeated LOG_REQUEST_DATA / LOG_DATA exchanges.
 
         Strategy:
-        - For ofs = 0, chunk_size, 2*chunk_size, ...
-            - send LOG_REQUEST_DATA(log_id, ofs, chunk_size)
-            - wait for LOG_DATA(log_id, ofs, ...)
-            - append data[:count]
-            - stop when:
-                * count == 0 (end-of-log by spec), or
-                * ofs + count >= size_bytes (if known)
+
+        * For ofs = 0, chunk_size, 2*chunk_size, ...
+
+          * send LOG_REQUEST_DATA(log_id, ofs, chunk_size)
+          * wait for LOG_DATA(log_id, ofs, ...)
+          * append data[:count]
+          * stop when:
+
+            * count == 0 (end-of-log by spec), or
+            * ofs + count >= size_bytes (if known)
 
         Parameters
         ----------
