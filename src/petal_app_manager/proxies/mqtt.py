@@ -431,6 +431,8 @@ class MQTTProxy(BaseProxy):
             if asyncio.iscoroutinefunction(callback):
                 # Async callback - schedule it on the event loop
                 if self._loop and not self._loop.is_closed():
+                    # Always use run_coroutine_threadsafe for thread-safe scheduling
+                    # This works whether we're in the same thread or different thread
                     asyncio.run_coroutine_threadsafe(
                         callback(topic, payload), 
                         self._loop
