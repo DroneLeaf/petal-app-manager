@@ -168,7 +168,7 @@ class CloudDBProxy(BaseProxy):
                     try:
                         raise Exception(f"HTTP {response.status}: {response.reason}")
                     except Exception as e:
-                        self.log.error(f"Failed to fetch session credentials: {str(e)}")
+                        self.log.debug(f"Session service unavailable: {response.status}")
                         conn.close()
                         return {"error": str(e)}
                 raw_data = response.read()
@@ -200,7 +200,7 @@ class CloudDBProxy(BaseProxy):
                 return credentials
 
             except Exception as e:
-                self.log.error(f"Failed to fetch session credentials: {str(e)}")
+                self.log.debug(f"Session service error: {type(e).__name__}")
                 raise Exception(f"Authentication service error: {str(e)}")
 
         return await self._loop.run_in_executor(self._exe, _fetch_token)

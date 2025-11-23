@@ -603,7 +603,7 @@ class HealthService:
                 )
                 
         except Exception as e:
-            self.logger.error(f"Error checking Cloud proxy health: {e}")
+            self.logger.debug(f"Cloud proxy unreachable: {type(e).__name__}")
             return CloudProxyHealth(
                 status=HealthStatus.ERROR,
                 connection=CloudConnectionInfo(
@@ -699,7 +699,7 @@ class HealthService:
                 )
                 
         except Exception as e:
-            self.logger.error(f"Error checking S3 Bucket proxy health: {e}")
+            self.logger.debug(f"S3 Bucket proxy unreachable: {type(e).__name__}")
             return S3BucketProxyHealth(
                 status=HealthStatus.ERROR,
                 connection=S3ConnectionInfo(

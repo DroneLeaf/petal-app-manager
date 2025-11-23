@@ -455,7 +455,7 @@ class MQTTProxy(BaseProxy):
             )
             return response.status_code == 200
         except Exception as e:
-            self.log.error(f"TypeScript client health check failed: {e}")
+            self.log.debug(f"TypeScript client unreachable: {type(e).__name__}")
             return False
 
     async def _health_monitor_loop(self):
