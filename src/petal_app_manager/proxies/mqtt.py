@@ -154,6 +154,9 @@ class MQTTProxy(BaseProxy):
             
             if is_healthy:
                 self.log.info("TypeScript MQTT client is healthy")
+                # Mark as connected since TypeScript client is healthy
+                self.is_connected = True
+                
                 # Try to subscribe to default device topics if organization ID is available
                 organization_id = self._get_organization_id()
                 if organization_id:
@@ -161,16 +164,13 @@ class MQTTProxy(BaseProxy):
                     try:
                         from .. import Config
                         await asyncio.wait_for(self._subscribe_to_device_topics(), timeout=Config.MQTT_SUBSCRIBE_TIMEOUT)
-                        self.is_connected = True
+                        self.log.info("Successfully subscribed to device topics")
                     except asyncio.TimeoutError:
                         self.log.warning("Timeout subscribing to device topics during startup")
-                        self.is_connected = False
                     except Exception as e:
                         self.log.error(f"Failed to subscribe to device topics: {e}")
-                        self.is_connected = False
                 else:
                     self.log.info("Organization ID not available, skipping device topic subscription")
-                    self.is_connected = False
             else:
                 self.log.warning("TypeScript MQTT client is not accessible - will monitor and retry")
                 self.is_connected = False
