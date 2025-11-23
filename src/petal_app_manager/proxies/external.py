@@ -158,13 +158,6 @@ class ExternalProxy(BaseProxy):
         self._io_thread_send: threading.Thread | None = None
         self._io_thread_recv: threading.Thread | None = None
         self._worker_threads: List[threading.Thread] = []
-        self._dedicated_worker_threads: Dict[str, threading.Thread] = {}
-        self._dedicated_worker_running: Dict[str, threading.Event] = defaultdict(threading.Event)
-        self._dedicated_recv_locks: Dict[str, threading.Lock] = defaultdict(threading.Lock)
-        self._dedicated_recv_threads: Dict[str, threading.Thread] = {}
-        self._dedicated_recv_running: Dict[str, threading.Event] = defaultdict(threading.Event)
-        self._last_dedicated_message_time: Dict[str, float] = defaultdict(float)
-        self._timeout_dedicated_recv: Dict[str, float] = defaultdict(lambda: 0.0)
         
         self._loop: asyncio.AbstractEventLoop | None = None
         self._log = logging.getLogger(self.__class__.__name__)
@@ -173,10 +166,7 @@ class ExternalProxy(BaseProxy):
         key: str, 
         fn: Callable[[Any], None], 
         duplicate_filter_interval: Optional[float] = None,
-        queue_length: Optional[int] = None,
-        dedicated_worker: bool = False,
-        timeout_buffer: float = 0.0,
-        request_msg: Any = None
+        queue_length: Optional[int] = None
     ) -> None:
         """
         Attach *fn* so it fires for **every** message appended to ``_recv[key]``.
@@ -196,15 +186,6 @@ class ExternalProxy(BaseProxy):
             If specified, sets the maximum length of the message buffer for *key*.
             New messages overwrite the oldest when the buffer is full.
             If None, the default maxlen from proxy initialization is used.
-        dedicated_worker : bool
-            If True, assigns this handler's key to a dedicated worker thread. This can help with high-throughput keys
-            that would otherwise block other handlers.
-        timeout_buffer : Optional[float]
-            If specified and *dedicated_worker* is True, sets the timeout (in seconds) for
-            the dedicated recv thread to stop if no messages are received within this interval.
-            If 0.0, no timeout is applied.
-        request_msg : Any
-            If specified, this message is sent immediately after starting the receiver for this key.
         """
         self._handlers[key].append(fn)
         self._handler_configs[key][fn] = {
@@ -216,36 +197,6 @@ class ExternalProxy(BaseProxy):
                 queue_length = None  # unbounded
             with self._message_buffer_locks[key]:
                 self._message_buffer[key] = deque(maxlen=queue_length)
-
-        if dedicated_worker:
-            if key not in self._dedicated_recv_threads:
-                self._dedicated_recv_running[key].set()
-                recv_thread = threading.Thread(
-                    target=self._recv_dedicated_body,
-                    args=(key,),
-                    name=f"{self.__class__.__name__}-DedicatedRecv-{key}",
-                    daemon=True
-                )
-                self._dedicated_recv_threads[key] = recv_thread
-                self._timeout_dedicated_recv[key] = timeout_buffer
-                self._last_dedicated_message_time[key] = -1
-
-                # self._recv_running.clear()
-                recv_thread.start()
-
-                if request_msg is None:
-                    self.logger.error(f"Dedicated worker for key '{key}' requires a request_msg to start receiving data.")
-                self.send("mav", request_msg)
-
-
-            # must wait for recv_thread to finish recieving the entire message
-            while self._dedicated_recv_threads[key].is_alive() and self._dedicated_recv_running[key].is_set():
-                time.sleep(0.01)
-
-            # self._recv_running.set()
-            if key not in self._dedicated_worker_threads:
-                self._dedicated_worker_running[key].set()
-                self._start_dedicated_worker_thread(key)
 
     def unregister_handler(self, key: str, fn: Callable[[Any], None]) -> None:
         """
@@ -276,23 +227,6 @@ class ExternalProxy(BaseProxy):
             del self._handlers[key]
             if key in self._handler_configs:
                 del self._handler_configs[key]
-
-        if key in self._dedicated_worker_running:
-            self._dedicated_worker_running[key].clear()
-            # Stop dedicated worker thread
-            asyncio.run_coroutine_threadsafe(
-                self._stop_dedicated_worker_thread(key),
-                self._loop
-            )
-        if key in self._dedicated_recv_running:
-            self._dedicated_recv_running[key].clear()
-            # Stop dedicated recv thread
-            thread = self._dedicated_recv_threads.get(key)
-            if thread and thread.is_alive():
-                thread.join(timeout=2)
-                del self._dedicated_recv_threads[key]
-            # self._recv_running.clear()
-            # self._recv_running.set()
 
         # Clean up message buffer and locks
         with self._message_buffer_key_lock:
@@ -416,8 +350,6 @@ class ExternalProxy(BaseProxy):
         self._send_running.clear()
         self._recv_running.clear()
         self._worker_running.clear()
-        for key in list(self._dedicated_worker_running.keys()):
-            self._dedicated_worker_running[key].clear()
         
         # Cancel any pending burst tasks
         if hasattr(self, '_burst_tasks'):
@@ -431,7 +363,6 @@ class ExternalProxy(BaseProxy):
         
         # Stop worker threads
         await self._stop_worker_threads()
-        await self._stop_dedicated_worker_threads()
         
         # Stop I/O send thread
         if self._io_thread_send and self._io_thread_send.is_alive():
@@ -447,15 +378,6 @@ class ExternalProxy(BaseProxy):
     def _io_read_once(self, timeout: int=0) -> List[Tuple[str, Any]]:
         """
         Retrieve **zero or more** `(key, message)` tuples from the device /
-        middleware *without blocking*.
-
-        Returning an empty list is perfectly fine.
-        """
-
-    @abstractmethod
-    def _io_read_once_dedicated(self, key: str, timeout: int=0) -> List[Any]:
-        """
-        Retrieve **zero or more** messages for a specific *key* from the device /
         middleware *without blocking*.
 
         Returning an empty list is perfectly fine.
@@ -482,23 +404,10 @@ class ExternalProxy(BaseProxy):
 
     def _recv_body(self) -> None:
         """I/O thread body - drains send queues, polls recv, enqueues messages for processing."""
-        while self._recv_running.is_set() and not any(t.is_set() for t in self._dedicated_recv_running.values()):
+        while self._recv_running.is_set():
             for key, msg in self._io_read_once(timeout=self._sleep_time_reader_ms/1000.0):                
                 # Enqueue to message buffer for worker thread processing
                 self._enqueue_message_to_buffer(key, msg)
-
-    def _recv_dedicated_body(self, key: str) -> None:
-        """I/O thread body - drains send queues, polls recv for dedicated key, enqueues messages for processing."""
-        while self._dedicated_recv_running[key].is_set():
-            for msg_key, msg in self._io_read_once_dedicated(key, timeout=self._sleep_time_reader_ms/1000.0):                
-                # Enqueue to message buffer for worker thread processing
-                if msg_key == key:
-                    self._enqueue_message_to_buffer(key, msg)
-                    self._last_dedicated_message_time[key] = time.time()
-
-            if time.time() - self._last_dedicated_message_time[key] > self._timeout_dedicated_recv[key] and self._last_dedicated_message_time[key] != -1:
-                self._log.warning(f"No messages received for key '{key}' in the last {self._timeout_dedicated_recv[key]} seconds. Stopping dedicated recv thread.")
-                self._dedicated_recv_running[key].clear()
             
     def _create_worker_threads(self):
         """Start worker threads for processing message buffer."""
@@ -519,43 +428,6 @@ class ExternalProxy(BaseProxy):
             
         self._log.info(f"Started {self._worker_thread_count} worker threads for handler processing")
 
-    def _start_dedicated_worker_thread(self, key: str):
-        """Create a dedicated worker thread for a specific key."""
-        worker_thread = threading.Thread(
-            target=self._dedicated_worker_thread_main,
-            args=(key,),
-            name=f"{self.__class__.__name__}-DedicatedWorker-{key}",
-            daemon=True
-        )
-        self._dedicated_worker_threads[key] = worker_thread
-        worker_thread.start()
-        self._log.info(f"Started dedicated worker thread for key '{key}'")
-
-    async def _stop_dedicated_worker_thread(self, key: str):
-        """Stop a dedicated worker thread for a specific key."""
-        if key in self._dedicated_worker_running:
-            self._dedicated_worker_running[key].clear()
-        
-        # Wait for threads to finish
-        thread = self._dedicated_worker_threads.get(key)
-        if thread and thread.is_alive():
-            thread.join(timeout=2)
-            del self._dedicated_worker_threads[key]
-                
-        self._log.info(f"Stopped dedicated worker thread for key '{key}'")
-
-    async def _stop_dedicated_worker_threads(self):
-        """Stop all dedicated worker threads gracefully."""
-        for key in list(self._dedicated_worker_running.keys()):
-            self._dedicated_worker_running[key].clear()
-        
-        # Wait for threads to finish
-        for thread in self._dedicated_worker_threads.values():
-            if thread.is_alive():
-                thread.join(timeout=2)
-                
-        self._log.info("Stopped all dedicated worker threads")
-
     async def _stop_worker_threads(self):
         """Stop all worker threads gracefully."""
         self._worker_running.clear()
@@ -575,9 +447,6 @@ class ExternalProxy(BaseProxy):
                 keys = list(self._message_buffer.keys())
 
                 for key in keys:
-                    if key in self._dedicated_worker_threads or not self._message_buffer_configs.get(key, {}).get('is_handler_message', True):
-                        time.sleep(self._sleep_time_ms / 1000.0)
-                        continue  # skip keys not assigned to this worker
                     msg = self._get_next_message_from_buffer(key)
                     if msg is not None:
                         self._process_message_with_handlers(key, msg)
@@ -586,20 +455,6 @@ class ExternalProxy(BaseProxy):
                         
             except Exception as e:
                 self._log.error(f"Error in worker thread: {e}")
-                time.sleep(self._sleep_time_ms / 1000.0)
-
-    def _dedicated_worker_thread_main(self, key: str):
-        """Main loop for dedicated worker thread for a specific key."""
-        while self._dedicated_worker_running[key].is_set():
-            try:
-                msg = self._get_next_dedicated_message_from_buffer(key)
-                if msg is not None:
-                    self._process_message_with_handlers(key, msg)
-                else:
-                    time.sleep(self._sleep_time_ms / 1000.0)
-                    
-            except Exception as e:
-                self._log.error(f"Error in dedicated worker thread for key '{key}': {e}")
                 time.sleep(self._sleep_time_ms / 1000.0)
 
     def _enqueue_message_to_buffer(self, key: str, msg: Any):
@@ -623,22 +478,6 @@ class ExternalProxy(BaseProxy):
                     return msg
                 
         return None
-
-    def _get_next_dedicated_message_from_buffer(self, key: str) -> Tuple[Optional[str], Optional[Any]]:
-        """Non-thread-safe method to get next message from buffer for dedicated worker."""
-        dq = self._message_buffer.get(key)
-        lock = self._message_buffer_locks.get(key)
-        index = self._message_buffer_last_message_index.get(key, 0)
-        msg = None
-        if dq:
-            if index < len(dq):
-                msg = dq[index]
-                self._message_buffer_last_message_index[key] = index + 1
-            else:
-                # Reset index if we've processed all messages
-                self._message_buffer_last_message_index[key] = len(dq)
-                    
-        return msg
 
     def _process_message_with_handlers(self, key: str, msg: Any):
         """
@@ -1102,47 +941,16 @@ class MavLinkExternalProxy(ExternalProxy):
         out: List[Tuple[str, Any]] = []
         try:
             while True:
-                msg = self.master.recv_match(blocking=True, timeout=timeout)
-                if msg is None:
-                    break
-            
-                msg_type = msg.get_type()
-                msg_id = msg.get_msgId()
-                
-                out.append(("mav", msg))
-                out.append((str(msg_id), msg))
-                out.append((msg_type, msg))
-
-        except (OSError, socket.error) as e:
-            # Handle connection errors gracefully
-            if e.errno in [errno.EBADF, errno.ECONNRESET, errno.ECONNREFUSED]:
-                self._log_msgs.debug(f"MAVLink connection lost during read: {e}")
-                # Don't mark as disconnected here, let the heartbeat monitor handle it
-            else:
-                self._log_msgs.error(f"Unexpected error reading MAVLink messages: {e}")
-            time.sleep(timeout)
-        except Exception as e:
-            self._log_msgs.error(f"Error reading MAVLink messages: {e}")
-            # Don't mark as disconnected here, let the heartbeat monitor handle it
-            time.sleep(timeout)
-        
-        return out
-
-    def _io_read_once_dedicated(self, key: str, timeout: float = 0.0) -> List[Tuple[str, Any]]:
-        if not self.master or not self.connected:
-            return []
-
-        out: List[Tuple[str, Any]] = []
-        try:
-            while True:
                 with self._mav_lock:
-                    msg = self.master.recv_match(type=key, blocking=True, timeout=timeout)
+                    msg = self.master.recv_match(blocking=True, timeout=timeout)
                     if msg is None:
                         break
             
                 msg_type = msg.get_type()
                 msg_id = msg.get_msgId()
                 
+                out.append(("mav", msg))
+                out.append((str(msg_id), msg))
                 out.append((msg_type, msg))
 
         except (OSError, socket.error) as e:
@@ -1480,9 +1288,7 @@ class MavLinkExternalProxy(ExternalProxy):
         collector: Callable[[mavutil.mavlink.MAVLink_message], bool],
         timeout: float = 3.0,
         queue_length: Optional[int] = None,
-        dedicated: bool = False,
         cancel_event: Optional[threading.Event] = None,
-        timeout_buffer: float = 0.0
     ) -> None:
         """
         Transmit *request_msg*, register a handler on *match_key* and keep feeding
@@ -1505,13 +1311,8 @@ class MavLinkExternalProxy(ExternalProxy):
             Optional maximum queue length for the handler. If the queue
             exceeds this length, older packets will be dropped. If None,
             the default queue length is used.
-        dedicated :
-            If True, use a dedicated handler that won't share packets
-            with other handlers for the same match_key.
         cancel_event :
             Optional threading.Event that can be set to cancel the wait.
-        timeout_buffer :
-            Time after which to consider the buffered packets stale.
         
         Raises
         ------
@@ -1536,15 +1337,11 @@ class MavLinkExternalProxy(ExternalProxy):
         self.register_handler(
             key = match_key, 
             fn = _handler, 
-            queue_length = queue_length, 
-            dedicated_worker = dedicated,
-            timeout_buffer=timeout_buffer,
-            request_msg=request_msg
+            queue_length = queue_length
         )
 
         # send the request message after registering the handler
-        if not dedicated:
-            self.send("mav", request_msg)
+        self.send("mav", request_msg)
 
         # create an asyncio task to monitor cancel_event if provided
         if cancel_event is not None:
@@ -1825,179 +1622,6 @@ class MavLinkExternalProxy(ExternalProxy):
         completed_event.set()
         return bytes(result)
 
-    async def _request_log(
-        self,
-        *,
-        log_id: int,
-        completed_event: threading.Event,
-        timeout: float = 60.0,
-        size_bytes: Optional[int] = None,
-        cancel_event: threading.Event | None = None,
-        callback: Optional[Callable[[int], Awaitable[None]]] = None,
-        end_of_buffer_timeout: float = 3.0,
-    ) -> Tuple[List[bytes], List[int]]:
-        """
-        Download one log file via LOG_REQUEST_DATA / LOG_DATA.
-
-        Parameters
-        ----------
-        log_id :
-            The LOG_ENTRY.id of the log to download.
-        completed_event :
-            threading.Event that will be set when download completes.
-        timeout :
-            Total time allowed for the whole transfer.
-        size_bytes :
-            Optional total size of the log in bytes, if known.
-        cancel_event :
-            Optional threading.Event that can be set to cancel the download.
-        callback :
-            Optional async function called as callback(received_bytes)
-            after each LOG_DATA packet is processed.
-
-        Returns
-        -------
-        Tuple[List[bytes], List[int]]
-            A tuple containing:
-            - List of byte chunks received (in order)
-            - List of offsets corresponding to each chunk
-
-        Raises
-        ------
-        RuntimeError
-            If MAVLink connection is not established.
-        TimeoutError
-            If no complete log is received within the timeout.
-        """
-        # Buffer for reconstructed log
-        bytes_received = {"val": 0}           # simple mutable holder for callback
-
-        LOG_DATA_ID = 'LOG_DATA'
-
-        last_details = {"ofs": -1, "count": -1, "time": -1}
-        msgs_ofs: List[int] = []
-        msgs_data: List[bytes] = []
-
-        def _collector(pkt) -> bool:
-            # Ignore LOG_DATA for other log IDs
-            if getattr(pkt, "id", None) != log_id:
-                return False
-
-            count = int(pkt.count)
-            if count < 0:
-                count = 0
-
-            index = int(pkt.id)
-            ofs = int(pkt.ofs)
-            data = bytes(pkt.data[:count])
-            expected_ofs = last_details["ofs"] + last_details["count"] if last_details["ofs"] != -1 else 0
-
-            if expected_ofs != -1 and ofs != expected_ofs:
-                self._log.info(
-                    f"LOG_DATA missed chunk(s): expected ofs={expected_ofs}, got ofs={ofs}"
-                )
-
-            # We'll compute finished inside the lock, then call callback outside
-            finished = False
- 
-            if count > 0:
-                msgs_ofs.append(ofs)
-                msgs_data.append(data)
-                bytes_received["val"] = ofs + count
-
-            # --- Termination logic (inside lock so it's consistent with buf) ---
-            if count == 0:
-                # 1) Spec: count == 0 => end-of-log if firmware sends it
-                finished = True
-                completed_event.set() if completed_event else None
-            elif size_bytes is not None and ofs + count >= size_bytes:
-                # 2) If we know the size from LOG_ENTRY, stop once we've covered it
-                finished = True
-                completed_event.set() if completed_event else None
-            elif size_bytes is None and count < 90:
-                # 3) Fallback heuristic: short last chunk
-                finished = True
-                completed_event.set() if completed_event else None
-
-            # Call callback *outside* the lock so we don't risk deadlocks / slow handler holding the lock
-            if callback and count > 0 and not (cancel_event and cancel_event.is_set()):
-                try:
-                    # spawn a task to not block the collector
-                    asyncio.run_coroutine_threadsafe(
-                        callback(bytes_received["val"], "buffering"),
-                        self._loop
-                    )
-                except Exception as exc:
-                    self._log.warning(f"Progress callback raised: {exc}")
-
-            # No sleep here – it just stalls the reader thread
-            
-            last_details["ofs"] = ofs
-            last_details["count"] = count
-            last_details["time"] = time.time()
-            time.sleep(self._sleep_time_ms / 1000.0)
-            return finished
-        
-        interval_micro_seconds = self._sleep_time_ms * 1000 * 10
-
-        # create a task to monitor when was the last received chunk
-        async def _monitor_timeout():
-            while True:
-                await asyncio.sleep(0.01)
-                if last_details["time"] != -1:
-                    elapsed = time.time() - last_details["time"]
-                    if elapsed > end_of_buffer_timeout:
-                        self._log.info(
-                            f"Download of log {log_id} timed out after {elapsed:.1f}s since last chunk"
-                        )
-                        # trigger the done event by setting the cancel_event if provided
-                        if cancel_event:
-                            cancel_event.set()
-                        break
-
-        monitor_task = asyncio.create_task(_monitor_timeout())
-
-        # Build a single "give me everything" request
-        req = self.build_req_msg_log_data(
-            log_id=log_id,
-            ofs=0,
-            count=0xFFFFFFFF,
-        )
-
-        # This will:
-        #   - send LOG_REQUEST_DATA
-        #   - register the LOG_DATA handler
-        #   - block until _collector returns True or timeout
-        try:
-            with self._download_lock:
-                await self.send_and_wait(
-                    match_key=LOG_DATA_ID,
-                    request_msg=req,
-                    collector=_collector,
-                    timeout=timeout,
-                    queue_length=0,
-                    dedicated=True,
-                    cancel_event=cancel_event,
-                    timeout_buffer=end_of_buffer_timeout
-                )
-        except TimeoutError as exc:
-            raise exc
-        except Exception as exc:
-            raise exc
-        finally:
-            # clear the message buffer to save memory
-            with self._message_buffer_locks[LOG_DATA_ID]:
-                self._message_buffer[LOG_DATA_ID].clear()
-
-            monitor_task.cancel()
-            completed_event.set() if completed_event else None
-            try:
-                await monitor_task
-            except asyncio.CancelledError:
-                pass
-
-        return msgs_data, msgs_ofs
-
     async def download_log(
         self,
         *,
@@ -2047,23 +1671,6 @@ class MavLinkExternalProxy(ExternalProxy):
     
         cancel_event = threading.Event()
 
-        # interval_micro_seconds = self._sleep_time_ms * 1000
-        # message = self.master.mav.command_long_encode(
-        #     self.target_system,  # Target system ID
-        #     self.target_component,  # Target component ID
-        #     mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL,  # ID of command to send
-        #     0,  # Confirmation
-        #     mavutil.mavlink.MAVLINK_MSG_ID_LOG_DATA,  # param1: Message ID to be streamed
-        #     interval_micro_seconds, # param2: Interval in microseconds
-        #     0,       # param3 (unused)
-        #     0,       # param4 (unused)
-        #     0,       # param5 (unused)
-        #     0,       # param5 (unused)
-        #     0        # param6 (unused)
-        # )
-        # self.send("mav", message)  # set LOG_DATA interval
-        # time.sleep(0.1)  # give some time to take effect
-
         # If you want to support an *async* callback, we wrap it so the sync
         loop = asyncio.get_running_loop()
         def sync_callback(received_bytes: int):
@@ -2076,15 +1683,6 @@ class MavLinkExternalProxy(ExternalProxy):
         sync_cb = sync_callback if callback is not None else None
 
         try:
-            # msgs_data, msgs_ofs = await self._request_log(
-            #     log_id=log_id,
-            #     completed_event=completed_event,
-            #     timeout=timeout,
-            #     size_bytes=None,
-            #     cancel_event=cancel_event,
-            #     callback=callback,
-            #     end_of_buffer_timeout=end_of_buffer_timeout
-            # )
             with self._download_lock:
                 log_bytes: bytes = await asyncio.to_thread(
                     self._request_log_sync,
@@ -2102,23 +1700,6 @@ class MavLinkExternalProxy(ExternalProxy):
         except Exception as exc:
             self._log.error(f"Error downloading log {log_id}: {exc}")
             raise
-
-        # reset LOG_DATA interval to default (0 = on change)
-        message = self.master.mav.command_long_encode(
-            self.target_system,  # Target system ID
-            self.target_component,  # Target component ID
-            mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL,  # ID of command to send
-            0,  # Confirmation
-            mavutil.mavlink.MAVLINK_MSG_ID_LOG_DATA,  # param1: Message ID to be streamed
-            0, # param2: Interval in microseconds (0 = on change)
-            0,       # param3 (unused)
-            0,       # param4 (unused)
-            0,       # param5 (unused)
-            0,       # param5 (unused)
-            0        # param6 (unused)
-        )
-        self.send("mav", message)  # reset LOG_DATA interval
-        time.sleep(0.1)  # give some time to take effect
 
         # process all messages in the buffer
         if buffer is None:
@@ -2201,7 +1782,7 @@ class MavLinkExternalProxy(ExternalProxy):
         max_retries: int = 3,
         cancel_event: threading.Event | None = None,
         buffer: Optional[bytearray] = None,
-        callback: Optional[Callable[[int], Awaitable[None]]] = None,
+        callback: Optional[Callable[[int], Awaitable[None]]] = None
     ) -> bytes:
         """
         Download one log file via repeated LOG_REQUEST_DATA / LOG_DATA exchanges.
@@ -2311,6 +1892,7 @@ class MavLinkExternalProxy(ExternalProxy):
 
         return bytes(buffer)
 
+
 class MavLinkFTPProxy(BaseProxy):
     """
     Threaded MAVLink FTP driver using `pymavlink`.
@@ -2408,6 +1990,7 @@ class MavLinkFTPProxy(BaseProxy):
         self,
         remote_path: str,
         local_path: Path,
+        completed_event: threading.Event,
         on_progress: ProgressCB | None = None,
         cancel_event: threading.Event | None = None,
         connection_timeout: float = 3.0,
@@ -2447,6 +2030,8 @@ class MavLinkFTPProxy(BaseProxy):
                     on_progress,
                     cancel_event
                 )
+                if result:
+                    completed_event.set()
                 return local_path if result else None
             except Exception as e:
                 self._log.error(f"Failed to download ulog via FTP on attempt {attempt + 1}/{n_attempts}: {e}")
@@ -2551,7 +2136,6 @@ def _match_ls_to_entries(
                 mapping[log_id] = (name, sz, info['utc'])
                 break
     return mapping
-
 
 class _BlockingParser:
     """
