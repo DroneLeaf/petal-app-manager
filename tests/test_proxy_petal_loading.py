@@ -12,9 +12,11 @@ def mock_logger():
             self.errors = []
             self.infos = []
             self.warnings = []
+            self.debugs = []
         def error(self, msg, *args, **kwargs): self.errors.append(msg % args if args else msg)
         def info(self, msg, *args, **kwargs): self.infos.append(msg % args if args else msg)
         def warning(self, msg, *args, **kwargs): self.warnings.append(msg % args if args else msg)
+        def debug(self, msg, *args, **kwargs): self.debugs.append(msg % args if args else msg)
     return DummyLogger()
 
 @pytest.fixture
@@ -47,7 +49,6 @@ def dummy_entry_points(monkeypatch):
     yield
 
 def test_petals_loaded_when_dependencies_met(tmp_path, monkeypatch, dummy_app, dummy_proxies, mock_logger, dummy_entry_points):
-    proxies_yaml = tmp_path / "proxies.yaml"
     config = {
         "enabled_proxies": ["redis", "cloud", "ext_mavlink"],
         "enabled_petals": ["petal_warehouse", "flight_records", "mission_planner"],
@@ -57,26 +58,12 @@ def test_petals_loaded_when_dependencies_met(tmp_path, monkeypatch, dummy_app, d
             "mission_planner": ["redis", "ext_mavlink"]
         }
     }
-    with open(proxies_yaml, "w") as f:
-        yaml.safe_dump(config, f)
     
-    # Patch the specific path construction instead of Path itself
-    def mock_path_construction(*args, **kwargs):
-        if len(args) == 1 and str(args[0]).endswith('loader.py'):
-            # This is the __file__ call, return a mock that builds to our test yaml
-            class MockPath:
-                @property
-                def parent(self):
-                    return MockPath()
-                def __truediv__(self, other):
-                    if other == "proxies.yaml":
-                        return proxies_yaml
-                    return MockPath()
-            return MockPath()
-        return proxies_yaml
+    # Mock load_proxies_config directly - simpler and more reliable
+    def mock_load_config(config_path):
+        return config
     
-    import petal_app_manager.plugins.loader as loader_mod
-    monkeypatch.setattr(loader_mod, "Path", mock_path_construction)
+    monkeypatch.setattr("petal_app_manager.config.load_proxies_config", mock_load_config)
 
     petals = load_petals(dummy_app, dummy_proxies, mock_logger)
     loaded_names = [p.name for p in petals]
@@ -84,7 +71,6 @@ def test_petals_loaded_when_dependencies_met(tmp_path, monkeypatch, dummy_app, d
     assert not mock_logger.errors
 
 def test_petals_skipped_when_proxy_missing(tmp_path, monkeypatch, dummy_app, dummy_proxies, mock_logger, dummy_entry_points):
-    proxies_yaml = tmp_path / "proxies.yaml"
     config = {
         "enabled_proxies": ["redis"],
         "enabled_petals": ["petal_warehouse", "flight_records", "mission_planner"],
@@ -94,26 +80,12 @@ def test_petals_skipped_when_proxy_missing(tmp_path, monkeypatch, dummy_app, dum
             "mission_planner": ["redis", "ext_mavlink"]
         }
     }
-    with open(proxies_yaml, "w") as f:
-        yaml.safe_dump(config, f)
     
-    # Patch the specific path construction instead of Path itself
-    def mock_path_construction(*args, **kwargs):
-        if len(args) == 1 and str(args[0]).endswith('loader.py'):
-            # This is the __file__ call, return a mock that builds to our test yaml
-            class MockPath:
-                @property
-                def parent(self):
-                    return MockPath()
-                def __truediv__(self, other):
-                    if other == "proxies.yaml":
-                        return proxies_yaml
-                    return MockPath()
-            return MockPath()
-        return proxies_yaml
+    # Mock load_proxies_config directly - simpler and more reliable
+    def mock_load_config(config_path):
+        return config
     
-    import petal_app_manager.plugins.loader as loader_mod
-    monkeypatch.setattr(loader_mod, "Path", mock_path_construction)
+    monkeypatch.setattr("petal_app_manager.config.load_proxies_config", mock_load_config)
 
     petals = load_petals(dummy_app, {"redis": MagicMock()}, mock_logger)
     loaded_names = [p.name for p in petals]
@@ -123,7 +95,6 @@ def test_petals_skipped_when_proxy_missing(tmp_path, monkeypatch, dummy_app, dum
     assert any("Cannot load mission_planner" in e for e in mock_logger.errors)
 
 def test_partial_petals_loaded(tmp_path, monkeypatch, dummy_app, dummy_proxies, mock_logger, dummy_entry_points):
-    proxies_yaml = tmp_path / "proxies.yaml"
     config = {
         "enabled_proxies": ["redis", "ext_mavlink"],
         "enabled_petals": ["petal_warehouse", "flight_records", "mission_planner"],
@@ -133,26 +104,12 @@ def test_partial_petals_loaded(tmp_path, monkeypatch, dummy_app, dummy_proxies, 
             "mission_planner": ["redis", "ext_mavlink"]
         }
     }
-    with open(proxies_yaml, "w") as f:
-        yaml.safe_dump(config, f)
     
-    # Patch the specific path construction instead of Path itself
-    def mock_path_construction(*args, **kwargs):
-        if len(args) == 1 and str(args[0]).endswith('loader.py'):
-            # This is the __file__ call, return a mock that builds to our test yaml
-            class MockPath:
-                @property
-                def parent(self):
-                    return MockPath()
-                def __truediv__(self, other):
-                    if other == "proxies.yaml":
-                        return proxies_yaml
-                    return MockPath()
-            return MockPath()
-        return proxies_yaml
+    # Mock load_proxies_config directly - simpler and more reliable
+    def mock_load_config(config_path):
+        return config
     
-    import petal_app_manager.plugins.loader as loader_mod
-    monkeypatch.setattr(loader_mod, "Path", mock_path_construction)
+    monkeypatch.setattr("petal_app_manager.config.load_proxies_config", mock_load_config)
 
     petals = load_petals(dummy_app, {"redis": MagicMock(), "ext_mavlink": MagicMock()}, mock_logger)
     loaded_names = [p.name for p in petals]

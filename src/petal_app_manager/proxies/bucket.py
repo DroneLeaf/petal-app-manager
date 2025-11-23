@@ -221,22 +221,22 @@ class S3BucketProxy(BaseProxy):
                 return credentials
 
             except requests.exceptions.Timeout:
-                self.log.error("Session token request timed out")
+                self.log.debug("Session service timeout")
                 raise Exception("Session service timeout")
             except requests.exceptions.RequestException as e:
-                self.log.error(f"Session token request failed: {str(e)}")
+                self.log.debug(f"Session service unreachable: {type(e).__name__}")
                 raise Exception(f"Failed to fetch session credentials: {str(e)}")
             except ValueError as e:
-                self.log.error(f"Invalid credentials response: {str(e)}")
+                self.log.debug(f"Invalid credentials response: {type(e).__name__}")
                 raise Exception(f"Invalid credentials response: {str(e)}")
             except Exception as e:
-                self.log.error(f"Unexpected error getting session credentials: {str(e)}")
+                self.log.debug(f"Session service error: {type(e).__name__}")
                 raise Exception(f"Authentication service error: {str(e)}")
 
         try:
             return await self._loop.run_in_executor(self._exe, _fetch_credentials)
         except Exception as e:
-            self.log.error(f"Failed to execute credential fetch: {str(e)}")
+            self.log.debug(f"Credential fetch failed: {type(e).__name__}")
             # Re-raise with a more user-friendly message or handle as needed
             raise Exception(f"Credential fetch operation failed: {str(e)}")
     

@@ -326,6 +326,7 @@ Both HEAR-CLI methods automatically create a ``.env`` file. For manual setups, c
    MAVLINK_BAUD=115200
    MAVLINK_MAXLEN=200
    MAVLINK_WORKER_SLEEP_MS=1
+   MAVLINK_WORKER_THREADS=4
    MAVLINK_HEARTBEAT_SEND_FREQUENCY=5.0
    ROOT_SD_PATH=fs/microsd/log
    # Cloud configuration
@@ -354,6 +355,13 @@ Both HEAR-CLI methods automatically create a ``.env`` file. For manual setups, c
    CALLBACK_PORT=3005
    POLL_INTERVAL=1.0
    ENABLE_CALLBACKS=true
+   MQTT_HEALTH_CHECK_INTERVAL=10.0
+   # Proxy connection retry configuration
+   MQTT_RETRY_INTERVAL=10.0
+   CLOUD_RETRY_INTERVAL=10.0
+   MQTT_STARTUP_TIMEOUT=5.0
+   CLOUD_STARTUP_TIMEOUT=5.0
+   MQTT_SUBSCRIBE_TIMEOUT=5.0
    # Petal User Journey Coordinator configuration
    DEBUG_SQUARE_TEST=false
    EOF

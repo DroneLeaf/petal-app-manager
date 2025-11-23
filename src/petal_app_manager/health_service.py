@@ -109,7 +109,15 @@ class HealthService:
                             connection=MavlinkConnectionInfo(endpoint="", baud=0, connected=False),
                             px4_heartbeat=MavlinkHeartbeatInfo(connected=False, last_received=0, timeout_threshold=0),
                             leaf_fc_heartbeat=MavlinkHeartbeatInfo(connected=False, last_received=0, timeout_threshold=0),
-                            worker_thread=MavlinkWorkerThreadInfo(running=False, thread_alive=False),
+                            worker_thread=MavlinkWorkerThreadInfo(
+                                io_send_thread_running=False,
+                                io_send_thread_alive=False,
+                                io_recv_thread_alive=False,
+                                io_recv_thread_running=False,
+                                worker_threads_running=False,
+                                worker_thread_count=0,
+                                worker_threads_alive=0
+                            ),
                             error=str(e)
                         )
                     elif proxy_name == "cloud":
@@ -485,8 +493,13 @@ class HealthService:
                     timeout_threshold=proxy._leaf_fc_heartbeat_timeout
                 ),
                 worker_thread=MavlinkWorkerThreadInfo(
-                    running=proxy._running.is_set() if proxy._running else False,
-                    thread_alive=proxy._thread.is_alive() if proxy._thread else False
+                    io_thread_send_running=proxy._send_running.is_set() if proxy._send_running else False,
+                    io_thread_recv_running=proxy._recv_running.is_set() if proxy._recv_running else False,
+                    io_thread_send_alive=proxy._io_thread_send.is_alive() if proxy._io_thread_send else False,
+                    io_thread_recv_alive=proxy._io_thread_recv.is_alive() if proxy._io_thread_recv else False,
+                    worker_threads_running=proxy._worker_running.is_set() if proxy._worker_running else False,
+                    worker_thread_count=len(proxy._worker_threads),
+                    worker_threads_alive=sum(1 for t in proxy._worker_threads if t.is_alive())
                 ),
                 mavlink_info=mavlink_info,
                 parser=parser_info,
@@ -514,8 +527,13 @@ class HealthService:
                     timeout_threshold=0
                 ),
                 worker_thread=MavlinkWorkerThreadInfo(
-                    running=False,
-                    thread_alive=False
+                    io_send_thread_running=False,
+                    io_send_thread_alive=False,
+                    io_recv_thread_running=False,
+                    io_recv_thread_alive=False,
+                    worker_threads_running=False,
+                    worker_thread_count=0,
+                    worker_threads_alive=0
                 ),
                 error=str(e),
                 details="Failed to check MAVLink proxy health"
@@ -585,7 +603,7 @@ class HealthService:
                 )
                 
         except Exception as e:
-            self.logger.error(f"Error checking Cloud proxy health: {e}")
+            self.logger.debug(f"Cloud proxy unreachable: {type(e).__name__}")
             return CloudProxyHealth(
                 status=HealthStatus.ERROR,
                 connection=CloudConnectionInfo(
@@ -681,7 +699,7 @@ class HealthService:
                 )
                 
         except Exception as e:
-            self.logger.error(f"Error checking S3 Bucket proxy health: {e}")
+            self.logger.debug(f"S3 Bucket proxy unreachable: {type(e).__name__}")
             return S3BucketProxyHealth(
                 status=HealthStatus.ERROR,
                 connection=S3ConnectionInfo(
