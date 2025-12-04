@@ -285,14 +285,19 @@ class S3BucketProxy(BaseProxy):
     
     # ------ Public API methods ------ #
     
-    async def upload_file(self, file_path: Path, 
-                         custom_filename: Optional[str] = None) -> Dict[str, Any]:
+    async def upload_file(
+            self, 
+            file_path: Path, 
+            custom_filename: Optional[str] = None,
+            custom_s3_key: Optional[str] = None
+        ) -> Dict[str, Any]:
         """
         Upload a flight log file to S3.
         
         Args:
             file_path: Path to the local file to upload
             custom_filename: Optional custom filename (defaults to original)
+            custom_s3_key: Optional custom S3 key (overrides default key generation)
             
         Returns:
             Dictionary with upload results
@@ -319,7 +324,10 @@ class S3BucketProxy(BaseProxy):
                     return {"error": f"File validation failed: {validation_result['error']}"}
                 
                 # Generate S3 key
-                s3_key = self._generate_s3_key(filename, machine_id)
+                if custom_s3_key:
+                    s3_key = custom_s3_key
+                else:
+                    s3_key = self._generate_s3_key(filename, machine_id)
                 
                 # Determine content type
                 extension = Path(filename).suffix.lower()
