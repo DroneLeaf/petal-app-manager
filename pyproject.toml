@@ -74,6 +74,8 @@ dev = [
     "-e file:///${PROJECT_ROOT}/../petal-leafsdk/#egg=petal-leafsdk",
     "-e file:///${PROJECT_ROOT}/../petal-warehouse/#egg=petal-warehouse",
     "-e file:///${PROJECT_ROOT}/../LeafSDK/#egg=LeafSDK",
+    "-e file:///${PROJECT_ROOT}/../petal-px4-simulator/#egg=petal-px4-simulator",
+    "-e file:///${PROJECT_ROOT}/../petal-qgc-mission-server/#egg=petal-qgc-mission-server",
     # Documentation dependencies
     "sphinx>=7.0.0",
     "sphinx-rtd-theme>=2.0.0",

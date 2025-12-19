@@ -646,4 +646,18 @@ def build_app() -> FastAPI:
 
     return app
 
-app = build_app()
+# app = build_app()
+# =======
+# Allow configuration through environment variables
+log_level = Config.PETAL_LOG_LEVEL
+log_to_file = Config.PETAL_LOG_TO_FILE
+
+# Rotate logs if needed before building the app
+from .log_rotator import rotate_logs_if_needed
+rotate_logs_if_needed(base_dir=Path.home() / "petal-app-manager-dev")
+
+app = build_app(
+    log_level=log_level, 
+    log_to_file=log_to_file, 
+)
+# >>>>>>> Stashed changes
