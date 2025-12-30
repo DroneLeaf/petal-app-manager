@@ -548,3 +548,56 @@ class S3BucketProxy(BaseProxy):
             return await self._loop.run_in_executor(self._exe, _delete)
         except Exception as e:
             return {"error": f"Client initialization failed: {str(e)}"}
+
+    async def move_file(self, source_key: str, dest_key: str) -> Dict[str, Any]:
+        """
+        Move (rename) a file within the S3 bucket.
+        
+        Args:
+            source_key: Current S3 key of the file
+            dest_key: New S3 key for the file
+            
+        Returns:
+            Dictionary with move results
+        """
+        def _move():
+            try:
+                # Copy the object to the new key
+                copy_source = {
+                    'Bucket': self.bucket_name,
+                    'Key': source_key
+                }
+                self.s3_client.copy_object(
+                    Bucket=self.bucket_name,
+                    CopySource=copy_source,
+                    Key=dest_key
+                )
+                
+                # Delete the original object
+                self.s3_client.delete_object(
+                    Bucket=self.bucket_name,
+                    Key=source_key
+                )
+                
+                self.log.info(f"Successfully moved {source_key} to {dest_key}")
+                return {
+                    "success": True,
+                    "source_key": source_key,
+                    "dest_key": dest_key,
+                    "message": "File moved successfully"
+                }
+                
+            except ClientError as e:
+                error_code = e.response['Error']['Code']
+                self.log.error(f"S3 move failed: {error_code}")
+                return {"error": f"Move failed: {error_code}"}
+            except Exception as e:
+                self.log.error(f"Move error: {e}")
+                return {"error": f"Move failed: {str(e)}"}
+        
+        # Ensure we have a valid S3 client
+        try:
+            await self._refresh_s3_client()
+            return await self._loop.run_in_executor(self._exe, _move)
+        except Exception as e:
+            return {"error": f"Client initialization failed: {str(e)}"}
