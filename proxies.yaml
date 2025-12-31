@@ -25,6 +25,7 @@ petal_dependencies:
   petal-mission-planner:
   - redis
   - ext_mavlink
+  - mqtt
   petal-warehouse:
   - redis
   - ext_mavlink
