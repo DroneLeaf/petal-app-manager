@@ -61,7 +61,7 @@ class LocalDbMachineInfo(BaseModel):
     """LocalDB machine information."""
     machine_id: str
     organization_id: str
-    robot_type_id: str
+    robot_type_id: Optional[str] = None
 
 class LocalDbProxyHealth(BaseModel):
     """LocalDB proxy health information."""
