@@ -286,7 +286,7 @@ class RedisProxy(BaseProxy):
         Scan Redis keys matching a pattern.
         
         Args:
-            pattern: Key pattern to match (e.g., "job:*")
+            pattern: Key pattern to match (e.g., ``job:*``)
             count: Number of keys to return per scan iteration
             
         Returns:
