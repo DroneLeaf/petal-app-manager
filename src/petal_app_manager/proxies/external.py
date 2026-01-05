@@ -41,6 +41,7 @@ import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 
 from .base import BaseProxy
+from .. import Config
 from pymavlink import mavutil, mavftp
 from pymavlink.mavftp_op import FTP_OP
 from pymavlink.dialects.v20 import all as mavlink_dialect
@@ -569,7 +570,13 @@ class MavLinkExternalProxy(ExternalProxy):
         self.master: mavutil.mavfile | None = None
         
         # Set up file-only logging
-        self._log_msgs = setup_file_only_logger("MavLinkExternalProxyMsgs", "app-mavlinkexternalproxymsgs.log", "INFO")
+        log_dir = Config.PETAL_LOG_DIR
+        log_path = Path(log_dir, "app-mavlinkexternalproxy.log")
+        self._log_msgs = setup_file_only_logger(
+            name="MavLinkExternalProxyMsgs", 
+            log_file=log_path, 
+            level="INFO"
+        )
         self._log = logging.getLogger("MavLinkExternalProxy")
 
         self._loop: asyncio.AbstractEventLoop | None = None
