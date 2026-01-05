@@ -436,7 +436,6 @@ src/petal_app_manager/
 ├── templates/                     # HTML templates
 │   └── admin-dashboard.html
 └── utils/                         # Utility functions
-    ├── log_streamer.py            # Log streaming utilities
     ├── log_tool.py                # Log management tool
     ├── machineid_arm              # Machine ID binary (ARM)
     └── machineid_x86              # Machine ID binary (x86)
