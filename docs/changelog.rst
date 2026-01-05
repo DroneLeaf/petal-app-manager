@@ -5,10 +5,11 @@ Version 0.1.49 (2025-01-05)
 ---------------------------
 
 **Bug Fixes:**
+
 - Remove redundant log streaming utility files and references:
 
-  - Deleted `log_streamer.py` from `utils/` directory
-  - Removed import and endpoint registration for log streaming in `config_api.py` and `main.py`
+  - Deleted ``log_streamer.py`` from ``utils/`` directory
+  - Removed import and endpoint registration for log streaming in ``config_api.py`` and ``main.py``
 
 Version 0.1.48 (2025-12-31)
 ---------------------------
@@ -20,7 +21,8 @@ Version 0.1.47 (2025-12-31)
 ---------------------------
 
 **Bug Fixes:**
-- Fix all Petal plugin keys in `proxies.yaml` to match correct `__name__` attribute in `plugin.py` 
+
+- Fix all Petal plugin keys in ``proxies.yaml`` to match correct ``__name__`` attribute in ``plugin.py``:
 
   - flight_records → flight-log-petal
   - petal_warehouse → petal-warehouse
