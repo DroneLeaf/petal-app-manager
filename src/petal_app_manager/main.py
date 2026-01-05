@@ -637,9 +637,6 @@ def build_app() -> FastAPI:
     config_api._set_logger(api_logger)  # Set the logger for configuration API endpoints
     app.include_router(config_api.router)
     
-    # DISABLED: Configure admin UI (separate from FastAPI docs)
-    # admin_ui._set_logger(api_logger)  # Set the logger for admin UI endpoints
-    # app.include_router(admin_ui.router)
     # Configure MQTT API with proxy instances
     mqtt_api._set_logger(api_logger)  # Set the logger for MQTT API endpoints
     app.include_router(mqtt_api.router, prefix="/mqtt")
