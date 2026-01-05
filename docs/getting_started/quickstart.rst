@@ -314,6 +314,9 @@ The ``.env`` file contains all configuration for Petal App Manager:
 
 Both HEAR-CLI methods automatically create a ``.env`` file. For manual setups, create:
 
+.. note::
+   All environment variables use the ``PETAL_`` prefix to avoid conflicts with other applications.
+
 .. code-block:: bash
 
    cat > .env << 'EOF'
@@ -321,57 +324,59 @@ Both HEAR-CLI methods automatically create a ``.env`` file. For manual setups, c
    # General configuration
    PETAL_LOG_LEVEL=INFO
    PETAL_LOG_TO_FILE=true
+   PETAL_LOG_DIR=logs
    # MAVLink configuration
-   MAVLINK_ENDPOINT=udp:127.0.0.1:14551
-   MAVLINK_BAUD=115200
-   MAVLINK_MAXLEN=200
-   MAVLINK_WORKER_SLEEP_MS=1
-   MAVLINK_WORKER_THREADS=4
-   MAVLINK_HEARTBEAT_SEND_FREQUENCY=5.0
-   ROOT_SD_PATH=fs/microsd/log
+   PETAL_MAVLINK_ENDPOINT=udp:127.0.0.1:14551
+   PETAL_MAVLINK_BAUD=115200
+   PETAL_MAVLINK_MAXLEN=200
+   PETAL_MAVLINK_WORKER_SLEEP_MS=1
+   PETAL_MAVLINK_WORKER_THREADS=4
+   PETAL_MAVLINK_HEARTBEAT_SEND_FREQUENCY=5.0
+   PETAL_ROOT_SD_PATH=fs/microsd/log
    # Cloud configuration
-   ACCESS_TOKEN_URL=http://localhost:3001/session-manager/access-token
-   SESSION_TOKEN_URL=http://localhost:3001/session-manager/session-token
-   S3_BUCKET_NAME=devhube21f2631b51e4fa69c771b1e8107b21cb431a-dev
-   CLOUD_ENDPOINT=https://api.droneleaf.io
+   PETAL_ACCESS_TOKEN_URL=http://localhost:3001/session-manager/access-token
+   PETAL_SESSION_TOKEN_URL=http://localhost:3001/session-manager/session-token
+   PETAL_S3_BUCKET_NAME=devhube21f2631b51e4fa69c771b1e8107b21cb431a-dev
+   PETAL_CLOUD_ENDPOINT=https://api.droneleaf.io
    # Local database configuration
-   LOCAL_DB_HOST=localhost
-   LOCAL_DB_PORT=3000
+   PETAL_LOCAL_DB_HOST=localhost
+   PETAL_LOCAL_DB_PORT=3000
    # Redis configuration
-   REDIS_HOST=localhost
-   REDIS_PORT=6379
-   REDIS_DB=0
-   REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis-server.sock
-   REDIS_HEALTH_MESSAGE_RATE=3.0
+   PETAL_REDIS_HOST=localhost
+   PETAL_REDIS_PORT=6379
+   PETAL_REDIS_DB=0
+   PETAL_REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis-server.sock
+   PETAL_REDIS_HEALTH_MESSAGE_RATE=3.0
    # Data operations URLs
-   GET_DATA_URL=/drone/onBoard/config/getData
-   SCAN_DATA_URL=/drone/onBoard/config/scanData
-   UPDATE_DATA_URL=/drone/onBoard/config/updateData
-   SET_DATA_URL=/drone/onBoard/config/setData
+   PETAL_GET_DATA_URL=/drone/onBoard/config/getData
+   PETAL_SCAN_DATA_URL=/drone/onBoard/config/scanData
+   PETAL_UPDATE_DATA_URL=/drone/onBoard/config/updateData
+   PETAL_SET_DATA_URL=/drone/onBoard/config/setData
    # MQTT client
-   TS_CLIENT_HOST=localhost
-   TS_CLIENT_PORT=3004
-   CALLBACK_HOST=localhost
-   CALLBACK_PORT=3005
-   POLL_INTERVAL=1.0
-   ENABLE_CALLBACKS=true
-   MQTT_HEALTH_CHECK_INTERVAL=10.0
+   PETAL_TS_CLIENT_HOST=localhost
+   PETAL_TS_CLIENT_PORT=3004
+   PETAL_CALLBACK_HOST=localhost
+   PETAL_CALLBACK_PORT=3005
+   PETAL_POLL_INTERVAL=1.0
+   PETAL_ENABLE_CALLBACKS=true
+   PETAL_MQTT_HEALTH_CHECK_INTERVAL=10.0
    # Proxy connection retry configuration
-   MQTT_RETRY_INTERVAL=10.0
-   CLOUD_RETRY_INTERVAL=10.0
-   MQTT_STARTUP_TIMEOUT=5.0
-   CLOUD_STARTUP_TIMEOUT=5.0
-   MQTT_SUBSCRIBE_TIMEOUT=5.0
+   PETAL_MQTT_RETRY_INTERVAL=10.0
+   PETAL_CLOUD_RETRY_INTERVAL=10.0
+   PETAL_MQTT_STARTUP_TIMEOUT=5.0
+   PETAL_CLOUD_STARTUP_TIMEOUT=5.0
+   PETAL_MQTT_SUBSCRIBE_TIMEOUT=5.0
    # Petal User Journey Coordinator configuration
-   DEBUG_SQUARE_TEST=false
+   PETAL_DEBUG_SQUARE_TEST=false
    EOF
 
 **Key Configuration Options**
 
 - ``PETAL_LOG_LEVEL``: Set to ``DEBUG`` for development, ``INFO`` for production
-- ``MAVLINK_ENDPOINT``: UDP endpoint for MAVLink communication
-- ``REDIS_UNIX_SOCKET_PATH``: Path to Redis UNIX socket
-- ``CLOUD_ENDPOINT``: DroneLeaf cloud API endpoint
+- ``PETAL_LOG_DIR``: Directory for log files (default: ``logs``, production: ``/home/droneleaf/.droneleaf/petal-app-manager``)
+- ``PETAL_MAVLINK_ENDPOINT``: UDP endpoint for MAVLink communication
+- ``PETAL_REDIS_UNIX_SOCKET_PATH``: Path to Redis UNIX socket
+- ``PETAL_CLOUD_ENDPOINT``: DroneLeaf cloud API endpoint
 
 Running the Application
 -----------------------

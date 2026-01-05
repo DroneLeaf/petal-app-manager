@@ -4,6 +4,14 @@ Changelog
 Version 0.1.50 (2026-01-05)
 ---------------------------
 
+**Configuration Enhancements:**
+
+- All environment variables now use the ``PETAL_`` prefix to avoid conflicts with other applications.
+- Added ``PETAL_LOG_DIR`` environment variable for configuring log file directory:
+
+  - **Development**: ``logs`` (relative to project directory)
+  - **Production**: ``/home/droneleaf/.droneleaf/petal-app-manager``
+
 **S3 Bucket Proxy Improvements:**
 
 - Added ``move_file`` async method to ``bucket.py`` for moving (renaming) files within the S3 bucket, which performs a copy followed by a delete operation.

@@ -42,6 +42,7 @@ def build_app() -> FastAPI:
     # Set up logging
     logger = setup_logging(
         log_level=log_level,
+        base_dir=Config.LOG_DIR,
         app_prefixes=(
             # main app + sub-modules
             "petalappmanager",

@@ -449,7 +449,7 @@ Error Handling and Best Practices
 .. code-block:: python
 
    # Proxies automatically use configuration from .env file
-   # REDIS_HOST, REDIS_PORT, MAVLINK_ENDPOINT, etc.
+   # PETAL_REDIS_HOST, PETAL_REDIS_PORT, PETAL_MAVLINK_ENDPOINT, etc.
    # No manual configuration needed in petal code
 
 Next Steps

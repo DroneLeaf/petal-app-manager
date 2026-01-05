@@ -16,6 +16,7 @@ class Config:
     # General configuration
     PETAL_LOG_LEVEL = os.environ.get("PETAL_LOG_LEVEL", "INFO").upper()
     PETAL_LOG_TO_FILE = os.environ.get("PETAL_LOG_TO_FILE", "true").lower() in ("true", "1", "yes")
+    PETAL_LOG_DIR = os.environ.get("PETAL_LOG_DIR", "/var/log/petal-app-manager")
 
     # Per-level logging output configuration
     @staticmethod
@@ -46,55 +47,54 @@ class Config:
         return None
 
     # Cloud configuration
-    ACCESS_TOKEN_URL = os.environ.get('ACCESS_TOKEN_URL', '')
-    SESSION_TOKEN_URL = os.environ.get('SESSION_TOKEN_URL', '')
-    S3_BUCKET_NAME   = os.environ.get('S3_BUCKET_NAME', '')
-    CLOUD_ENDPOINT   = os.environ.get('CLOUD_ENDPOINT', '')
+    ACCESS_TOKEN_URL = os.environ.get('PETAL_ACCESS_TOKEN_URL', '')
+    SESSION_TOKEN_URL = os.environ.get('PETAL_SESSION_TOKEN_URL', '')
+    S3_BUCKET_NAME   = os.environ.get('PETAL_S3_BUCKET_NAME', '')
+    CLOUD_ENDPOINT   = os.environ.get('PETAL_CLOUD_ENDPOINT', '')
 
     # Local database configuration
-    LOCAL_DB_HOST = os.environ.get('LOCAL_DB_HOST', 'localhost')
-    LOCAL_DB_PORT = int(os.environ.get('LOCAL_DB_PORT', 3000))
+    LOCAL_DB_HOST = os.environ.get('PETAL_LOCAL_DB_HOST', 'localhost')
+    LOCAL_DB_PORT = int(os.environ.get('PETAL_LOCAL_DB_PORT', 3000))
 
     # Redis configuration (nested source of truth)
     class RedisConfig:
-        HOST = os.environ.get('REDIS_HOST', 'localhost')
-        PORT = int(os.environ.get('REDIS_PORT', 6379))
-        DB = int(os.environ.get('REDIS_DB', 0))
-        PASSWORD = os.environ.get('REDIS_PASSWORD', None)
-        UNIX_SOCKET_PATH = os.environ.get('REDIS_UNIX_SOCKET_PATH', None)
-        HEALTH_MESSAGE_RATE = float(os.environ.get('REDIS_HEALTH_MESSAGE_RATE', 3.0))
+        HOST = os.environ.get('PETAL_REDIS_HOST', 'localhost')
+        PORT = int(os.environ.get('PETAL_REDIS_PORT', 6379))
+        DB = int(os.environ.get('PETAL_REDIS_DB', 0))
+        PASSWORD = os.environ.get('PETAL_REDIS_PASSWORD', None)
+        UNIX_SOCKET_PATH = os.environ.get('PETAL_REDIS_UNIX_SOCKET_PATH', None)
+        HEALTH_MESSAGE_RATE = float(os.environ.get('PETAL_REDIS_HEALTH_MESSAGE_RATE', 3.0))
 
     # URLs for data operations
-    GET_DATA_URL    = os.environ.get('GET_DATA_URL', '/drone/onBoard/config/getData')
-    SCAN_DATA_URL   = os.environ.get('SCAN_DATA_URL', '/drone/onBoard/config/scanData')
-    UPDATE_DATA_URL = os.environ.get('UPDATE_DATA_URL', '/drone/onBoard/config/updateData')
-    SET_DATA_URL    = os.environ.get('SET_DATA_URL', '/drone/onBoard/config/setData')
+    GET_DATA_URL    = os.environ.get('PETAL_GET_DATA_URL', '/drone/onBoard/config/getData')
+    SCAN_DATA_URL   = os.environ.get('PETAL_SCAN_DATA_URL', '/drone/onBoard/config/scanData')
+    UPDATE_DATA_URL = os.environ.get('PETAL_UPDATE_DATA_URL', '/drone/onBoard/config/updateData')
+    SET_DATA_URL    = os.environ.get('PETAL_SET_DATA_URL', '/drone/onBoard/config/setData')
 
     # MQTT configuration (nested source of truth)
     class MQTTConfig:
-        TS_CLIENT_HOST = os.environ.get('TS_CLIENT_HOST', 'localhost')
-        TS_CLIENT_PORT = int(os.environ.get('TS_CLIENT_PORT', 3004))
-        CALLBACK_HOST  = os.environ.get('CALLBACK_HOST', 'localhost')
-        CALLBACK_PORT  = int(os.environ.get('CALLBACK_PORT', 3005))
-        ENABLE_CALLBACKS = os.environ.get('ENABLE_CALLBACKS', 'true').lower() in ('true', '1', 'yes')
-        COMMAND_EDGE_TOPIC = os.environ.get('COMMAND_EDGE_TOPIC', 'command/edge')
-        RESPONSE_TOPIC = os.environ.get('RESPONSE_TOPIC', 'response')
-        TEST_TOPIC = os.environ.get('TEST_TOPIC', 'command')
-        COMMAND_WEB_TOPIC = os.environ.get('COMMAND_WEB_TOPIC', 'command/web')
-        HEALTH_CHECK_INTERVAL = float(os.environ.get('MQTT_HEALTH_CHECK_INTERVAL', 10.0))
+        TS_CLIENT_HOST = os.environ.get('PETAL_TS_CLIENT_HOST', 'localhost')
+        TS_CLIENT_PORT = int(os.environ.get('PETAL_TS_CLIENT_PORT', 3004))
+        CALLBACK_HOST  = os.environ.get('PETAL_CALLBACK_HOST', 'localhost')
+        CALLBACK_PORT  = int(os.environ.get('PETAL_CALLBACK_PORT', 3005))
+        ENABLE_CALLBACKS = os.environ.get('PETAL_ENABLE_CALLBACKS', 'true').lower() in ('true', '1', 'yes')
+        COMMAND_EDGE_TOPIC = os.environ.get('PETAL_COMMAND_EDGE_TOPIC', 'command/edge')
+        RESPONSE_TOPIC = os.environ.get('PETAL_RESPONSE_TOPIC', 'response')
+        TEST_TOPIC = os.environ.get('PETAL_TEST_TOPIC', 'command')
+        COMMAND_WEB_TOPIC = os.environ.get('PETAL_COMMAND_WEB_TOPIC', 'command/web')
+        HEALTH_CHECK_INTERVAL = float(os.environ.get('PETAL_MQTT_HEALTH_CHECK_INTERVAL', 10.0))
     # Misc
     class PetalUserJourneyCoordinatorConfig:
-        DEBUG_SQUARE_TEST = os.environ.get("DEBUG_SQUARE_TEST", "false").lower() in ("true", "1", "yes")
+        DEBUG_SQUARE_TEST = os.environ.get("PETAL_DEBUG_SQUARE_TEST", "false").lower() in ("true", "1", "yes")
 
     class MavLinkConfig:
-        ENDPOINT = os.environ.get("MAVLINK_ENDPOINT", "udp:127.0.0.1:14551")
-        BAUD = int(os.environ.get("MAVLINK_BAUD", 115200))
-        MAXLEN = int(os.environ.get("MAVLINK_MAXLEN", 200))
-        WORKER_SLEEP_MS = float(os.environ.get('MAVLINK_WORKER_SLEEP_MS', 1))
-        WORKER_THREADS = int(os.environ.get('MAVLINK_WORKER_THREADS', 4))
-        HEARTBEAT_SEND_FREQUENCY = float(os.environ.get('MAVLINK_HEARTBEAT_SEND_FREQUENCY', 5.0))
-        ROOT_SD_PATH = os.environ.get('ROOT_SD_PATH', 'fs/microsd/log')
-
+        ENDPOINT = os.environ.get("PETAL_MAVLINK_ENDPOINT", "udp:127.0.0.1:14551")
+        BAUD = int(os.environ.get("PETAL_MAVLINK_BAUD", 115200))
+        MAXLEN = int(os.environ.get("PETAL_MAVLINK_MAXLEN", 200))
+        WORKER_SLEEP_MS = float(os.environ.get('PETAL_MAVLINK_WORKER_SLEEP_MS', 1))
+        WORKER_THREADS = int(os.environ.get('PETAL_MAVLINK_WORKER_THREADS', 4))
+        HEARTBEAT_SEND_FREQUENCY = float(os.environ.get('PETAL_MAVLINK_HEARTBEAT_SEND_FREQUENCY', 5.0))
+        ROOT_SD_PATH = os.environ.get('PETAL_ROOT_SD_PATH', 'fs/microsd/log')
     class LoggingConfig:
         LEVEL = os.environ.get("PETAL_LOG_LEVEL", "INFO").upper()
         TO_FILE = os.environ.get("PETAL_LOG_TO_FILE", "true").lower() in ("true", "1", "yes")
@@ -102,13 +102,13 @@ class Config:
     # Proxy connection configuration
     class ProxyConfig:
         # Retry intervals for proxy connection monitoring (seconds)
-        MQTT_RETRY_INTERVAL = float(os.environ.get('MQTT_RETRY_INTERVAL', 10.0))
-        CLOUD_RETRY_INTERVAL = float(os.environ.get('CLOUD_RETRY_INTERVAL', 10.0))
+        MQTT_RETRY_INTERVAL = float(os.environ.get('PETAL_MQTT_RETRY_INTERVAL', 10.0))
+        CLOUD_RETRY_INTERVAL = float(os.environ.get('PETAL_CLOUD_RETRY_INTERVAL', 10.0))
         
         # Timeouts for proxy startup operations (seconds)
-        MQTT_STARTUP_TIMEOUT = float(os.environ.get('MQTT_STARTUP_TIMEOUT', 5.0))
-        CLOUD_STARTUP_TIMEOUT = float(os.environ.get('CLOUD_STARTUP_TIMEOUT', 5.0))
-        MQTT_SUBSCRIBE_TIMEOUT = float(os.environ.get('MQTT_SUBSCRIBE_TIMEOUT', 5.0))
+        MQTT_STARTUP_TIMEOUT = float(os.environ.get('PETAL_MQTT_STARTUP_TIMEOUT', 5.0))
+        CLOUD_STARTUP_TIMEOUT = float(os.environ.get('PETAL_CLOUD_STARTUP_TIMEOUT', 5.0))
+        MQTT_SUBSCRIBE_TIMEOUT = float(os.environ.get('PETAL_MQTT_SUBSCRIBE_TIMEOUT', 5.0))
 
     # ------- Backward-compatibility aliases (class attributes, not @property) -------
     # Accessing Config.MAVLINK_BAUD (etc.) now returns an int/str directly.

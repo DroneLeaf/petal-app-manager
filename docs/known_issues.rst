@@ -349,7 +349,7 @@ MAVLink Connection Issues
 
     .. code-block:: bash
 
-        grep MAVLINK_ENDPOINT .env
+        grep PETAL_MAVLINK_ENDPOINT .env
 
 2. **Ensure correct endpoint set in mavlink master configuration:**
 
