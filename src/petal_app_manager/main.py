@@ -29,7 +29,7 @@ def build_app() -> FastAPI:
 
     from . import Config
     from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy, MQTTProxy
-    from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, mqtt_api, config_api, admin_ui
+    from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, mqtt_api, config_api
     from . import api
     from .logger import setup_logging
     from .organization_manager import get_organization_manager
@@ -598,11 +598,6 @@ def build_app() -> FastAPI:
     # Now create the FastAPI app with the lifespan
     app = FastAPI(title="PetalAppManager", lifespan=lifespan)
     
-    # Mount static files for admin dashboard assets
-    assets_path = Path(__file__).parent / "assets"
-    if assets_path.exists():
-        app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
-    
     # Add CORS middleware to allow all origins
     app.add_middleware(
         CORSMiddleware,
@@ -637,9 +632,6 @@ def build_app() -> FastAPI:
     config_api._set_logger(api_logger)  # Set the logger for configuration API endpoints
     app.include_router(config_api.router)
     
-    # Configure admin UI (separate from FastAPI docs)
-    admin_ui._set_logger(api_logger)  # Set the logger for admin UI endpoints
-    app.include_router(admin_ui.router)
     # Configure MQTT API with proxy instances
     mqtt_api._set_logger(api_logger)  # Set the logger for MQTT API endpoints
     app.include_router(mqtt_api.router, prefix="/mqtt")

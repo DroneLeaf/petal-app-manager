@@ -3,9 +3,6 @@ import logging, sys
 
 from typing import Tuple, Dict, Union
 
-# Import streaming functionality
-from .utils.log_streamer import log_streamer, StreamingLogHandler
-
 def setup_logging(
     *,
     log_level: str = "INFO",
@@ -119,12 +116,6 @@ def setup_logging(
     console.addFilter(filt)
     console.addFilter(terminal_filter)
     root.addHandler(console)
-
-    # Streaming handler for real-time log display (always enabled)
-    streaming = StreamingLogHandler(log_streamer)
-    streaming.setFormatter(fmt)
-    streaming.addFilter(filt)  # Apply prefix filter to streaming as well
-    root.addHandler(streaming)
 
     # File handler with file filter (only if any level should go to file)
     if any("file" in output for output in level_outputs.values()):

@@ -1,6 +1,37 @@
 Changelog
 =========
 
+Version 0.1.49 (2025-01-05)
+---------------------------
+
+**Bug Fixes:**
+- Remove redundant log streaming utility files and references:
+  - Deleted `log_streamer.py` from `utils/` directory
+  - Removed import and endpoint registration for log streaming in `config_api.py` and `main.py`
+
+Version 0.1.48 (2025-12-31)
+---------------------------
+
+**Bug Fixes:**
+- Added mqtt as a dependency for `petal-mission-planner` in `proxies.yaml`
+
+Version 0.1.47 (2025-12-31)
+---------------------------
+
+**Bug Fixes:**
+- Fix all Petal plugin keys in `proxies.yaml` to match correct `__name__` attribute in `plugin.py` 
+  - flight_records → flight-log-petal
+  - petal_warehouse → petal-warehouse
+  - mission_planner → petal-mission-planner
+  - petal_user_journey_coordinator → petal-user-journey-coordinator
+  - qgc_petal → petal-qgc-mission-server
+
+Version 0.1.46 (2025-12-31)
+---------------------------
+
+**Bug Fixes:**
+- Made the robot_type_id field in the `LocalDbMachineInfo` model (`health.py`) optional, allowing it to be `None` if not provided.
+
 Version 0.1.45 (2025-11-23)
 ---------------------------
 
