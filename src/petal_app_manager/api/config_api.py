@@ -9,8 +9,9 @@ import json
 import asyncio
 import importlib.metadata as md
 
-# Import log streaming functionality
-from ..utils.log_streamer import log_streamer
+# DISABLED: Import log streaming functionality - endpoints disabled to save resources
+# from ..utils.log_streamer import log_streamer
+
 # Import config utilities
 from ..config import load_proxies_config
 
@@ -492,59 +493,60 @@ async def list_all_components():
             detail=f"Failed to list components: {str(e)}"
         )
 
-@router.get("/logs/recent")
-async def get_recent_logs(count: Optional[int] = 100) -> Dict[str, Any]:
-    """Get recent log entries"""
-    logger = get_logger()
-    
-    try:
-        logs = log_streamer.get_recent_logs(count)
-        return {
-            "logs": logs,
-            "total_count": len(logs),
-            "max_logs": log_streamer.max_logs
-        }
-    except Exception as e:
-        logger.error(f"Error getting recent logs: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get recent logs: {str(e)}"
-        )
+# DISABLED: Log streaming endpoints - these caused always-on resource consumption
+# Controller Dashboard will handle errors when these endpoints are unavailable
+# @router.get("/logs/recent")
+# async def get_recent_logs(count: Optional[int] = 100) -> Dict[str, Any]:
+#     """Get recent log entries"""
+#     logger = get_logger()
+#     
+#     try:
+#         logs = log_streamer.get_recent_logs(count)
+#         return {
+#             "logs": logs,
+#             "total_count": len(logs),
+#             "max_logs": log_streamer.max_logs
+#         }
+#     except Exception as e:
+#         logger.error(f"Error getting recent logs: {e}")
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"Failed to get recent logs: {str(e)}"
+#         )
 
-@router.get("/logs/stream")
-async def stream_logs():
-    """Stream logs in real-time using Server-Sent Events"""
-    
-    async def log_generator():
-        queue = asyncio.Queue()
-        log_streamer.subscribe(queue)
-        
-        try:
-            # Send initial connection message
-            yield f"data: {json.dumps({'type': 'connection', 'message': 'Connected to log stream'})}\n\n"
-            
-            while True:
-                try:
-                    # Wait for new log entry
-                    log_entry = await asyncio.wait_for(queue.get(), timeout=30.0)
-                    log_entry['type'] = 'log'
-                    yield f"data: {json.dumps(log_entry)}\n\n"
-                except asyncio.TimeoutError:
-                    # Send keepalive
-                    yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': ''})}\n\n"
-                except Exception as e:
-                    yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
-                    break
-        finally:
-            log_streamer.unsubscribe(queue)
-    
-    return StreamingResponse(
-        log_generator(),
-        media_type="text/plain",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Content-Type": "text/event-stream",
-        }
-    )
-
+# @router.get("/logs/stream")
+# async def stream_logs():
+#     """Stream logs in real-time using Server-Sent Events"""
+#     
+#     async def log_generator():
+#         queue = asyncio.Queue()
+#         log_streamer.subscribe(queue)
+#         
+#         try:
+#             # Send initial connection message
+#             yield f"data: {json.dumps({'type': 'connection', 'message': 'Connected to log stream'})}\n\n"
+#             
+#             while True:
+#                 try:
+#                     # Wait for new log entry
+#                     log_entry = await asyncio.wait_for(queue.get(), timeout=30.0)
+#                     log_entry['type'] = 'log'
+#                     yield f"data: {json.dumps(log_entry)}\n\n"
+#                 except asyncio.TimeoutError:
+#                     # Send keepalive
+#                     yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': ''})}\n\n"
+#                 except Exception as e:
+#                     yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+#                     break
+#         finally:
+#             log_streamer.unsubscribe(queue)
+#     
+#     return StreamingResponse(
+#         log_generator(),
+#         media_type="text/plain",
+#         headers={
+#             "Cache-Control": "no-cache",
+#             "Connection": "keep-alive",
+#             "Content-Type": "text/event-stream",
+#         }
+#     )
