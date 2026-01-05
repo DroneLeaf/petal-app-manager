@@ -1,6 +1,19 @@
 Changelog
 =========
 
+Version 0.1.50 (2026-01-05)
+---------------------------
+
+**S3 Bucket Proxy Improvements:**
+
+- Added ``move_file`` async method to ``bucket.py`` for moving (renaming) files within the S3 bucket, which performs a copy followed by a delete operation.
+- Enhanced ``upload_file`` method to accept an optional ``custom_s3_key`` parameter, allowing callers to specify the exact S3 key for uploads.
+
+**Redis Proxy Improvements:**
+
+- Added ``scan_keys`` async method to ``redis.py`` to efficiently scan and return keys matching a given pattern, supporting pagination via the ``count`` parameter.
+- Changed Redis set operation logging from info to debug level to reduce log verbosity for routine key writes.
+
 Version 0.1.49 (2025-01-05)
 ---------------------------
 
