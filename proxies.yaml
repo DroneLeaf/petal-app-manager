@@ -22,6 +22,8 @@ petal_dependencies:
   flight-log-petal:
   - redis
   - cloud
+  - mqtt
+  - db
   petal-mission-planner:
   - redis
   - ext_mavlink
