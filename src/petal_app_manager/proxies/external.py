@@ -44,6 +44,10 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .base import BaseProxy
 from .. import Config
+from ..models.mavlink import (
+    RebootStatusCode,
+    RebootAutopilotResponse,
+)
 from pymavlink import mavutil, mavftp
 from pymavlink.mavftp_op import FTP_OP
 from pymavlink.dialects.v20 import all as mavlink_dialect
@@ -1355,7 +1359,7 @@ class MavLinkExternalProxy(ExternalProxy):
         self,
         reboot_onboard_computer: bool = False,
         timeout: float = 3.0,
-    ) -> bool:
+    ) -> RebootAutopilotResponse:
         """
         Send a reboot command to the autopilot (PX4/ArduPilot).
 
@@ -1371,8 +1375,8 @@ class MavLinkExternalProxy(ExternalProxy):
 
         Returns
         -------
-        bool
-            True if the command was acknowledged successfully, False otherwise.
+        RebootAutopilotResponse
+            Structured response indicating success/failure and reason.
 
         Raises
         ------
@@ -1399,7 +1403,6 @@ class MavLinkExternalProxy(ExternalProxy):
         def _collector(pkt) -> bool:
             if pkt.get_type() != "COMMAND_ACK":
                 return False
-            # Check if this ACK is for our reboot command
             if pkt.command == mavutil.mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN:
                 result["ack_received"] = True
                 result["result"] = pkt.result
@@ -1407,6 +1410,26 @@ class MavLinkExternalProxy(ExternalProxy):
             return False
 
         COMMAND_ACK_ID = str(mavutil.mavlink.MAVLINK_MSG_ID_COMMAND_ACK)
+
+        # Map ACK result codes -> status codes (for failures)
+        _ACK_TO_STATUS = {
+            mavutil.mavlink.MAV_RESULT_DENIED: RebootStatusCode.FAIL_ACK_DENIED,
+            mavutil.mavlink.MAV_RESULT_TEMPORARILY_REJECTED: RebootStatusCode.FAIL_ACK_TEMPORARILY_REJECTED,
+            mavutil.mavlink.MAV_RESULT_UNSUPPORTED: RebootStatusCode.FAIL_ACK_UNSUPPORTED,
+            mavutil.mavlink.MAV_RESULT_FAILED: RebootStatusCode.FAIL_ACK_FAILED,
+            mavutil.mavlink.MAV_RESULT_IN_PROGRESS: RebootStatusCode.FAIL_ACK_IN_PROGRESS,
+            getattr(mavutil.mavlink, "MAV_RESULT_CANCELLED", -999): RebootStatusCode.FAIL_ACK_CANCELLED,
+        }
+
+        _ACK_NAME = {
+            mavutil.mavlink.MAV_RESULT_ACCEPTED: "ACCEPTED",
+            mavutil.mavlink.MAV_RESULT_TEMPORARILY_REJECTED: "TEMPORARILY_REJECTED",
+            mavutil.mavlink.MAV_RESULT_DENIED: "DENIED",
+            mavutil.mavlink.MAV_RESULT_UNSUPPORTED: "UNSUPPORTED",
+            mavutil.mavlink.MAV_RESULT_FAILED: "FAILED",
+            mavutil.mavlink.MAV_RESULT_IN_PROGRESS: "IN_PROGRESS",
+            getattr(mavutil.mavlink, "MAV_RESULT_CANCELLED", -999): "CANCELLED",
+        }
 
         try:
             await self.send_and_wait(
@@ -1416,19 +1439,109 @@ class MavLinkExternalProxy(ExternalProxy):
                 timeout=timeout,
             )
         except TimeoutError:
-            # Reboot may happen so fast we don't get an ACK
-            self._log.warning("Reboot command sent but no ACK received (autopilot may have rebooted immediately)")
-            return True  # Assume success if no ACK - reboot likely happened
+            # No ACK: verify reboot using heartbeat timestamps (populated by your heartbeat handler)
+            self._log.warning(
+                "Reboot command sent but no ACK received; verifying via heartbeat drop/return..."
+            )
 
-        if result["ack_received"]:
-            if result["result"] == mavutil.mavlink.MAV_RESULT_ACCEPTED:
-                self._log.info("Reboot command accepted by autopilot")
-                return True
-            else:
-                self._log.warning(f"Reboot command rejected with result: {result['result']}")
+            last_hb = getattr(self, "_last_heartbeat_time", None)
+            if last_hb is None:
+                self._log.warning(
+                    "No heartbeat timestamp available (_last_heartbeat_time is None); reboot not confirmed."
+                )
+                return RebootAutopilotResponse(
+                    success=False,
+                    status_code=RebootStatusCode.FAIL_NO_HEARTBEAT_TRACKING,
+                    reason="No ACK received and heartbeat tracking is unavailable (_last_heartbeat_time is None).",
+                    ack_result=None,
+                )
+
+            async def _wait_for_heartbeat_drop(
+                wait_window_s: float = 2.0,
+                gap_s: float = 1.0,
+                poll_s: float = 0.05,
+            ) -> bool:
+                deadline = time.time() + wait_window_s
+                while time.time() < deadline:
+                    last = getattr(self, "_last_heartbeat_time", None)
+                    if last is not None and (time.time() - last) >= gap_s:
+                        return True
+                    await asyncio.sleep(poll_s)
                 return False
 
-        return False
+            async def _wait_for_heartbeat_return(
+                since_ts: float,
+                wait_window_s: float = 30.0,
+                poll_s: float = 0.05,
+            ) -> bool:
+                deadline = time.time() + wait_window_s
+                while time.time() < deadline:
+                    last = getattr(self, "_last_heartbeat_time", None)
+                    if last is not None and last > since_ts:
+                        return True
+                    await asyncio.sleep(poll_s)
+                return False
+
+            dropped = await _wait_for_heartbeat_drop()
+            if not dropped:
+                self._log.warning("No ACK and no heartbeat drop observed; reboot not confirmed.")
+                return RebootAutopilotResponse(
+                    success=False,
+                    status_code=RebootStatusCode.FAIL_REBOOT_NOT_CONFIRMED_NO_HB_DROP,
+                    reason="No ACK received and heartbeat did not drop within the expected window.",
+                    ack_result=None,
+                )
+
+            drop_mark = getattr(self, "_last_heartbeat_time", last_hb) or last_hb
+
+            returned = await _wait_for_heartbeat_return(since_ts=drop_mark)
+            if not returned:
+                self._log.warning("Heartbeat dropped but did not return within the reboot window; reboot not confirmed.")
+                return RebootAutopilotResponse(
+                    success=False,
+                    status_code=RebootStatusCode.FAIL_REBOOT_NOT_CONFIRMED_HB_NO_RETURN,
+                    reason="Heartbeat drop observed but heartbeat did not return within the reboot window.",
+                    ack_result=None,
+                )
+
+            self._log.info("Reboot confirmed via heartbeat drop + return.")
+            return RebootAutopilotResponse(
+                success=True,
+                status_code=RebootStatusCode.OK_REBOOT_CONFIRMED_NO_ACK,
+                reason="No ACK received, but reboot confirmed via heartbeat drop + return.",
+                ack_result=None,
+            )
+
+        # ACK path
+        if result["ack_received"]:
+            ack_val = result["result"]
+            ack_name = _ACK_NAME.get(ack_val, f"UNKNOWN({ack_val})")
+
+            if ack_val == mavutil.mavlink.MAV_RESULT_ACCEPTED:
+                self._log.info("Reboot command accepted by autopilot")
+                return RebootAutopilotResponse(
+                    success=True,
+                    status_code=RebootStatusCode.OK_ACK_ACCEPTED,
+                    reason="Autopilot acknowledged the reboot command (ACCEPTED).",
+                    ack_result=ack_val,
+                )
+
+            status = _ACK_TO_STATUS.get(ack_val, RebootStatusCode.FAIL_ACK_UNKNOWN)
+            self._log.warning(f"Reboot command rejected with result: {ack_val} ({ack_name})")
+            return RebootAutopilotResponse(
+                success=False,
+                status_code=status,
+                reason=f"Autopilot rejected the reboot command: {ack_name}.",
+                ack_result=ack_val,
+            )
+
+        # Rare: send_and_wait returned without TimeoutError but collector never matched
+        return RebootAutopilotResponse(
+            success=False,
+            status_code=RebootStatusCode.FAIL_NO_ACK_MATCH,
+            reason="send_and_wait returned but no matching COMMAND_ACK for reboot command was observed.",
+            ack_result=None,
+        )
 
     async def get_param(self, name: str, timeout: float = 3.0) -> Dict[str, Any]:
         """
