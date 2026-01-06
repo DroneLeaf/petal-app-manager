@@ -58,10 +58,10 @@ cicddocs = [
 ]
 prod = [
     "leaf-pymavlink>=0.1.11",
-    "petal-flight-log @ git+https://github.com/DroneLeaf/petal-flight-log.git@v0.2.0",
-    "petal-warehouse @ git+https://github.com/DroneLeaf/petal-warehouse.git@v0.1.7",
-    "petal-leafsdk @ git+https://github.com/DroneLeaf/petal-leafsdk.git@v0.2.2",
-    "petal-user-journey-coordinator @ git+https://github.com/DroneLeaf/petal-user-journey-coordinator.git@v0.1.5",
+    "petal-flight-log==v0.2.0",
+    "petal-warehouse==v0.1.7",
+    "petal-leafsdk==v0.2.2",
+    "petal-user-journey-coordinator==0.1.6",
 ]
 dev = [
     "pytest>=8.4.0",
