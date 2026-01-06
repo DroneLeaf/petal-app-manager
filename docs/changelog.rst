@@ -12,6 +12,22 @@ Version 0.1.50 (2026-01-05)
   - **Development**: ``logs`` (relative to project directory)
   - **Production**: ``/home/droneleaf/.droneleaf/petal-app-manager``
 
+**MAVLink Proxy Improvements:**
+
+- Added ``set_params_bulk_lossy`` async method for efficient bulk parameter setting over lossy links:
+
+  - Windowed sends with configurable ``max_in_flight`` parameter
+  - Automatic periodic resend of unconfirmed parameters
+  - Retry cap with configurable ``max_retries``
+  - Optional parameter type specification (``UINT8``, ``INT16``, ``REAL32``, etc.)
+  - Confirmation via echoed ``PARAM_VALUE`` messages
+
+- Added ``get_params_bulk_lossy`` async method for efficient bulk parameter retrieval:
+
+  - Uses ``PARAM_REQUEST_READ`` by name with windowed requests
+  - Periodic resend of pending requests up to retry limit
+  - Returns partial results on timeout for resilience
+
 **S3 Bucket Proxy Improvements:**
 
 - Added ``move_file`` async method to ``bucket.py`` for moving (renaming) files within the S3 bucket, which performs a copy followed by a delete operation.
