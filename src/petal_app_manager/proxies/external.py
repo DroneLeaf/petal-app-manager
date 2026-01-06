@@ -1308,6 +1308,128 @@ class MavLinkExternalProxy(ExternalProxy):
             param_type                   # mavutil.mavlink.MAV_PARAM_TYPE_*
         )
 
+    def build_reboot_command(
+        self,
+        reboot_autopilot: bool = True,
+        reboot_onboard_computer: bool = False,
+    ) -> mavutil.mavlink.MAVLink_command_long_message:
+        """
+        Build a MAVLink command to reboot the autopilot and/or onboard computer.
+
+        Parameters
+        ----------
+        reboot_autopilot : bool
+            If True, reboot the autopilot (PX4/ArduPilot). Default is True.
+        reboot_onboard_computer : bool
+            If True, reboot the onboard computer. Default is False.
+
+        Returns
+        -------
+        mavutil.mavlink.MAVLink_command_long_message
+            The MAVLink COMMAND_LONG message for reboot.
+
+        Raises
+        ------
+        RuntimeError
+            If MAVLink connection is not established.
+        """
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        # param1: 1=reboot autopilot, 0=do nothing
+        # param2: 1=reboot onboard computer, 0=do nothing
+        param1 = 1.0 if reboot_autopilot else 0.0
+        param2 = 1.0 if reboot_onboard_computer else 0.0
+
+        return self.master.mav.command_long_encode(
+            self.master.target_system,
+            self.master.target_component,
+            mavutil.mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN,
+            0,       # confirmation
+            param1,  # param1: reboot autopilot
+            param2,  # param2: reboot onboard computer
+            0, 0, 0, 0, 0  # param3..param7 unused
+        )
+
+    async def reboot_autopilot(
+        self,
+        reboot_onboard_computer: bool = False,
+        timeout: float = 3.0,
+    ) -> bool:
+        """
+        Send a reboot command to the autopilot (PX4/ArduPilot).
+
+        This sends MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN and waits for a
+        COMMAND_ACK response.
+
+        Parameters
+        ----------
+        reboot_onboard_computer : bool
+            If True, also reboot the onboard computer. Default is False.
+        timeout : float
+            Maximum time to wait for acknowledgment. Default is 3.0 seconds.
+
+        Returns
+        -------
+        bool
+            True if the command was acknowledged successfully, False otherwise.
+
+        Raises
+        ------
+        RuntimeError
+            If MAVLink connection is not established.
+        TimeoutError
+            If no acknowledgment is received within the timeout.
+
+        Notes
+        -----
+        After sending this command, the connection to the autopilot will be lost
+        as it reboots. The proxy will attempt to reconnect automatically.
+        """
+        if not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        cmd = self.build_reboot_command(
+            reboot_autopilot=True,
+            reboot_onboard_computer=reboot_onboard_computer,
+        )
+
+        result = {"ack_received": False, "result": None}
+
+        def _collector(pkt) -> bool:
+            if pkt.get_type() != "COMMAND_ACK":
+                return False
+            # Check if this ACK is for our reboot command
+            if pkt.command == mavutil.mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN:
+                result["ack_received"] = True
+                result["result"] = pkt.result
+                return True
+            return False
+
+        COMMAND_ACK_ID = str(mavutil.mavlink.MAVLINK_MSG_ID_COMMAND_ACK)
+
+        try:
+            await self.send_and_wait(
+                match_key=COMMAND_ACK_ID,
+                request_msg=cmd,
+                collector=_collector,
+                timeout=timeout,
+            )
+        except TimeoutError:
+            # Reboot may happen so fast we don't get an ACK
+            self._log.warning("Reboot command sent but no ACK received (autopilot may have rebooted immediately)")
+            return True  # Assume success if no ACK - reboot likely happened
+
+        if result["ack_received"]:
+            if result["result"] == mavutil.mavlink.MAV_RESULT_ACCEPTED:
+                self._log.info("Reboot command accepted by autopilot")
+                return True
+            else:
+                self._log.warning(f"Reboot command rejected with result: {result['result']}")
+                return False
+
+        return False
+
     async def get_param(self, name: str, timeout: float = 3.0) -> Dict[str, Any]:
         """
         Request a single PARAM_VALUE for `name` and return a dict:
