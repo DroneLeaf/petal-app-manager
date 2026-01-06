@@ -6,11 +6,11 @@ enabled_petals:
 enabled_proxies:
 - mqtt
 - db
-- ftp_mavlink
-- bucket
 - ext_mavlink
+- bucket
 - redis
 - cloud
+- ftp_mavlink
 # Fast loading: direct import paths (bypasses entry point discovery)
 petals:
   flight-log-petal: "petal_flight_log.plugin:FlightLogPetal"
