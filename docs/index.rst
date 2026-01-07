@@ -14,6 +14,7 @@ components that can interact with various systems through a unified proxy archit
    getting_started/index
    how_to_use/index
    development_contribution/index
+   petal_documentation/index
    changelog
    api_reference/index
    known_issues
