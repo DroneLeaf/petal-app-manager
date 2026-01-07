@@ -61,7 +61,7 @@ prod = [
     "petal-flight-log==v0.2.1",
     "petal-warehouse==v0.1.7",
     "petal-leafsdk==v0.2.2",
-    "petal-user-journey-coordinator==0.1.6",
+    "petal-user-journey-coordinator==0.1.7",
 ]
 dev = [
     "pytest>=8.4.0",
