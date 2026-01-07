@@ -98,6 +98,8 @@ def build_app() -> FastAPI:
                     proxies["ext_mavlink"] = MavLinkExternalProxy(
                         endpoint=Config.MAVLINK_ENDPOINT,
                         baud=Config.MAVLINK_BAUD,
+                        source_system_id=Config.MAVLINK_SOURCE_SYSTEM_ID,
+                        source_component_id=Config.MAVLINK_SOURCE_COMPONENT_ID,
                         maxlen=Config.MAVLINK_MAXLEN,
                         mavlink_worker_sleep_ms=Config.MAVLINK_WORKER_SLEEP_MS,
                         mavlink_heartbeat_send_frequency=Config.MAVLINK_HEARTBEAT_SEND_FREQUENCY,

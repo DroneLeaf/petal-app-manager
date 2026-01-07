@@ -628,6 +628,8 @@ class MavLinkExternalProxy(ExternalProxy):
         self,
         endpoint: str,
         baud: int,
+        source_system_id: int,
+        source_component_id: int,
         maxlen: int,
         mavlink_worker_sleep_ms: float = 1.0,
         mavlink_heartbeat_send_frequency: float = 5.0,
@@ -637,6 +639,8 @@ class MavLinkExternalProxy(ExternalProxy):
         super().__init__(maxlen=maxlen, worker_threads=worker_threads, sleep_time_ms=mavlink_worker_sleep_ms)
         self.endpoint = endpoint
         self.baud = baud
+        self.source_system_id = source_system_id
+        self.source_component_id = source_component_id
         self.mavlink_heartbeat_send_frequency = mavlink_heartbeat_send_frequency
         self.root_sd_path = root_sd_path
         self.master: mavutil.mavfile | None = None
@@ -935,8 +939,8 @@ class MavLinkExternalProxy(ExternalProxy):
             self.endpoint, 
             baud=self.baud, 
             dialect="all",
-            source_system=2, 
-            source_component=140  # MAV_COMP_ID_USER1–USER4 140–143
+            source_system=self.source_system_id,
+            source_component=self.source_component_id
         )
     
     def _wait_for_heartbeat(self):

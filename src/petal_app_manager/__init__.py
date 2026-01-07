@@ -90,6 +90,8 @@ class Config:
     class MavLinkConfig:
         ENDPOINT = os.environ.get("PETAL_MAVLINK_ENDPOINT", "udp:127.0.0.1:14551")
         BAUD = int(os.environ.get("PETAL_MAVLINK_BAUD", 115200))
+        SOURCE_SYSTEM_ID = int(os.environ.get("PETAL_MAVLINK_SOURCE_SYSTEM_ID", 2))
+        SOURCE_COMPONENT_ID = int(os.environ.get("PETAL_MAVLINK_SOURCE_COMPONENT_ID", 140)) # MAV_COMP_ID_USER1–USER4 140–143
         MAXLEN = int(os.environ.get("PETAL_MAVLINK_MAXLEN", 200))
         WORKER_SLEEP_MS = float(os.environ.get('PETAL_MAVLINK_WORKER_SLEEP_MS', 1))
         WORKER_THREADS = int(os.environ.get('PETAL_MAVLINK_WORKER_THREADS', 4))
@@ -114,6 +116,8 @@ class Config:
     # Accessing Config.MAVLINK_BAUD (etc.) now returns an int/str directly.
     MAVLINK_ENDPOINT = MavLinkConfig.ENDPOINT
     MAVLINK_BAUD = MavLinkConfig.BAUD
+    MAVLINK_SOURCE_SYSTEM_ID = MavLinkConfig.SOURCE_SYSTEM_ID
+    MAVLINK_SOURCE_COMPONENT_ID = MavLinkConfig.SOURCE_COMPONENT_ID # MAV_COMP_ID_USER1–USER4 140–143
     MAVLINK_MAXLEN = MavLinkConfig.MAXLEN
     MAVLINK_WORKER_SLEEP_MS = MavLinkConfig.WORKER_SLEEP_MS
     MAVLINK_WORKER_THREADS = MavLinkConfig.WORKER_THREADS
