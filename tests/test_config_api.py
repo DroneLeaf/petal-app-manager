@@ -11,11 +11,12 @@ from src.petal_app_manager.api.config_api import router
 from fastapi import FastAPI
 
 # Create a test app with our config router
-test_app = FastAPI()
-test_app.include_router(router)
+# Note: Named app_under_test to avoid pytest collection (test_ prefix)
+app_under_test = FastAPI()
+app_under_test.include_router(router)
 
 # Create test client
-client = TestClient(test_app)
+client = TestClient(app_under_test)
 
 @pytest.fixture
 def sample_config():

@@ -172,7 +172,8 @@ async def test_connection_error_handling():
         
         proxy = MQTTProxy(
             ts_client_host="localhost",
-            ts_client_port=3004
+            ts_client_port=3004,
+            enable_callbacks=False  # Disable callbacks to avoid port conflicts in tests
         )
         
         with patch('requests.get') as mock_get:
@@ -197,7 +198,7 @@ async def test_missing_organization_id():
         mock_org_manager.machine_id = "test-machine"
         mock_get_org_manager.return_value = mock_org_manager
         
-        proxy = MQTTProxy()
+        proxy = MQTTProxy(enable_callbacks=False)  # Disable callbacks to avoid port conflicts
         
         # Mock health check to pass
         with patch('petal_app_manager.proxies.mqtt.requests.get') as mock_get:
@@ -222,7 +223,7 @@ async def test_missing_machine_id():
         mock_org_manager.machine_id = None
         mock_get_org_manager.return_value = mock_org_manager
         
-        proxy = MQTTProxy()
+        proxy = MQTTProxy(enable_callbacks=False)  # Disable callbacks to avoid port conflicts
         
         # Should not raise exception - returns early and logs warning
         await proxy.start()
@@ -253,7 +254,7 @@ async def test_check_ts_client_health_failure():
         mock_org_manager.machine_id = "test-machine"
         mock_get_org_manager.return_value = mock_org_manager
         
-        proxy = MQTTProxy()
+        proxy = MQTTProxy(enable_callbacks=False)  # Disable callbacks to avoid port conflicts
         
         with patch('requests.get') as mock_get:
             mock_get.side_effect = Exception("Connection failed")
@@ -328,7 +329,7 @@ async def test_publish_message_disconnected():
         mock_org_manager.machine_id = "test-machine"
         mock_get_org_manager.return_value = mock_org_manager
         
-        proxy = MQTTProxy()
+        proxy = MQTTProxy(enable_callbacks=False)  # Disable callbacks to avoid port conflicts
         # Set device_id but don't call start() so proxy remains disconnected
         proxy.device_id = "Instance-test-machine"
         
@@ -533,7 +534,7 @@ async def test_health_check_unhealthy():
         mock_org_manager.organization_id = "test-org"
         mock_get_org_manager.return_value = mock_org_manager
         
-        proxy = MQTTProxy()
+        proxy = MQTTProxy(enable_callbacks=False)  # Disable callbacks to avoid port conflicts
         # Set robot_instance_id manually since we're not calling start()
         proxy.robot_instance_id = "test-machine"
         # Don't call start() so proxy remains disconnected
