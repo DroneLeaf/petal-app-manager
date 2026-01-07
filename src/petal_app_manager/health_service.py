@@ -14,6 +14,7 @@ from .models.health import (
     HealthMessage,
     HealthStatus,
     OrganizationManagerHealth,
+    PetalHealthInfo,
     ProxyHealthDetail,
     ServiceHealthInfo,
     # Proxy-specific health models
@@ -178,12 +179,17 @@ class HealthService:
                 details="Failed to check OrganizationManager status"
             )
     
-    def format_health_message(self, health_data: DetailedHealthResponse) -> HealthMessage:
+    def format_health_message(
+        self, 
+        health_data: DetailedHealthResponse,
+        petals_info: Optional[List[PetalHealthInfo]] = None
+    ) -> HealthMessage:
         """
         Format detailed health data into the Redis message structure.
         
         Args:
             health_data: Detailed health response data
+            petals_info: Optional list of petal health information
             
         Returns:
             HealthMessage: Validated health message for Redis publishing
@@ -288,21 +294,109 @@ class HealthService:
             },
             message=overall_message,
             timestamp=timestamp,
-            services=services
+            services=services,
+            petals=petals_info or []
         )
     
-    async def get_health_message(self, proxies_dict: Dict[str, Any]) -> HealthMessage:
+    async def get_health_message(
+        self, 
+        proxies_dict: Dict[str, Any],
+        petals_list: Optional[List[Any]] = None,
+        startup_petal_names: Optional[List[str]] = None,
+        enabled_petal_names: Optional[List[str]] = None,
+        loading_petal_names: Optional[List[str]] = None
+    ) -> HealthMessage:
         """
         Get a complete health message suitable for Redis publishing.
         
         Args:
             proxies_dict: Dictionary of proxy instances
+            petals_list: List of loaded petal instances
+            startup_petal_names: List of startup petal names from config
+            enabled_petal_names: List of enabled petal names from config
+            loading_petal_names: List of petal names currently being loaded
             
         Returns:
             HealthMessage: Complete validated health message
         """
         detailed_health = await self.get_detailed_health_status(proxies_dict)
-        return self.format_health_message(detailed_health)
+        
+        # Build petals health info
+        petals_info = self._build_petals_health_info(
+            petals_list=petals_list or [],
+            startup_petal_names=startup_petal_names or [],
+            enabled_petal_names=enabled_petal_names or [],
+            loading_petal_names=loading_petal_names or []
+        )
+        
+        return self.format_health_message(detailed_health, petals_info)
+    
+    def _build_petals_health_info(
+        self,
+        petals_list: List[Any],
+        startup_petal_names: List[str],
+        enabled_petal_names: List[str],
+        loading_petal_names: List[str]
+    ) -> List[PetalHealthInfo]:
+        """
+        Build health information for all petals (loaded, loading, and not loaded).
+        
+        Args:
+            petals_list: List of loaded petal instances
+            startup_petal_names: List of startup petal names from config
+            enabled_petal_names: List of enabled petal names from config
+            loading_petal_names: List of petal names currently being loaded
+            
+        Returns:
+            List of PetalHealthInfo for all configured petals
+        """
+        petals_info = []
+        
+        # Get names of loaded petals
+        loaded_petal_names = {getattr(p, 'name', str(p)) for p in petals_list}
+        
+        # All configured petals (startup + enabled, deduplicated)
+        all_configured_petals = list(dict.fromkeys(startup_petal_names + enabled_petal_names))
+        
+        # Build info for each configured petal
+        for petal_name in all_configured_petals:
+            is_startup = petal_name in startup_petal_names
+            
+            # Find the loaded petal instance if it exists
+            loaded_petal = None
+            for p in petals_list:
+                if getattr(p, 'name', None) == petal_name:
+                    loaded_petal = p
+                    break
+            
+            if loaded_petal:
+                # Petal is loaded
+                version = getattr(loaded_petal, 'version', None)
+                load_time = getattr(loaded_petal, '_load_time', None)
+                
+                petals_info.append(PetalHealthInfo(
+                    name=petal_name,
+                    status='loaded',
+                    version=version,
+                    is_startup_petal=is_startup,
+                    load_time=load_time.isoformat() if load_time else None
+                ))
+            elif petal_name in loading_petal_names:
+                # Petal is currently loading
+                petals_info.append(PetalHealthInfo(
+                    name=petal_name,
+                    status='loading',
+                    is_startup_petal=is_startup
+                ))
+            else:
+                # Petal is not loaded yet
+                petals_info.append(PetalHealthInfo(
+                    name=petal_name,
+                    status='not_loaded',
+                    is_startup_petal=is_startup
+                ))
+        
+        return petals_info
     
     # ===== Health Check Helper Methods =====
     

@@ -40,16 +40,34 @@ Version 0.1.50 (2026-01-05)
 
 - Updated ``proxies.yaml`` configuration to support two distinct petal loading strategies:
 
-  - **startup_petals**: Petals loaded immediately during server startup (blocking)
+  - **startup_petals**: Petals loaded synchronously during server startup (blocking)
     
-    - Use for critical petals that must be available before the server accepts requests
+    - Critical petals that must be available before the server accepts requests
+    - Server waits for these petals to fully initialize
     - Example: ``petal-user-journey-coordinator``
 
-  - **enabled_petals**: Petals loaded dynamically after server startup (non-blocking)
+  - **enabled_petals**: Petals loaded asynchronously after server startup (non-blocking)
     
-    - Use for non-critical petals that can be loaded on-demand
-    - Reduces server startup time and allows graceful degradation
+    - Background task spawned after server is ready to accept requests
+    - Loads petals one-by-one without blocking the main event loop
+    - Reduces server startup time and improves responsiveness
     - Example: ``flight-log-petal``, ``petal-warehouse``, ``petal-mission-planner``
+
+- Refactored petal async startup into reusable ``_handle_petal_async_startup()`` helper
+
+**Health Monitoring Enhancements:**
+
+- Added ``PetalHealthInfo`` model to track individual petal status:
+
+  - ``name``: Petal identifier
+  - ``status``: One of ``loaded``, ``loading``, ``failed``, ``not_loaded``
+  - ``version``: Petal version if available
+  - ``is_startup_petal``: Whether this is a critical startup petal
+  - ``load_time``: ISO timestamp when petal was loaded
+  - ``error``: Error message if petal failed to load
+
+- Extended ``HealthMessage`` to include ``petals`` array with real-time petal loading status
+- Health publisher now reports petal loading progress during background loading phase
 
 **S3 Bucket Proxy Improvements:**
 

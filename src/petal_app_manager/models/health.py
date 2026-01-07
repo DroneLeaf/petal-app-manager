@@ -287,6 +287,24 @@ class DetailedHealthResponse(BaseModel):
         return v
 
 
+class PetalHealthInfo(BaseModel):
+    """Health information for a petal component."""
+    
+    name: str = Field(..., description="Petal name/identifier")
+    status: str = Field(..., description="Petal status: 'loaded', 'loading', 'failed', 'not_loaded'")
+    version: Optional[str] = Field(None, description="Petal version if available")
+    is_startup_petal: bool = Field(False, description="Whether this is a critical startup petal")
+    load_time: Optional[str] = Field(None, description="ISO timestamp when petal was loaded")
+    error: Optional[str] = Field(None, description="Error message if petal failed to load")
+    
+    @validator('status')
+    def validate_status(cls, v):
+        valid_statuses = ['loaded', 'loading', 'failed', 'not_loaded']
+        if v not in valid_statuses:
+            raise ValueError(f"Status must be one of: {valid_statuses}")
+        return v
+
+
 class ServiceHealthInfo(BaseModel):
     """Health information for a service in the Redis message format."""
     
@@ -323,6 +341,7 @@ class HealthMessage(BaseModel):
     message: str = Field(..., description="Overall status message")
     timestamp: str = Field(..., description="ISO timestamp when status was checked")
     services: List[ServiceHealthInfo] = Field(..., description="List of service health statuses")
+    petals: List[PetalHealthInfo] = Field(default_factory=list, description="List of petal component statuses")
     
     @validator('status')
     def validate_status(cls, v):

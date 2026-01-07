@@ -190,8 +190,14 @@ def build_app() -> FastAPI:
     # Store petals list to manage them during startup/shutdown
     petals = []
     
+    # Track petals currently being loaded (for health reporting)
+    loading_petals: set = set()
+    
     # Health status publisher task
     health_publisher_task = None
+    
+    # Background petal loading task
+    background_petal_loader_task = None
     
     async def publish_health_status():
         """Background task to publish health status to Redis channel."""
@@ -205,11 +211,21 @@ def build_app() -> FastAPI:
         # Import the unified health service
         from .health_service import get_health_service
         health_service = get_health_service(logger)
+        
+        # Get petal names from config
+        startup_petal_names = list(proxies_config.get("startup_petals") or [])
+        enabled_petal_names = list(proxies_config.get("enabled_petals") or [])
             
         while True:
             try:
-                # Get validated health message using unified service
-                health_message = await health_service.get_health_message(proxies)
+                # Get validated health message using unified service (with petal info)
+                health_message = await health_service.get_health_message(
+                    proxies_dict=proxies,
+                    petals_list=petals,
+                    startup_petal_names=startup_petal_names,
+                    enabled_petal_names=enabled_petal_names,
+                    loading_petal_names=list(loading_petals)
+                )
                 
                 # Publish to Redis channel
                 channel = "/controller-dashboard/petals-status"
@@ -272,72 +288,145 @@ def build_app() -> FastAPI:
         else:
             logger.warning("Redis proxy not available, health status publisher not started")
         
-        # Step 5: Log completion
+        # Step 5: Start background loading of enabled petals (non-blocking)
+        logger.info("Spawning background task to load enabled petals...")
+        background_petal_loader_task = asyncio.create_task(load_enabled_petals_background())
+        
+        # Step 6: Log completion
         logger.info("=== startup_all() completed successfully ===")
-        logger.info("Application should now be ready to receive requests")
+        logger.info("Application is now ready to receive requests")
+        logger.info("Enabled petals will continue loading in the background...")
     
     from .plugins.loader import load_petals
 
     async def load_petals_on_startup():
-        """Load petals after proxies have been started"""
+        """Load startup petals during server initialization (blocking)"""
         nonlocal petals
         critical_petals = list(proxies_config.get("startup_petals") or [])
-        petals.extend(load_petals(
+        
+        if not critical_petals:
+            logger.info("No startup petals configured")
+            return
+            
+        logger.info(f"Loading {len(critical_petals)} startup petals: {critical_petals}")
+        
+        new_petals = load_petals(
             app=app, 
             petal_name_list=critical_petals, 
             proxies=proxies, 
             logger=loader_logger
-        ))
+        )
+        petals.extend(new_petals)
+        
+        # Handle async startup for each petal
+        for petal in new_petals:
+            await _handle_petal_async_startup(petal)
+        
+        logger.info(f"Startup petals loaded: {len(new_petals)}/{len(critical_petals)}")
+
+    async def load_enabled_petals_background():
+        """Load enabled petals in background after server startup (non-blocking)"""
+        nonlocal petals
+        
+        # Small delay to ensure server is fully ready
+        await asyncio.sleep(0.5)
+        
+        # Get list of already loaded petal names
+        loaded_petal_names = {p.name for p in petals}
+        
+        # Get enabled petals from config
+        enabled_petals_list = list(proxies_config.get("enabled_petals") or [])
+        
+        # Filter out already loaded petals (startup_petals may overlap with enabled_petals)
+        petals_to_load = [p for p in enabled_petals_list if p not in loaded_petal_names]
+        
+        if not petals_to_load:
+            logger.info("No additional enabled petals to load in background")
+            return
+        
+        logger.info(f"Background loading {len(petals_to_load)} enabled petals: {petals_to_load}")
+        
+        for petal_name in petals_to_load:
+            try:
+                # Mark petal as loading (for health reporting)
+                loading_petals.add(petal_name)
+                
+                # Small delay between loads to prevent resource contention
+                await asyncio.sleep(0.1)
+                
+                new_petals = load_petals(
+                    app=app,
+                    petal_name_list=[petal_name],
+                    proxies=proxies,
+                    logger=loader_logger
+                )
+                
+                if new_petals:
+                    petals.extend(new_petals)
+                    
+                    # Handle async startup for newly loaded petal
+                    for petal in new_petals:
+                        await _handle_petal_async_startup(petal)
+                    
+                    logger.info(f"Background loaded petal '{petal_name}' successfully")
+                else:
+                    logger.warning(f"Background loading failed for petal '{petal_name}'")
+                    
+            except Exception as e:
+                logger.error(f"Error background loading petal '{petal_name}': {e}")
+            finally:
+                # Remove from loading set regardless of success/failure
+                loading_petals.discard(petal_name)
+        
+        logger.info(f"Background petal loading completed. Total petals: {len(petals)}")
+
+    async def _handle_petal_async_startup(petal):
+        """Handle async startup for a single petal including dependency setup"""
+        async_startup_method = getattr(petal, 'async_startup', None)
+        if not async_startup_method or not asyncio.iscoroutinefunction(async_startup_method):
+            return
+        
+        logger.info(f"Starting async_startup for petal: {petal.name}")
         
         # Get petal dependencies from YAML
         petal_dependencies = proxies_config.get("petal_dependencies", {})
+        petal_deps = petal_dependencies.get(petal.name, [])
+        uses_mqtt = 'mqtt' in petal_deps
+        uses_cloud = 'cloud' in petal_deps
         
-        # Call async_startup method for petals that support it
-        for petal in petals:
-            async_startup_method = getattr(petal, 'async_startup', None)
-            if async_startup_method and asyncio.iscoroutinefunction(async_startup_method):
-                logger.info(f"Starting async_startup for petal: {petal.name}")
-                
-                # Get petal's dependencies from YAML
-                petal_deps = petal_dependencies.get(petal.name, [])
-                uses_mqtt = 'mqtt' in petal_deps
-                uses_cloud = 'cloud' in petal_deps
-                
-                # Set the event loop for safe task creation
-                try:
-                    petal._loop = asyncio.get_running_loop()
-                except RuntimeError:
-                    petal._loop = asyncio.get_event_loop()
-                
-                # Handle MQTT proxy dependency
-                if uses_mqtt:
-                    logger.info(f"Petal {petal.name} depends on MQTT proxy, setting up MQTT-aware startup...")
-                    try:
-                        await _setup_mqtt_for_petal(petal)
-                        logger.info(f"Completed MQTT setup for petal: {petal.name}")
-                    except Exception as e:
-                        logger.error(f"Error during MQTT setup for petal {petal.name}: {e}")
-                        logger.warning(f"MQTT setup will continue in background for petal {petal.name}")
-                
-                # Handle Cloud proxy dependency
-                if uses_cloud:
-                    logger.info(f"Petal {petal.name} depends on Cloud proxy, setting up Cloud-aware startup...")
-                    try:
-                        await _setup_cloud_for_petal(petal)
-                        logger.info(f"Completed Cloud setup for petal: {petal.name}")
-                    except Exception as e:
-                        logger.error(f"Error during Cloud setup for petal {petal.name}: {e}")
-                        logger.warning(f"Cloud setup will continue in background for petal {petal.name}")
-                    
-                # Standard async startup
-                try:
-                    await async_startup_method()
-                    logger.info(f"Completed async_startup for petal: {petal.name}")
-                except Exception as e:
-                    logger.error(f"Error during async_startup for petal {petal.name}: {e}")
-                    logger.warning(f"Petal {petal.name} async_startup failed, but server will continue")
+        # Set the event loop for safe task creation
+        try:
+            petal._loop = asyncio.get_running_loop()
+        except RuntimeError:
+            petal._loop = asyncio.get_event_loop()
         
-        # Note: Petal shutdown is handled centrally in shutdown_all, not via individual event handlers
+        # Handle MQTT proxy dependency
+        if uses_mqtt:
+            logger.info(f"Petal {petal.name} depends on MQTT proxy, setting up MQTT-aware startup...")
+            try:
+                await _setup_mqtt_for_petal(petal)
+                logger.info(f"Completed MQTT setup for petal: {petal.name}")
+            except Exception as e:
+                logger.error(f"Error during MQTT setup for petal {petal.name}: {e}")
+                logger.warning(f"MQTT setup will continue in background for petal {petal.name}")
+        
+        # Handle Cloud proxy dependency
+        if uses_cloud:
+            logger.info(f"Petal {petal.name} depends on Cloud proxy, setting up Cloud-aware startup...")
+            try:
+                await _setup_cloud_for_petal(petal)
+                logger.info(f"Completed Cloud setup for petal: {petal.name}")
+            except Exception as e:
+                logger.error(f"Error during Cloud setup for petal {petal.name}: {e}")
+                logger.warning(f"Cloud setup will continue in background for petal {petal.name}")
+        
+        # Standard async startup
+        try:
+            await async_startup_method()
+            logger.info(f"Completed async_startup for petal: {petal.name}")
+        except Exception as e:
+            logger.error(f"Error during async_startup for petal {petal.name}: {e}")
+            logger.warning(f"Petal {petal.name} async_startup failed, but server will continue")
     
     async def _setup_mqtt_for_petal(petal):
         """Setup MQTT proxy for petal with organization ID monitoring and retry logic."""
@@ -544,7 +633,17 @@ def build_app() -> FastAPI:
         """Shutdown petals first, then proxies, then OrganizationManager"""
         logger.info("Starting graceful shutdown...")
         
-        # Step 1: Stop health publisher task
+        # Step 1: Stop background petal loader task
+        if background_petal_loader_task and not background_petal_loader_task.done():
+            logger.info("Stopping background petal loader...")
+            background_petal_loader_task.cancel()
+            try:
+                await background_petal_loader_task
+            except asyncio.CancelledError:
+                pass
+            logger.info("Background petal loader stopped")
+        
+        # Step 2: Stop health publisher task
         if health_publisher_task and not health_publisher_task.done():
             logger.info("Stopping health status publisher...")
             health_publisher_task.cancel()
