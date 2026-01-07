@@ -55,14 +55,18 @@ def _load_class_from_entry_point(name: str):
     
     return ep.load()
 
-def load_petals(app: FastAPI, proxies: dict, logger: logging.Logger) -> List[Petal]:
+def load_petals(
+        app: FastAPI, 
+        petal_name_list: List[str],
+        proxies: Dict[str, BaseProxy],
+        logger: logging.Logger,
+    ) -> List[Petal]:
     from pathlib import Path
     from ..config import load_proxies_config
 
     # Load petal dependencies from proxies.yaml (auto-creates if missing)
     proxies_yaml_path = Path(__file__).parent.parent.parent.parent / "proxies.yaml"
     proxies_config = load_proxies_config(proxies_yaml_path)
-    enabled_petals = list(proxies_config.get("enabled_petals") or [])
     enabled_proxies = set(proxies_config.get("enabled_proxies") or [])
     petal_dependencies: Dict[str, list] = proxies_config.get("petal_dependencies", {}) or {}
     
@@ -75,7 +79,7 @@ def load_petals(app: FastAPI, proxies: dict, logger: logging.Logger) -> List[Pet
     direct_loads = 0
     entry_point_loads = 0
     
-    for name in enabled_petals:
+    for name in petal_name_list:
         # Check required proxies for this petal from YAML
         required = set(petal_dependencies.get(name, []))
         missing_from_config = [proxy for proxy in required if proxy not in enabled_proxies]

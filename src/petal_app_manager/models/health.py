@@ -1,7 +1,7 @@
 """
 Pydantic models for health check responses and status validation.
 """
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Dict, List, Any, Optional, Union, ClassVar
 from datetime import datetime
 import time
@@ -44,8 +44,9 @@ class RedisProxyHealth(BaseModel):
     error: Optional[str] = None
     details: Optional[str] = None
     
-    @validator('status')
-    def validate_status(cls, v):
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
         valid_statuses = [HealthStatus.HEALTHY, HealthStatus.UNHEALTHY, HealthStatus.ERROR, HealthStatus.UNKNOWN, HealthStatus.WARNING]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {valid_statuses}")
@@ -60,7 +61,7 @@ class LocalDbConnectionInfo(BaseModel):
 class LocalDbMachineInfo(BaseModel):
     """LocalDB machine information."""
     machine_id: str
-    organization_id: str
+    organization_id: Optional[str] = None
     robot_type_id: Optional[str] = None
 
 class LocalDbProxyHealth(BaseModel):
@@ -72,8 +73,9 @@ class LocalDbProxyHealth(BaseModel):
     details: Optional[str] = None
     test_response: Optional[Dict[str, Any]] = None
     
-    @validator('status')
-    def validate_status(cls, v):
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
         valid_statuses = [HealthStatus.HEALTHY, HealthStatus.UNHEALTHY, HealthStatus.ERROR, HealthStatus.UNKNOWN, HealthStatus.WARNING]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {valid_statuses}")
@@ -132,8 +134,9 @@ class MavlinkProxyHealth(BaseModel):
     error: Optional[str] = None
     details: Optional[str] = None
     
-    @validator('status')
-    def validate_status(cls, v):
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
         valid_statuses = [HealthStatus.HEALTHY, HealthStatus.UNHEALTHY, HealthStatus.ERROR, HealthStatus.UNKNOWN, HealthStatus.WARNING]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {valid_statuses}")
@@ -169,8 +172,9 @@ class CloudProxyHealth(BaseModel):
     error: Optional[str] = None
     details: Optional[str] = None
     
-    @validator('status')
-    def validate_status(cls, v):
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
         valid_statuses = [HealthStatus.HEALTHY, HealthStatus.UNHEALTHY, HealthStatus.ERROR, HealthStatus.UNKNOWN, HealthStatus.WARNING]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {valid_statuses}")
@@ -209,8 +213,9 @@ class S3BucketProxyHealth(BaseModel):
     error: Optional[str] = None
     details: Optional[str] = None
     
-    @validator('status')
-    def validate_status(cls, v):
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
         valid_statuses = [HealthStatus.HEALTHY, HealthStatus.UNHEALTHY, HealthStatus.ERROR, HealthStatus.UNKNOWN, HealthStatus.WARNING]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {valid_statuses}")
@@ -226,8 +231,9 @@ class MqttProxyHealth(BaseModel):
     error: Optional[str] = None
     details: Optional[str] = None
     
-    @validator('status')
-    def validate_status(cls, v):
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
         valid_statuses = [HealthStatus.HEALTHY, HealthStatus.UNHEALTHY, HealthStatus.ERROR, HealthStatus.UNKNOWN, HealthStatus.WARNING]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {valid_statuses}")
@@ -246,8 +252,9 @@ class OrganizationManagerHealth(BaseModel):
     details: Optional[str] = None
     message: Optional[str] = None
     
-    @validator('status')
-    def validate_status(cls, v):
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
         valid_statuses = [HealthStatus.HEALTHY, HealthStatus.UNHEALTHY, HealthStatus.ERROR, HealthStatus.UNKNOWN, HealthStatus.WARNING]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {valid_statuses}")
@@ -273,17 +280,38 @@ class DetailedHealthResponse(BaseModel):
     proxies: Dict[str, ProxyHealthDetail] = Field(default_factory=dict)
     message: Optional[str] = None
     
-    @validator('status')
-    def validate_status(cls, v):
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
         valid_statuses = [HealthStatus.HEALTHY, HealthStatus.UNHEALTHY, HealthStatus.ERROR, HealthStatus.UNKNOWN]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {valid_statuses}")
         return v
     
-    @validator('timestamp')
-    def validate_timestamp(cls, v):
+    @field_validator('timestamp')
+    @classmethod
+    def validate_timestamp(cls, v: float) -> float:
         if v <= 0:
             raise ValueError("Timestamp must be positive")
+        return v
+
+
+class PetalHealthInfo(BaseModel):
+    """Health information for a petal component."""
+    
+    name: str = Field(..., description="Petal name/identifier")
+    status: str = Field(..., description="Petal status: 'loaded', 'loading', 'failed', 'not_loaded'")
+    version: Optional[str] = Field(None, description="Petal version if available")
+    is_startup_petal: bool = Field(False, description="Whether this is a critical startup petal")
+    load_time: Optional[str] = Field(None, description="ISO timestamp when petal was loaded")
+    error: Optional[str] = Field(None, description="Error message if petal failed to load")
+    
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        valid_statuses = ['loaded', 'loading', 'failed', 'not_loaded']
+        if v not in valid_statuses:
+            raise ValueError(f"Status must be one of: {valid_statuses}")
         return v
 
 
@@ -296,15 +324,17 @@ class ServiceHealthInfo(BaseModel):
     message: str = Field(..., description="Status message")
     timestamp: str = Field(..., description="ISO timestamp when status was checked")
     
-    @validator('status')
-    def validate_status(cls, v):
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
         valid_statuses = [HealthStatus.HEALTHY, HealthStatus.UNHEALTHY, HealthStatus.ERROR, HealthStatus.UNKNOWN]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {valid_statuses}")
         return v
     
-    @validator('timestamp')
-    def validate_timestamp_format(cls, v):
+    @field_validator('timestamp')
+    @classmethod
+    def validate_timestamp_format(cls, v: str) -> str:
         try:
             datetime.fromisoformat(v.replace('Z', '+00:00'))
         except ValueError:
@@ -323,24 +353,28 @@ class HealthMessage(BaseModel):
     message: str = Field(..., description="Overall status message")
     timestamp: str = Field(..., description="ISO timestamp when status was checked")
     services: List[ServiceHealthInfo] = Field(..., description="List of service health statuses")
+    petals: List[PetalHealthInfo] = Field(default_factory=list, description="List of petal component statuses")
     
-    @validator('status')
-    def validate_status(cls, v):
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
         valid_statuses = [HealthStatus.HEALTHY, HealthStatus.UNHEALTHY, HealthStatus.ERROR, HealthStatus.UNKNOWN]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {valid_statuses}")
         return v
     
-    @validator('timestamp')
-    def validate_timestamp_format(cls, v):
+    @field_validator('timestamp')
+    @classmethod
+    def validate_timestamp_format(cls, v: str) -> str:
         try:
             datetime.fromisoformat(v.replace('Z', '+00:00'))
         except ValueError:
             raise ValueError("Timestamp must be a valid ISO format")
         return v
     
-    @validator('services')
-    def validate_services_not_empty(cls, v):
+    @field_validator('services')
+    @classmethod
+    def validate_services_not_empty(cls, v: List[ServiceHealthInfo]) -> List[ServiceHealthInfo]:
         if not v:
             raise ValueError("Services list cannot be empty")
         return v
@@ -351,8 +385,9 @@ class BasicHealthResponse(BaseModel):
     
     status: str = Field(default="ok", description="Basic health status")
     
-    @validator('status')
-    def validate_status(cls, v):
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
         valid_statuses = ["ok", "error"]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {valid_statuses}")
@@ -367,15 +402,17 @@ class OrganizationHealthResponse(BaseModel):
     organization_manager: OrganizationManagerHealth
     error: Optional[str] = None
     
-    @validator('status')
-    def validate_status(cls, v):
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
         valid_statuses = ["ok", "error"]
         if v not in valid_statuses:
             raise ValueError(f"Status must be one of: {valid_statuses}")
         return v
     
-    @validator('timestamp')
-    def validate_timestamp(cls, v):
+    @field_validator('timestamp')
+    @classmethod
+    def validate_timestamp(cls, v: float) -> float:
         if v <= 0:
             raise ValueError("Timestamp must be positive")
         return v

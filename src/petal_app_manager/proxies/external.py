@@ -31,8 +31,10 @@ from typing import (
     Tuple, 
     Generator,
     Awaitable,
-    Optional
+    Optional,
+    Union
 )
+import contextlib
 import logging
 from pathlib import Path
 import asyncio, shutil
@@ -41,6 +43,11 @@ import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 
 from .base import BaseProxy
+from .. import Config
+from ..models.mavlink import (
+    RebootStatusCode,
+    RebootAutopilotResponse,
+)
 from pymavlink import mavutil, mavftp
 from pymavlink.mavftp_op import FTP_OP
 from pymavlink.dialects.v20 import all as mavlink_dialect
@@ -50,6 +57,76 @@ import os
 
 import dotenv
 
+_PARAM_TYPE_NAME_TO_ID = {
+    "UINT8":  mavutil.mavlink.MAV_PARAM_TYPE_UINT8,
+    "INT8":   mavutil.mavlink.MAV_PARAM_TYPE_INT8,
+    "UINT16": mavutil.mavlink.MAV_PARAM_TYPE_UINT16,
+    "INT16":  mavutil.mavlink.MAV_PARAM_TYPE_INT16,
+    "UINT32": mavutil.mavlink.MAV_PARAM_TYPE_UINT32,
+    "INT32":  mavutil.mavlink.MAV_PARAM_TYPE_INT32,
+    "UINT64": mavutil.mavlink.MAV_PARAM_TYPE_UINT64,
+    "INT64":  mavutil.mavlink.MAV_PARAM_TYPE_INT64,
+    "REAL32": mavutil.mavlink.MAV_PARAM_TYPE_REAL32,
+    "REAL64": mavutil.mavlink.MAV_PARAM_TYPE_REAL64,
+}
+
+_INT_TYPES = {
+    mavutil.mavlink.MAV_PARAM_TYPE_UINT8,
+    mavutil.mavlink.MAV_PARAM_TYPE_INT8,
+    mavutil.mavlink.MAV_PARAM_TYPE_UINT16,
+    mavutil.mavlink.MAV_PARAM_TYPE_INT16,
+    mavutil.mavlink.MAV_PARAM_TYPE_UINT32,
+    mavutil.mavlink.MAV_PARAM_TYPE_INT32,
+}
+
+_FLOAT_TYPES = {
+    mavutil.mavlink.MAV_PARAM_TYPE_REAL32,
+    mavutil.mavlink.MAV_PARAM_TYPE_REAL64,
+}
+
+ParamSpec = Union[
+    Any,                            # value only
+    Tuple[Any, Union[str, int]],    # (value, "UINT16") or (value, MAV_PARAM_TYPE_INT32)
+    Dict[str, Any],                 # {"value": ..., "type": "INT16"}
+]
+
+def _parse_param_type(ptype: Optional[Any]) -> Optional[int]:
+    """
+    Accept:
+      - None
+      - int (already a MAV_PARAM_TYPE_* value)
+      - strings like "UINT16", "int32", "MAV_PARAM_TYPE_INT32"
+    """
+    if ptype is None:
+        return None
+    if isinstance(ptype, int):
+        return ptype
+    if isinstance(ptype, str):
+        s = ptype.strip().upper()
+        s = s.replace("MAV_PARAM_TYPE_", "")
+        if s in _PARAM_TYPE_NAME_TO_ID:
+            return _PARAM_TYPE_NAME_TO_ID[s]
+    raise ValueError(f"Unsupported param type specifier: {ptype!r}")
+
+def _check_int_range(v: int, bits: int, signed: bool) -> None:
+    if signed:
+        lo, hi = -(1 << (bits - 1)), (1 << (bits - 1)) - 1
+    else:
+        lo, hi = 0, (1 << bits) - 1
+    if not (lo <= v <= hi):
+        raise ValueError(f"Value {v} out of range for {'INT' if signed else 'UINT'}{bits} [{lo}, {hi}]")
+
+def _u32_to_f32_bits(u32: int) -> float:
+    return struct.unpack("<f", struct.pack("<I", u32 & 0xFFFFFFFF))[0]
+
+def _f32_bits_to_u32(f: float) -> int:
+    return struct.unpack("<I", struct.pack("<f", float(f)))[0]
+
+def _sign_extend(value: int, bits: int) -> int:
+    sign_bit = 1 << (bits - 1)
+    mask = (1 << bits) - 1
+    value &= mask
+    return (value ^ sign_bit) - sign_bit
 
 def setup_file_only_logger(name: str, log_file: str, level: str = "INFO") -> logging.Logger:
     """Setup a logger that only writes to files, not console."""
@@ -225,21 +302,17 @@ class ExternalProxy(BaseProxy):
         if key in self._handler_configs and fn in self._handler_configs[key]:
             del self._handler_configs[key][fn]
 
-        if not callbacks:              # list now empty → delete key
+        if not callbacks:
+            # last handler -> prune everything for that key
             del self._handlers[key]
             if key in self._handler_configs:
                 del self._handler_configs[key]
 
-        # Clean up message buffer and locks
-        with self._message_buffer_key_lock:
-            if key in self._message_buffer:
-                del self._message_buffer[key]
-            if key in self._message_buffer_locks:
-                del self._message_buffer_locks[key]
-            if key in self._message_buffer_last_message_index:
-                del self._message_buffer_last_message_index[key]
-            if key in self._message_buffer_configs:
-                del self._message_buffer_configs[key]
+            with self._message_buffer_key_lock:
+                self._message_buffer.pop(key, None)
+                self._message_buffer_locks.pop(key, None)
+                self._message_buffer_last_message_index.pop(key, None)
+                self._message_buffer_configs.pop(key, None)
 
     def send(self, key: str, msg: Any, burst_count: Optional[int] = None, 
              burst_interval: Optional[float] = None) -> None:
@@ -569,7 +642,13 @@ class MavLinkExternalProxy(ExternalProxy):
         self.master: mavutil.mavfile | None = None
         
         # Set up file-only logging
-        self._log_msgs = setup_file_only_logger("MavLinkExternalProxyMsgs", "app-mavlinkexternalproxymsgs.log", "INFO")
+        log_dir = Config.PETAL_LOG_DIR
+        log_path = Path(log_dir, "app-mavlinkexternalproxy.log")
+        self._log_msgs = setup_file_only_logger(
+            name="MavLinkExternalProxyMsgs", 
+            log_file=log_path, 
+            level="INFO"
+        )
         self._log = logging.getLogger("MavLinkExternalProxy")
 
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -618,28 +697,105 @@ class MavLinkExternalProxy(ExternalProxy):
         """
         Decode a PARAM_VALUE message.
         If type==INT32, reinterpret the float bits as int32.
+        If type==UINT32, reinterpret the float bits as uint32.
+
+        Parameters
+        ----------
+        msg : MAVLink_param_value_message
+            The PARAM_VALUE message to decode.
+
+        Returns
+        -------
+        Tuple[str, Any]
+            The parameter name and decoded value.
         """
         name = self._norm_name(msg.param_id)
-        if msg.param_type == mavutil.mavlink.MAV_PARAM_TYPE_INT32:
-            # Decode float32 bits back to int32
-            raw_bytes = struct.pack("<f", msg.param_value)
-            val = struct.unpack("<i", raw_bytes)[0]
-        else:
-            val = msg.param_value
-        return name, val
+
+        if msg.param_type in _INT_TYPES:
+            raw_u32 = _f32_bits_to_u32(msg.param_value)
+
+            if msg.param_type == mavutil.mavlink.MAV_PARAM_TYPE_UINT8:
+                val = raw_u32 & 0xFF
+            elif msg.param_type == mavutil.mavlink.MAV_PARAM_TYPE_INT8:
+                val = _sign_extend(raw_u32 & 0xFF, 8)
+            elif msg.param_type == mavutil.mavlink.MAV_PARAM_TYPE_UINT16:
+                val = raw_u32 & 0xFFFF
+            elif msg.param_type == mavutil.mavlink.MAV_PARAM_TYPE_INT16:
+                val = _sign_extend(raw_u32 & 0xFFFF, 16)
+            elif msg.param_type == mavutil.mavlink.MAV_PARAM_TYPE_UINT32:
+                val = raw_u32
+            elif msg.param_type == mavutil.mavlink.MAV_PARAM_TYPE_INT32:
+                val = _sign_extend(raw_u32, 32)
+            else:
+                # Shouldn't happen due to _INT_TYPES, but keep safe
+                val = raw_u32
+
+            return name, val
+
+        # REAL32 (what PX4 mostly uses)
+        if msg.param_type == mavutil.mavlink.MAV_PARAM_TYPE_REAL32:
+            return name, float(msg.param_value)
+
+        # Classic PARAM_* can't reliably carry REAL64/INT64/UINT64; if they appear, just pass through float field
+        return name, float(msg.param_value)
 
     def _encode_param_value(self, value: Any, param_type: int) -> float:
         """
         Encode a parameter value for transmission.
         For INT32 types, encode the int32 bits as float32 for wire transmission.
+        For UINT32 types, encode the uint32 bits as float32 for wire transmission.
+        Returns the float value to put in param_value field.
+        Parameters
+        ----------
+        value : Any
+            The parameter value to encode.
+        param_type : int
+            The MAV_PARAM_TYPE_* type of the parameter.
+
+        Returns
+        -------
+        float
+            The encoded float value for transmission.
         """
-        if param_type == mavutil.mavlink.MAV_PARAM_TYPE_INT32:
-            # Encode int32 value as float32 bits for wire transmission
-            raw_bytes = struct.pack("<i", int(value))
-            spoofed_float = struct.unpack("<f", raw_bytes)[0]
-            return spoofed_float
-        else:
+        if param_type in _INT_TYPES:
+            v = int(value)
+
+            if param_type == mavutil.mavlink.MAV_PARAM_TYPE_UINT8:
+                _check_int_range(v, 8, signed=False)
+                u32 = v
+            elif param_type == mavutil.mavlink.MAV_PARAM_TYPE_INT8:
+                _check_int_range(v, 8, signed=True)
+                u32 = v & 0xFF
+            elif param_type == mavutil.mavlink.MAV_PARAM_TYPE_UINT16:
+                _check_int_range(v, 16, signed=False)
+                u32 = v
+            elif param_type == mavutil.mavlink.MAV_PARAM_TYPE_INT16:
+                _check_int_range(v, 16, signed=True)
+                u32 = v & 0xFFFF
+            elif param_type == mavutil.mavlink.MAV_PARAM_TYPE_UINT32:
+                _check_int_range(v, 32, signed=False)
+                u32 = v
+            elif param_type == mavutil.mavlink.MAV_PARAM_TYPE_INT32:
+                _check_int_range(v, 32, signed=True)
+                u32 = v & 0xFFFFFFFF
+            else:
+                u32 = v & 0xFFFFFFFF
+
+            return _u32_to_f32_bits(u32)
+
+        if param_type == mavutil.mavlink.MAV_PARAM_TYPE_REAL32:
             return float(value)
+
+        # Classic PARAM_SET can't carry 64-bit values; refuse explicitly
+        if param_type in (
+            mavutil.mavlink.MAV_PARAM_TYPE_UINT64,
+            mavutil.mavlink.MAV_PARAM_TYPE_INT64,
+            mavutil.mavlink.MAV_PARAM_TYPE_REAL64,
+        ):
+            raise ValueError("64-bit PARAM_SET not supported; use PARAM_EXT_* for 64-bit/REAL64 parameters")
+
+        # Fallback
+        return float(value)
         
     def _should_log_message(self, msg_type: str) -> bool:
         """Determine if a message should be logged based on rate limiting"""
@@ -1154,6 +1310,237 @@ class MavLinkExternalProxy(ExternalProxy):
             name.encode("ascii"),
             encoded_value,               # properly encoded value
             param_type                   # mavutil.mavlink.MAV_PARAM_TYPE_*
+        )
+
+    def build_reboot_command(
+        self,
+        reboot_autopilot: bool = True,
+        reboot_onboard_computer: bool = False,
+    ) -> mavutil.mavlink.MAVLink_command_long_message:
+        """
+        Build a MAVLink command to reboot the autopilot and/or onboard computer.
+
+        Parameters
+        ----------
+        reboot_autopilot : bool
+            If True, reboot the autopilot (PX4/ArduPilot). Default is True.
+        reboot_onboard_computer : bool
+            If True, reboot the onboard computer. Default is False.
+
+        Returns
+        -------
+        mavutil.mavlink.MAVLink_command_long_message
+            The MAVLink COMMAND_LONG message for reboot.
+
+        Raises
+        ------
+        RuntimeError
+            If MAVLink connection is not established.
+        """
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        # param1: 1=reboot autopilot, 0=do nothing
+        # param2: 1=reboot onboard computer, 0=do nothing
+        param1 = 1.0 if reboot_autopilot else 0.0
+        param2 = 1.0 if reboot_onboard_computer else 0.0
+
+        return self.master.mav.command_long_encode(
+            self.master.target_system,
+            self.master.target_component,
+            mavutil.mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN,
+            0,       # confirmation
+            param1,  # param1: reboot autopilot
+            param2,  # param2: reboot onboard computer
+            0, 0, 0, 0, 0  # param3..param7 unused
+        )
+
+    async def reboot_autopilot(
+        self,
+        reboot_onboard_computer: bool = False,
+        timeout: float = 3.0,
+    ) -> RebootAutopilotResponse:
+        """
+        Send a reboot command to the autopilot (PX4/ArduPilot).
+
+        This sends MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN and waits for a
+        COMMAND_ACK response.
+
+        Parameters
+        ----------
+        reboot_onboard_computer : bool
+            If True, also reboot the onboard computer. Default is False.
+        timeout : float
+            Maximum time to wait for acknowledgment. Default is 3.0 seconds.
+
+        Returns
+        -------
+        RebootAutopilotResponse
+            Structured response indicating success/failure and reason.
+
+        Raises
+        ------
+        RuntimeError
+            If MAVLink connection is not established.
+        TimeoutError
+            If no acknowledgment is received within the timeout.
+
+        Notes
+        -----
+        After sending this command, the connection to the autopilot will be lost
+        as it reboots. The proxy will attempt to reconnect automatically.
+        """
+        if not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        cmd = self.build_reboot_command(
+            reboot_autopilot=True,
+            reboot_onboard_computer=reboot_onboard_computer,
+        )
+
+        result = {"ack_received": False, "result": None}
+
+        def _collector(pkt) -> bool:
+            if pkt.get_type() != "COMMAND_ACK":
+                return False
+            if pkt.command == mavutil.mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN:
+                result["ack_received"] = True
+                result["result"] = pkt.result
+                return True
+            return False
+
+        COMMAND_ACK_ID = str(mavutil.mavlink.MAVLINK_MSG_ID_COMMAND_ACK)
+
+        # Map ACK result codes -> status codes (for failures)
+        _ACK_TO_STATUS = {
+            mavutil.mavlink.MAV_RESULT_DENIED: RebootStatusCode.FAIL_ACK_DENIED,
+            mavutil.mavlink.MAV_RESULT_TEMPORARILY_REJECTED: RebootStatusCode.FAIL_ACK_TEMPORARILY_REJECTED,
+            mavutil.mavlink.MAV_RESULT_UNSUPPORTED: RebootStatusCode.FAIL_ACK_UNSUPPORTED,
+            mavutil.mavlink.MAV_RESULT_FAILED: RebootStatusCode.FAIL_ACK_FAILED,
+            mavutil.mavlink.MAV_RESULT_IN_PROGRESS: RebootStatusCode.FAIL_ACK_IN_PROGRESS,
+            getattr(mavutil.mavlink, "MAV_RESULT_CANCELLED", -999): RebootStatusCode.FAIL_ACK_CANCELLED,
+        }
+
+        _ACK_NAME = {
+            mavutil.mavlink.MAV_RESULT_ACCEPTED: "ACCEPTED",
+            mavutil.mavlink.MAV_RESULT_TEMPORARILY_REJECTED: "TEMPORARILY_REJECTED",
+            mavutil.mavlink.MAV_RESULT_DENIED: "DENIED",
+            mavutil.mavlink.MAV_RESULT_UNSUPPORTED: "UNSUPPORTED",
+            mavutil.mavlink.MAV_RESULT_FAILED: "FAILED",
+            mavutil.mavlink.MAV_RESULT_IN_PROGRESS: "IN_PROGRESS",
+            getattr(mavutil.mavlink, "MAV_RESULT_CANCELLED", -999): "CANCELLED",
+        }
+
+        try:
+            await self.send_and_wait(
+                match_key=COMMAND_ACK_ID,
+                request_msg=cmd,
+                collector=_collector,
+                timeout=timeout,
+            )
+        except TimeoutError:
+            # No ACK: verify reboot using heartbeat timestamps (populated by your heartbeat handler)
+            self._log.warning(
+                "Reboot command sent but no ACK received; verifying via heartbeat drop/return..."
+            )
+
+            last_hb = getattr(self, "_last_heartbeat_time", None)
+            if last_hb is None:
+                self._log.warning(
+                    "No heartbeat timestamp available (_last_heartbeat_time is None); reboot not confirmed."
+                )
+                return RebootAutopilotResponse(
+                    success=False,
+                    status_code=RebootStatusCode.FAIL_NO_HEARTBEAT_TRACKING,
+                    reason="No ACK received and heartbeat tracking is unavailable (_last_heartbeat_time is None).",
+                    ack_result=None,
+                )
+
+            async def _wait_for_heartbeat_drop(
+                wait_window_s: float = 2.0,
+                gap_s: float = 1.0,
+                poll_s: float = 0.05,
+            ) -> bool:
+                deadline = time.time() + wait_window_s
+                while time.time() < deadline:
+                    last = getattr(self, "_last_heartbeat_time", None)
+                    if last is not None and (time.time() - last) >= gap_s:
+                        return True
+                    await asyncio.sleep(poll_s)
+                return False
+
+            async def _wait_for_heartbeat_return(
+                since_ts: float,
+                wait_window_s: float = 30.0,
+                poll_s: float = 0.05,
+            ) -> bool:
+                deadline = time.time() + wait_window_s
+                while time.time() < deadline:
+                    last = getattr(self, "_last_heartbeat_time", None)
+                    if last is not None and last > since_ts:
+                        return True
+                    await asyncio.sleep(poll_s)
+                return False
+
+            dropped = await _wait_for_heartbeat_drop()
+            if not dropped:
+                self._log.warning("No ACK and no heartbeat drop observed; reboot not confirmed.")
+                return RebootAutopilotResponse(
+                    success=False,
+                    status_code=RebootStatusCode.FAIL_REBOOT_NOT_CONFIRMED_NO_HB_DROP,
+                    reason="No ACK received and heartbeat did not drop within the expected window.",
+                    ack_result=None,
+                )
+
+            drop_mark = getattr(self, "_last_heartbeat_time", last_hb) or last_hb
+
+            returned = await _wait_for_heartbeat_return(since_ts=drop_mark)
+            if not returned:
+                self._log.warning("Heartbeat dropped but did not return within the reboot window; reboot not confirmed.")
+                return RebootAutopilotResponse(
+                    success=False,
+                    status_code=RebootStatusCode.FAIL_REBOOT_NOT_CONFIRMED_HB_NO_RETURN,
+                    reason="Heartbeat drop observed but heartbeat did not return within the reboot window.",
+                    ack_result=None,
+                )
+
+            self._log.info("Reboot confirmed via heartbeat drop + return.")
+            return RebootAutopilotResponse(
+                success=True,
+                status_code=RebootStatusCode.OK_REBOOT_CONFIRMED_NO_ACK,
+                reason="No ACK received, but reboot confirmed via heartbeat drop + return.",
+                ack_result=None,
+            )
+
+        # ACK path
+        if result["ack_received"]:
+            ack_val = result["result"]
+            ack_name = _ACK_NAME.get(ack_val, f"UNKNOWN({ack_val})")
+
+            if ack_val == mavutil.mavlink.MAV_RESULT_ACCEPTED:
+                self._log.info("Reboot command accepted by autopilot")
+                return RebootAutopilotResponse(
+                    success=True,
+                    status_code=RebootStatusCode.OK_ACK_ACCEPTED,
+                    reason="Autopilot acknowledged the reboot command (ACCEPTED).",
+                    ack_result=ack_val,
+                )
+
+            status = _ACK_TO_STATUS.get(ack_val, RebootStatusCode.FAIL_ACK_UNKNOWN)
+            self._log.warning(f"Reboot command rejected with result: {ack_val} ({ack_name})")
+            return RebootAutopilotResponse(
+                success=False,
+                status_code=status,
+                reason=f"Autopilot rejected the reboot command: {ack_name}.",
+                ack_result=ack_val,
+            )
+
+        # Rare: send_and_wait returned without TimeoutError but collector never matched
+        return RebootAutopilotResponse(
+            success=False,
+            status_code=RebootStatusCode.FAIL_NO_ACK_MATCH,
+            reason="send_and_wait returned but no matching COMMAND_ACK for reboot command was observed.",
+            ack_result=None,
         )
 
     async def get_param(self, name: str, timeout: float = 3.0) -> Dict[str, Any]:
@@ -1909,6 +2296,311 @@ class MavLinkExternalProxy(ExternalProxy):
 
         return bytes(buffer)
 
+    async def set_params_bulk_lossy(
+        self,
+        params_to_set: Dict[str, ParamSpec],
+        *,
+        timeout_total: float = 8.0,
+        max_retries: int = 3,
+        max_in_flight: int = 8,
+        resend_interval: float = 0.8,
+        inter_send_delay: float = 0.01,
+        verify_ack_value: bool = True,
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Lossy-link bulk PARAM_SET:
+        - User can provide optional type per param as "UINT8", "INT16", "REAL32", etc.
+        - If type omitted -> auto: int -> INT32, float -> REAL32
+        - Windowed sends + periodic resend + retry cap
+        - Confirms via echoed PARAM_VALUE
+
+        Returns: confirmed {name: meta_dict}
+        """
+        if not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        loop = asyncio.get_running_loop()
+
+        # Normalize input into: desired[name] = (value, ptype_int_or_None)
+        desired: Dict[str, Tuple[Any, Optional[int]]] = {}
+
+        for k, spec in params_to_set.items():
+            name = self._norm_name(k.encode("ascii"))
+
+            if isinstance(spec, tuple) and len(spec) == 2:
+                value, ptype = spec
+                desired[name] = (value, _parse_param_type(ptype))
+            elif isinstance(spec, dict):
+                if "value" not in spec:
+                    raise ValueError(f"Param '{k}' dict spec must include 'value'")
+                value = spec["value"]
+                ptype = spec.get("type", None)
+                desired[name] = (value, _parse_param_type(ptype))
+            else:
+                desired[name] = (spec, None)
+
+        def infer_type(value: Any) -> int:
+            if isinstance(value, int):
+                return mavutil.mavlink.MAV_PARAM_TYPE_INT32
+            if isinstance(value, float):
+                return mavutil.mavlink.MAV_PARAM_TYPE_REAL32
+            raise ValueError(f"Unsupported value type: {type(value)} (expected int or float)")
+
+        def values_match(want: Any, got: Any) -> bool:
+            if isinstance(want, int):
+                try:
+                    return int(got) == int(want)
+                except Exception:
+                    return False
+            try:
+                return abs(float(got) - float(want)) <= 1e-4
+            except Exception:
+                return False
+
+        pending = set(desired.keys())
+        attempts: Dict[str, int] = {n: 0 for n in pending}
+        last_sent: Dict[str, float] = {n: 0.0 for n in pending}
+        confirmed: Dict[str, Dict[str, Any]] = {}
+
+        queue = list(desired.keys())
+        in_flight = 0
+        done_evt = asyncio.Event()
+
+        async def _send_set(name: str) -> None:
+            nonlocal in_flight
+            value, ptype_opt = desired[name]
+            ptype = ptype_opt if ptype_opt is not None else infer_type(value)
+
+            msg = self.build_param_set(name, value, ptype)
+            self.send("mav", msg)
+
+            attempts[name] += 1
+            last_sent[name] = time.monotonic()
+            in_flight += 1
+
+            if inter_send_delay > 0:
+                await asyncio.sleep(inter_send_delay)
+
+        async def _fill_window_from_queue() -> None:
+            nonlocal in_flight
+            while in_flight < max_in_flight and queue:
+                n = queue.pop(0)
+                if n in pending and attempts[n] < max_retries:
+                    await _send_set(n)
+
+        async def _resender_loop() -> None:
+            nonlocal in_flight
+            while not done_evt.is_set():
+                now = time.monotonic()
+
+                # initial sends
+                await _fill_window_from_queue()
+
+                # resend timed-out pendings
+                if in_flight < max_in_flight:
+                    for n in list(pending):
+                        if attempts[n] >= max_retries:
+                            continue
+                        if (now - last_sent[n]) >= resend_interval and in_flight < max_in_flight:
+                            await _send_set(n)
+
+                await asyncio.sleep(0.05)
+
+        def _handler(pkt):
+            try:
+                if pkt.get_type() != "PARAM_VALUE":
+                    return
+
+                pname, decoded_value = self._decode_param_value(pkt)
+                if pname not in pending:
+                    return
+
+                def _apply():
+                    nonlocal in_flight
+                    if pname not in pending:
+                        return
+
+                    want_value, _want_ptype = desired[pname]
+
+                    if verify_ack_value and not values_match(want_value, decoded_value):
+                        # not confirmed; free one slot and let retry logic resend
+                        in_flight = max(0, in_flight - 1)
+                        return
+
+                    confirmed[pname] = {
+                        "name": pname,
+                        "value": decoded_value,
+                        "raw": float(pkt.param_value),
+                        "type": pkt.param_type,
+                        "count": pkt.param_count,
+                        "index": pkt.param_index,
+                    }
+
+                    pending.remove(pname)
+                    in_flight = max(0, in_flight - 1)
+
+                    if not pending:
+                        done_evt.set()
+
+                loop.call_soon_threadsafe(_apply)
+
+            except Exception as exc:
+                self._log.error(f"[bulk_set handler] raised: {exc}")
+
+        self.register_handler(key="PARAM_VALUE", fn=_handler)
+
+        try:
+            # Start sending + resending
+            await _fill_window_from_queue()
+            resender_task = asyncio.create_task(_resender_loop())
+            try:
+                await asyncio.wait_for(done_evt.wait(), timeout=timeout_total)
+            except asyncio.TimeoutError:
+                pass
+            finally:
+                resender_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await resender_task
+
+            return confirmed
+
+        finally:
+            self.unregister_handler("PARAM_VALUE", _handler)
+
+    async def get_params_bulk_lossy(
+        self,
+        names: Iterable[str],
+        *,
+        timeout_total: float = 6.0,
+        max_retries: int = 3,
+        max_in_flight: int = 10,
+        resend_interval: float = 0.7,
+        inter_send_delay: float = 0.01,
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Lossy-link bulk GET using PARAM_REQUEST_READ by name.
+
+        Strategy:
+        - Register ONE PARAM_VALUE handler.
+        - Send read requests in a window (max_in_flight).
+        - Periodically resend still-pending names (resend_interval) up to max_retries.
+        - Stop when all received or timeout_total.
+
+        Returns:
+        { name: {"name","value","raw","type","count","index"}, ... }
+        (Partial results if timeout_total hits.)
+        """
+        if not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        loop = asyncio.get_running_loop()
+
+        # Normalize requested names (same normalization used by _decode_param_value)
+        names_list = [self._norm_name(n.encode("ascii")) for n in names]
+
+        pending = set(names_list)
+        attempts: Dict[str, int] = {n: 0 for n in names_list}
+        last_sent: Dict[str, float] = {n: 0.0 for n in names_list}
+
+        results: Dict[str, Dict[str, Any]] = {}
+        done_evt = asyncio.Event()
+
+        queue = list(names_list)
+        in_flight = 0
+
+        async def _send_read(name: str) -> None:
+            nonlocal in_flight
+            msg = self.build_param_request_read(name, index=-1)
+            self.send("mav", msg)
+
+            attempts[name] += 1
+            last_sent[name] = time.monotonic()
+            in_flight += 1
+
+            if inter_send_delay > 0:
+                await asyncio.sleep(inter_send_delay)
+
+        async def _fill_window_from_queue() -> None:
+            nonlocal in_flight
+            while in_flight < max_in_flight and queue:
+                n = queue.pop(0)
+                if n in pending and attempts[n] < max_retries:
+                    await _send_read(n)
+
+        async def _resender_loop() -> None:
+            nonlocal in_flight
+            while not done_evt.is_set():
+                now = time.monotonic()
+
+                # initial sends
+                await _fill_window_from_queue()
+
+                # resend timed-out pending items
+                if in_flight < max_in_flight:
+                    for n in list(pending):
+                        if attempts[n] >= max_retries:
+                            continue
+                        if (now - last_sent[n]) >= resend_interval and in_flight < max_in_flight:
+                            await _send_read(n)
+
+                await asyncio.sleep(0.05)
+
+        def _handler(pkt):
+            try:
+                if pkt.get_type() != "PARAM_VALUE":
+                    return
+
+                pname, decoded_value = self._decode_param_value(pkt)
+                if pname not in pending:
+                    return
+
+                def _apply():
+                    nonlocal in_flight
+                    if pname not in pending:
+                        return
+
+                    results[pname] = {
+                        "name": pname,
+                        "value": decoded_value,
+                        "raw": float(pkt.param_value),
+                        "type": pkt.param_type,
+                        "count": pkt.param_count,
+                        "index": pkt.param_index,
+                    }
+
+                    pending.remove(pname)
+                    # Free one in-flight slot (treat this response as completing one request)
+                    in_flight = max(0, in_flight - 1)
+
+                    if not pending:
+                        done_evt.set()
+
+                loop.call_soon_threadsafe(_apply)
+
+            except Exception as exc:
+                self._log.error(f"[bulk_get handler] raised: {exc}")
+
+        self.register_handler(key="PARAM_VALUE", fn=_handler)
+
+        try:
+            # Start sending + resending
+            await _fill_window_from_queue()
+            resender_task = asyncio.create_task(_resender_loop())
+            
+            try:
+                await asyncio.wait_for(done_evt.wait(), timeout=timeout_total)
+            except asyncio.TimeoutError:
+                # return partial results
+                pass
+            finally:
+                resender_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await resender_task
+
+            return results
+
+        finally:
+            self.unregister_handler("PARAM_VALUE", _handler)
 
 class MavLinkFTPProxy(BaseProxy):
     """

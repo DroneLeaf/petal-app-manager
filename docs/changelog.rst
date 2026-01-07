@@ -1,6 +1,84 @@
 Changelog
 =========
 
+Version 0.1.50 (2026-01-05)
+---------------------------
+
+**Configuration Enhancements:**
+
+- All environment variables now use the ``PETAL_`` prefix to avoid conflicts with other applications.
+- Added ``PETAL_LOG_DIR`` environment variable for configuring log file directory:
+
+  - **Development**: ``logs`` (relative to project directory)
+  - **Production**: ``/home/droneleaf/.droneleaf/petal-app-manager``
+
+**MAVLink Proxy Improvements:**
+
+- Added ``set_params_bulk_lossy`` async method for efficient bulk parameter setting over lossy links:
+
+  - Windowed sends with configurable ``max_in_flight`` parameter
+  - Automatic periodic resend of unconfirmed parameters
+  - Retry cap with configurable ``max_retries``
+  - Optional parameter type specification (``UINT8``, ``INT16``, ``REAL32``, etc.)
+  - Confirmation via echoed ``PARAM_VALUE`` messages
+
+- Added ``get_params_bulk_lossy`` async method for efficient bulk parameter retrieval:
+
+  - Uses ``PARAM_REQUEST_READ`` by name with windowed requests
+  - Periodic resend of pending requests up to retry limit
+  - Returns partial results on timeout for resilience
+
+- Added ``reboot_autopilot`` async method to ``MavLinkExternalProxy`` for rebooting the autopilot (PX4/ArduPilot):
+
+  - Sends ``MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN`` command and waits for ``COMMAND_ACK``
+  - Optional ``reboot_onboard_computer`` parameter to also reboot the onboard computer
+  - Returns structured ``RebootAutopilotResponse`` with success status, status code, and reason
+  - Fallback verification via heartbeat drop/return detection when no ACK is received
+  - Comprehensive status codes for all failure scenarios (denied, rejected, unsupported, etc.)
+
+**Petal Loading Architecture:**
+
+- Updated ``proxies.yaml`` configuration to support two distinct petal loading strategies:
+
+  - **startup_petals**: Petals loaded synchronously during server startup (blocking)
+    
+    - Critical petals that must be available before the server accepts requests
+    - Server waits for these petals to fully initialize
+    - Example: ``petal-user-journey-coordinator``
+
+  - **enabled_petals**: Petals loaded asynchronously after server startup (non-blocking)
+    
+    - Background task spawned after server is ready to accept requests
+    - Loads petals one-by-one without blocking the main event loop
+    - Reduces server startup time and improves responsiveness
+    - Example: ``flight-log-petal``, ``petal-warehouse``, ``petal-mission-planner``
+
+- Refactored petal async startup into reusable ``_handle_petal_async_startup()`` helper
+
+**Health Monitoring Enhancements:**
+
+- Added ``PetalHealthInfo`` model to track individual petal status:
+
+  - ``name``: Petal identifier
+  - ``status``: One of ``loaded``, ``loading``, ``failed``, ``not_loaded``
+  - ``version``: Petal version if available
+  - ``is_startup_petal``: Whether this is a critical startup petal
+  - ``load_time``: ISO timestamp when petal was loaded
+  - ``error``: Error message if petal failed to load
+
+- Extended ``HealthMessage`` to include ``petals`` array with real-time petal loading status
+- Health publisher now reports petal loading progress during background loading phase
+
+**S3 Bucket Proxy Improvements:**
+
+- Added ``move_file`` async method to ``bucket.py`` for moving (renaming) files within the S3 bucket, which performs a copy followed by a delete operation.
+- Enhanced ``upload_file`` method to accept an optional ``custom_s3_key`` parameter, allowing callers to specify the exact S3 key for uploads.
+
+**Redis Proxy Improvements:**
+
+- Added ``scan_keys`` async method to ``redis.py`` to efficiently scan and return keys matching a given pattern, supporting pagination via the ``count`` parameter.
+- Changed Redis set operation logging from info to debug level to reduce log verbosity for routine key writes.
+
 Version 0.1.49 (2025-01-05)
 ---------------------------
 

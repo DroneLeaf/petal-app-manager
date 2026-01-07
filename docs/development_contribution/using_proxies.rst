@@ -69,6 +69,7 @@ RedisProxy
 - Real-time message passing between petals
 - Session and state management
 - Temporary data storage
+- Scanning keys by pattern for job management
 
 **Basic Usage:**
 
@@ -83,38 +84,123 @@ RedisProxy
        async def cache_telemetry(self, data: dict):
            redis_proxy: RedisProxy = self.get_proxy("redis")
            
-           # TODO: Add RedisProxy methods and examples
-           # - Basic key-value operations
-           # - Pub/sub messaging
-           # - Hash operations
-           # - List operations
-           # - Expiration and TTL
-           # - Connection pooling
-           # - Error handling patterns
+           # Store data with expiration
+           await redis_proxy.set("telemetry:latest", json.dumps(data), ex=60)
+           
+           # Retrieve data
+           cached = await redis_proxy.get("telemetry:latest")
 
 **Methods:**
 
 .. code-block:: python
 
-   # TODO: Document RedisProxy methods:
-   # await redis_proxy.get(key)
-   # await redis_proxy.set(key, value, ex=expiration)
-   # await redis_proxy.hget(hash_key, field)
-   # await redis_proxy.hset(hash_key, field, value)
-   # await redis_proxy.lpush(list_key, value)
-   # await redis_proxy.publish(channel, message)
-   # await redis_proxy.subscribe(channel, callback)
+   # Basic key-value operations
+   await redis_proxy.set(key, value, ex=expiration_seconds)
+   await redis_proxy.get(key)
+   await redis_proxy.delete(key)
+   await redis_proxy.exists(key)
+   
+   # Hash operations
+   await redis_proxy.hset(hash_key, field, value)
+   await redis_proxy.hget(hash_key, field)
+   await redis_proxy.hgetall(hash_key)
+   
+   # List operations
+   await redis_proxy.lpush(list_key, value)
+   await redis_proxy.rpush(list_key, value)
+   await redis_proxy.lrange(list_key, start, end)
+   
+   # Pub/Sub messaging
+   await redis_proxy.publish(channel, message)
+   await redis_proxy.subscribe(channel, callback)
+   
+   # Key scanning (useful for job management)
+   await redis_proxy.scan_keys(pattern="job:*", count=100)
 
-**Example Patterns:**
+**Scan Keys Example (Job Management):**
 
 .. code-block:: python
 
-   # TODO: Add practical Redis usage examples:
-   # - Caching flight data
-   # - Inter-petal communication
-   # - Session management
-   # - Rate limiting
-   # - Distributed locks
+   from petal_app_manager.proxies.redis import RedisProxy
+
+   class JobManagerPetal(Petal):
+       def get_required_proxies(self) -> List[str]:
+           return ["redis"]
+       
+       async def list_pending_jobs(self):
+           """Find all pending jobs using key pattern scanning."""
+           redis_proxy: RedisProxy = self.get_proxy("redis")
+           
+           # Scan for all job keys matching pattern
+           job_keys = await redis_proxy.scan_keys(
+               pattern="job:pending:*",
+               count=100  # Keys per scan iteration
+           )
+           
+           jobs = []
+           for key in job_keys:
+               job_data = await redis_proxy.get(key)
+               if job_data:
+                   jobs.append(json.loads(job_data))
+           
+           return jobs
+       
+       async def cleanup_expired_jobs(self, max_age_hours: int = 24):
+           """Clean up old job entries."""
+           redis_proxy: RedisProxy = self.get_proxy("redis")
+           
+           # Find all completed job keys
+           completed_keys = await redis_proxy.scan_keys(pattern="job:completed:*")
+           
+           deleted = 0
+           for key in completed_keys:
+               job_data = await redis_proxy.get(key)
+               if job_data:
+                   job = json.loads(job_data)
+                   # Check if job is older than max_age
+                   if self._is_expired(job.get("completed_at"), max_age_hours):
+                       await redis_proxy.delete(key)
+                       deleted += 1
+           
+           self.logger.info(f"Cleaned up {deleted} expired jobs")
+           return {"deleted": deleted}
+       
+       async def get_job_statistics(self):
+           """Get counts of jobs by status."""
+           redis_proxy: RedisProxy = self.get_proxy("redis")
+           
+           stats = {}
+           for status in ["pending", "processing", "completed", "failed"]:
+               keys = await redis_proxy.scan_keys(pattern=f"job:{status}:*")
+               stats[status] = len(keys)
+           
+           return stats
+
+**Caching Pattern Example:**
+
+.. code-block:: python
+
+   class TelemetryCachePetal(Petal):
+       def get_required_proxies(self) -> List[str]:
+           return ["redis"]
+       
+       async def cache_flight_data(self, flight_id: str, data: dict):
+           """Cache flight telemetry with TTL."""
+           redis_proxy: RedisProxy = self.get_proxy("redis")
+           
+           key = f"flight:{flight_id}:telemetry"
+           await redis_proxy.set(key, json.dumps(data), ex=3600)  # 1 hour TTL
+       
+       async def get_cached_flight_data(self, flight_id: str) -> Optional[dict]:
+           """Retrieve cached flight data."""
+           redis_proxy: RedisProxy = self.get_proxy("redis")
+           
+           key = f"flight:{flight_id}:telemetry"
+           cached = await redis_proxy.get(key)
+           
+           if cached:
+               return json.loads(cached)
+           return None
 
 MavlinkExternalProxy
 --------------------
@@ -126,8 +212,9 @@ MavlinkExternalProxy
 - Sending commands to drone
 - Receiving telemetry data
 - Mission management
-- Parameter configuration
+- Parameter configuration (including bulk operations over lossy links)
 - Real-time monitoring
+- Autopilot reboot and system control
 
 **Basic Usage:**
 
@@ -142,37 +229,147 @@ MavlinkExternalProxy
        async def send_command(self):
            mavlink_proxy: MavLinkExternalProxy = self.get_proxy("ext_mavlink")
            
-           # TODO: Add MavlinkExternalProxy methods and examples
-           # - Sending MAVLink messages
-           # - Receiving telemetry
-           # - Parameter operations
-           # - Mission commands
-           # - Custom message handling
-           # - Connection management
+           # Reboot the autopilot
+           result = await mavlink_proxy.reboot_autopilot()
+           if result.success:
+               print("Autopilot rebooting...")
 
 **Methods:**
 
 .. code-block:: python
 
-   # TODO: Document MavlinkExternalProxy methods:
-   # await mavlink_proxy.send_message(message)
-   # await mavlink_proxy.get_telemetry()
-   # await mavlink_proxy.set_parameter(name, value)
-   # await mavlink_proxy.get_parameter(name)
-   # await mavlink_proxy.arm_disarm(arm=True)
-   # await mavlink_proxy.takeoff(altitude)
-   # await mavlink_proxy.land()
+   # Reboot autopilot (PX4/ArduPilot)
+   await mavlink_proxy.reboot_autopilot(
+       reboot_onboard_computer=False,  # Also reboot companion computer
+       timeout=3.0                      # Timeout for ACK response
+   )
+   # Returns: RebootAutopilotResponse with success, status_code, reason
+   
+   # Bulk parameter setting over lossy links
+   await mavlink_proxy.set_params_bulk_lossy(
+       params_to_set={
+           "NAV_ACC_RAD": 2.0,
+           "MPC_XY_VEL_MAX": (12.0, "REAL32"),  # With explicit type
+           "COM_DISARM_LAND": {"value": 2, "type": "INT32"}
+       },
+       timeout_total=8.0,
+       max_retries=3,
+       max_in_flight=8
+   )
+   # Returns: Dict of confirmed parameters
+   
+   # Bulk parameter retrieval over lossy links
+   await mavlink_proxy.get_params_bulk_lossy(
+       names=["NAV_ACC_RAD", "MPC_XY_VEL_MAX", "COM_DISARM_LAND"],
+       timeout_total=6.0,
+       max_retries=3,
+       max_in_flight=10
+   )
+   # Returns: Dict with name, value, raw, type, count, index for each param
 
-**Example Patterns:**
+**Reboot Autopilot Example:**
 
 .. code-block:: python
 
-   # TODO: Add practical MAVLink usage examples:
-   # - Flight mode changes
-   # - Waypoint missions
-   # - Real-time telemetry streaming
-   # - Emergency procedures
-   # - Custom DroneLeaf messages
+   from petal_app_manager.proxies.external import MavLinkExternalProxy
+
+   class SystemControlPetal(Petal):
+       def get_required_proxies(self) -> List[str]:
+           return ["ext_mavlink"]
+       
+       async def reboot_flight_controller(self, include_companion: bool = False):
+           """Reboot the autopilot with proper error handling."""
+           mavlink_proxy: MavLinkExternalProxy = self.get_proxy("ext_mavlink")
+           
+           try:
+               result = await mavlink_proxy.reboot_autopilot(
+                   reboot_onboard_computer=include_companion,
+                   timeout=3.0
+               )
+               
+               if result.success:
+                   self.logger.info("Autopilot reboot initiated successfully")
+                   return {"status": "rebooting", "reason": result.reason}
+               else:
+                   self.logger.warning(f"Reboot failed: {result.reason}")
+                   return {"status": "failed", "reason": result.reason}
+                   
+           except RuntimeError as e:
+               self.logger.error(f"MAVLink not connected: {e}")
+               return {"status": "error", "reason": "MAVLink connection not established"}
+
+**Bulk Parameter Operations Example (Lossy Links):**
+
+.. code-block:: python
+
+   class ParameterConfigPetal(Petal):
+       def get_required_proxies(self) -> List[str]:
+           return ["ext_mavlink"]
+       
+       async def configure_flight_parameters(self):
+           """Set multiple parameters efficiently over unreliable links."""
+           mavlink_proxy: MavLinkExternalProxy = self.get_proxy("ext_mavlink")
+           
+           # Define parameters to set with optional type hints
+           params = {
+               # Simple value (type auto-detected)
+               "NAV_ACC_RAD": 2.0,
+               
+               # Tuple format: (value, type_string)
+               "MPC_XY_VEL_MAX": (12.0, "REAL32"),
+               "MPC_Z_VEL_MAX_UP": (3.0, "REAL32"),
+               
+               # Dict format with explicit type
+               "COM_DISARM_LAND": {"value": 2, "type": "INT32"},
+               "COM_ARM_WO_GPS": {"value": 1, "type": "INT32"}
+           }
+           
+           try:
+               confirmed = await mavlink_proxy.set_params_bulk_lossy(
+                   params_to_set=params,
+                   timeout_total=8.0,    # Total operation timeout
+                   max_retries=3,        # Retry count per parameter
+                   max_in_flight=8,      # Concurrent requests
+                   resend_interval=0.8,  # Time before resending unconfirmed
+                   verify_ack_value=True # Verify echoed value matches
+               )
+               
+               self.logger.info(f"Confirmed {len(confirmed)}/{len(params)} parameters")
+               
+               # Check which parameters were NOT confirmed
+               failed = set(params.keys()) - set(confirmed.keys())
+               if failed:
+                   self.logger.warning(f"Failed to confirm: {failed}")
+                   
+               return {"confirmed": list(confirmed.keys()), "failed": list(failed)}
+               
+           except RuntimeError as e:
+               return {"error": str(e)}
+       
+       async def read_flight_parameters(self, param_names: List[str]):
+           """Read multiple parameters efficiently over unreliable links."""
+           mavlink_proxy: MavLinkExternalProxy = self.get_proxy("ext_mavlink")
+           
+           try:
+               results = await mavlink_proxy.get_params_bulk_lossy(
+                   names=param_names,
+                   timeout_total=6.0,
+                   max_retries=3,
+                   max_in_flight=10,
+                   resend_interval=0.7
+               )
+               
+               # Results contain detailed info for each parameter
+               for name, info in results.items():
+                   self.logger.debug(
+                       f"{name}: value={info['value']}, "
+                       f"type={info['type']}, index={info['index']}"
+                   )
+               
+               return results
+               
+           except RuntimeError as e:
+               return {"error": str(e)}
 
 CloudDBProxy
 ------------
@@ -300,6 +497,7 @@ S3BucketProxy
 - Archive historical data
 - Content delivery
 - Backup storage
+- Moving/renaming files within buckets
 
 **Basic Usage:**
 
@@ -314,36 +512,124 @@ S3BucketProxy
        async def upload_file(self, file_path: str):
            bucket_proxy: S3BucketProxy = self.get_proxy("bucket")
            
-           # TODO: Add S3BucketProxy methods and examples
-           # - File upload/download
-           # - Bucket operations
-           # - Metadata management
-           # - Presigned URLs
-           # - Multipart uploads
-           # - Access control
+           # Upload with auto-generated S3 key
+           result = await bucket_proxy.upload_file(Path(file_path))
+           
+           # Upload with custom S3 key
+           result = await bucket_proxy.upload_file(
+               Path(file_path),
+               custom_s3_key="custom/path/myfile.ulg"
+           )
 
 **Methods:**
 
 .. code-block:: python
 
-   # TODO: Document S3BucketProxy methods:
-   # await bucket_proxy.upload_file(local_path, s3_key)
-   # await bucket_proxy.download_file(s3_key, local_path)
-   # await bucket_proxy.list_objects(prefix)
-   # await bucket_proxy.delete_object(s3_key)
-   # await bucket_proxy.get_presigned_url(s3_key, expiration)
-   # await bucket_proxy.upload_data(data, s3_key)
+   # Upload file with auto-generated key
+   await bucket_proxy.upload_file(
+       file_path=Path("/path/to/file.ulg"),
+       custom_filename="renamed.ulg"  # Optional: rename file
+   )
+   
+   # Upload file with custom S3 key (full control over path)
+   await bucket_proxy.upload_file(
+       file_path=Path("/path/to/file.ulg"),
+       custom_s3_key="flights/2026/01/07/flight_001.ulg"
+   )
+   
+   # Move/rename a file within the bucket
+   await bucket_proxy.move_file(
+       source_key="uploads/temp/file.ulg",
+       dest_key="archive/2026/file.ulg"
+   )
+   
+   # Delete a file
+   await bucket_proxy.delete_file(s3_key="path/to/file.ulg")
+   
+   # List objects in bucket
+   await bucket_proxy.list_objects(prefix="flights/")
 
-**Example Patterns:**
+**Upload with Custom S3 Key Example:**
 
 .. code-block:: python
 
-   # TODO: Add practical S3 usage examples:
-   # - Flight log uploads
-   # - Media file management
-   # - Configuration file storage
-   # - Batch file operations
-   # - Content serving
+   from pathlib import Path
+   from petal_app_manager.proxies.bucket import S3BucketProxy
+
+   class FlightLogPetal(Petal):
+       def get_required_proxies(self) -> List[str]:
+           return ["bucket"]
+       
+       async def upload_flight_log(self, file_path: Path, flight_date: str, flight_id: str):
+           """Upload flight log with organized S3 path structure."""
+           bucket_proxy: S3BucketProxy = self.get_proxy("bucket")
+           
+           # Create organized S3 key: flights/YYYY/MM/DD/flight_id.ulg
+           custom_key = f"flights/{flight_date.replace('-', '/')}/{flight_id}.ulg"
+           
+           result = await bucket_proxy.upload_file(
+               file_path=file_path,
+               custom_s3_key=custom_key
+           )
+           
+           if result.get("success"):
+               self.logger.info(f"Uploaded to: {result['s3_key']}")
+               return {"status": "success", "url": result.get("url")}
+           else:
+               self.logger.error(f"Upload failed: {result.get('error')}")
+               return {"status": "error", "reason": result.get("error")}
+
+**Move/Rename Files Example:**
+
+.. code-block:: python
+
+   class FileOrganizerPetal(Petal):
+       def get_required_proxies(self) -> List[str]:
+           return ["bucket"]
+       
+       async def archive_processed_file(self, source_key: str):
+           """Move processed file from uploads to archive."""
+           bucket_proxy: S3BucketProxy = self.get_proxy("bucket")
+           
+           # Move from uploads/ to archive/
+           # e.g., "uploads/pending/file.ulg" -> "archive/2026/01/file.ulg"
+           from datetime import datetime
+           date_path = datetime.now().strftime("%Y/%m")
+           filename = source_key.split("/")[-1]
+           dest_key = f"archive/{date_path}/{filename}"
+           
+           result = await bucket_proxy.move_file(
+               source_key=source_key,
+               dest_key=dest_key
+           )
+           
+           if result.get("success"):
+               self.logger.info(f"Moved {source_key} -> {dest_key}")
+               return {"status": "archived", "new_path": dest_key}
+           else:
+               self.logger.error(f"Move failed: {result.get('error')}")
+               return {"status": "error", "reason": result.get("error")}
+       
+       async def batch_organize_files(self, source_prefix: str, dest_prefix: str):
+           """Move all files from one prefix to another."""
+           bucket_proxy: S3BucketProxy = self.get_proxy("bucket")
+           
+           # List all files in source prefix
+           objects = await bucket_proxy.list_objects(prefix=source_prefix)
+           
+           results = {"moved": [], "failed": []}
+           for obj in objects.get("objects", []):
+               source_key = obj["key"]
+               filename = source_key.split("/")[-1]
+               dest_key = f"{dest_prefix}/{filename}"
+               
+               result = await bucket_proxy.move_file(source_key, dest_key)
+               if result.get("success"):
+                   results["moved"].append(dest_key)
+               else:
+                   results["failed"].append(source_key)
+           
+           return results
 
 MQTTProxy
 ---------
@@ -449,7 +735,7 @@ Error Handling and Best Practices
 .. code-block:: python
 
    # Proxies automatically use configuration from .env file
-   # REDIS_HOST, REDIS_PORT, MAVLINK_ENDPOINT, etc.
+   # PETAL_REDIS_HOST, PETAL_REDIS_PORT, PETAL_MAVLINK_ENDPOINT, etc.
    # No manual configuration needed in petal code
 
 Next Steps
@@ -461,4 +747,7 @@ Next Steps
 - Use the Admin Dashboard to monitor proxy health and status
 
 .. note::
-   **Placeholder Documentation**: This section contains placeholders for detailed proxy usage examples and methods. Each proxy section will be populated with comprehensive examples, method documentation, and practical usage patterns in future updates.
+   **Documentation Status**: The MavlinkExternalProxy, S3BucketProxy, and RedisProxy sections 
+   include comprehensive examples for bulk parameter operations, file management, and key scanning.
+   CloudDBProxy, LocalDBProxy, and MQTTProxy sections contain placeholders that will be 
+   populated with detailed examples in future updates.

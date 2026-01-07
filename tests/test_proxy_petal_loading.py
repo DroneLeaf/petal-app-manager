@@ -65,7 +65,8 @@ def test_petals_loaded_when_dependencies_met(tmp_path, monkeypatch, dummy_app, d
     
     monkeypatch.setattr("petal_app_manager.config.load_proxies_config", mock_load_config)
 
-    petals = load_petals(dummy_app, dummy_proxies, mock_logger)
+    petal_name_list = ["petal_warehouse", "flight_records", "mission_planner"]
+    petals = load_petals(dummy_app, petal_name_list, dummy_proxies, mock_logger)
     loaded_names = [p.name for p in petals]
     assert set(loaded_names) == {"petal_warehouse", "flight_records", "mission_planner"}
     assert not mock_logger.errors
@@ -87,7 +88,8 @@ def test_petals_skipped_when_proxy_missing(tmp_path, monkeypatch, dummy_app, dum
     
     monkeypatch.setattr("petal_app_manager.config.load_proxies_config", mock_load_config)
 
-    petals = load_petals(dummy_app, {"redis": MagicMock()}, mock_logger)
+    petal_name_list = ["petal_warehouse", "flight_records", "mission_planner"]
+    petals = load_petals(dummy_app, petal_name_list, {"redis": MagicMock()}, mock_logger)
     loaded_names = [p.name for p in petals]
     assert loaded_names == []
     assert any("Cannot load petal_warehouse" in e for e in mock_logger.errors)
@@ -111,7 +113,8 @@ def test_partial_petals_loaded(tmp_path, monkeypatch, dummy_app, dummy_proxies, 
     
     monkeypatch.setattr("petal_app_manager.config.load_proxies_config", mock_load_config)
 
-    petals = load_petals(dummy_app, {"redis": MagicMock(), "ext_mavlink": MagicMock()}, mock_logger)
+    petal_name_list = ["petal_warehouse", "flight_records", "mission_planner"]
+    petals = load_petals(dummy_app, petal_name_list, {"redis": MagicMock(), "ext_mavlink": MagicMock()}, mock_logger)
     loaded_names = [p.name for p in petals]
     print("Loaded petals:", loaded_names)
     print("Logger errors:", mock_logger.errors)

@@ -236,7 +236,7 @@ class RedisProxy(BaseProxy):
                 lambda: bool(self._client.set(key, value, ex=ex))
             )
             # 📤 Log key writes
-            self.log.info(f"📤 Redis SET: {key} = {value} (ex={ex}) -> {result}")
+            self.log.debug(f"📤 Redis SET: {key} = {value} (ex={ex}) -> {result}")
             return result
         except Exception as e:
             self.log.error(f"Error setting key {key}: {e}")
@@ -280,6 +280,37 @@ class RedisProxy(BaseProxy):
         except Exception as e:
             self.log.error(f"Error checking existence of key {key}: {e}")
             return False
+    
+    async def scan_keys(self, pattern: str, count: int = 100) -> List[str]:
+        """
+        Scan Redis keys matching a pattern.
+        
+        Args:
+            pattern: Key pattern to match (e.g., ``job:*``)
+            count: Number of keys to return per scan iteration
+            
+        Returns:
+            List of matching keys
+        """
+        if not self._client:
+            self.log.error("Redis client not initialized")
+            return []
+            
+        try:
+            def _scan():
+                keys = []
+                cursor = 0
+                while True:
+                    cursor, partial_keys = self._client.scan(cursor=cursor, match=pattern, count=count)
+                    keys.extend(partial_keys)
+                    if cursor == 0:
+                        break
+                return keys
+            
+            return await self._loop.run_in_executor(self._exe, _scan)
+        except Exception as e:
+            self.log.error(f"Error scanning keys with pattern {pattern}: {e}")
+            return []
     
     async def list_online_applications(self) -> List[str]:
         """List online applications by checking Redis keys for app registrations."""

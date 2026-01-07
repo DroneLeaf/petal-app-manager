@@ -2,15 +2,16 @@ enabled_petals:
 - flight-log-petal
 - petal-warehouse
 - petal-mission-planner
+startup_petals:
 - petal-user-journey-coordinator
 enabled_proxies:
 - mqtt
 - db
-- ftp_mavlink
-- bucket
 - ext_mavlink
+- bucket
 - redis
 - cloud
+- ftp_mavlink
 # Fast loading: direct import paths (bypasses entry point discovery)
 petals:
   flight-log-petal: "petal_flight_log.plugin:FlightLogPetal"
@@ -22,6 +23,8 @@ petal_dependencies:
   flight-log-petal:
   - redis
   - cloud
+  - mqtt
+  - db
   petal-mission-planner:
   - redis
   - ext_mavlink
