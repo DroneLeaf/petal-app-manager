@@ -1355,6 +1355,31 @@ class MavLinkExternalProxy(ExternalProxy):
             0, 0, 0, 0, 0  # param3..param7 unused
         )
 
+    def build_motor_value_command(
+        self,
+        motor_idx: int, 
+        motor_value: float, 
+        timeout: float
+    ) -> mavutil.mavlink.MAVLink_command_long_message:
+        """Build MAV_CMD_ACTUATOR_TEST command for a motor."""                    
+        # param1 = throttle value (0-1 or NaN)
+        # param2 = timeout in seconds
+        # param5 = motor mapping (110x where x is motor index
+        return self.master.mav.command_long_encode(
+            1, # TODO: investigate best practice
+            1, # TODO: investigate best practice
+            mavutil.mavlink.MAV_CMD_ACTUATOR_TEST, 
+            0,                          # confirmation
+            motor_value,                # param1: Motor value (0-1 or NaN)
+            timeout,                    # param2: Timeout in seconds
+            0,                          # Reserved
+            0,                          # Reserved    
+        float(1100 + motor_idx),        # param5: Motor mapping (110x)
+            0,                          # Reserved
+            0                           # Reserved
+        )
+
+
     async def reboot_autopilot(
         self,
         reboot_onboard_computer: bool = False,
