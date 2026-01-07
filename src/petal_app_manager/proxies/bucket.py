@@ -198,7 +198,7 @@ class S3BucketProxy(BaseProxy):
 
         def _fetch_credentials():
             try:
-                self.log.info("Fetching new session credentials")
+                self.log.debug("Fetching new session credentials")
                 response = requests.post(
                     self.session_token_url,
                     timeout=self.request_timeout

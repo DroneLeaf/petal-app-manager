@@ -60,7 +60,7 @@ class LocalDbConnectionInfo(BaseModel):
 class LocalDbMachineInfo(BaseModel):
     """LocalDB machine information."""
     machine_id: str
-    organization_id: str
+    organization_id: Optional[str] = None
     robot_type_id: Optional[str] = None
 
 class LocalDbProxyHealth(BaseModel):

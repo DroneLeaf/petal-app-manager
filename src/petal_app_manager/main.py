@@ -281,7 +281,13 @@ def build_app() -> FastAPI:
     async def load_petals_on_startup():
         """Load petals after proxies have been started"""
         nonlocal petals
-        petals.extend(load_petals(app, proxies, logger=loader_logger))
+        critical_petals = list(proxies_config.get("startup_petals") or [])
+        petals.extend(load_petals(
+            app=app, 
+            petal_name_list=critical_petals, 
+            proxies=proxies, 
+            logger=loader_logger
+        ))
         
         # Get petal dependencies from YAML
         petal_dependencies = proxies_config.get("petal_dependencies", {})

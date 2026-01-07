@@ -28,6 +28,29 @@ Version 0.1.50 (2026-01-05)
   - Periodic resend of pending requests up to retry limit
   - Returns partial results on timeout for resilience
 
+- Added ``reboot_autopilot`` async method to ``MavLinkExternalProxy`` for rebooting the autopilot (PX4/ArduPilot):
+
+  - Sends ``MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN`` command and waits for ``COMMAND_ACK``
+  - Optional ``reboot_onboard_computer`` parameter to also reboot the onboard computer
+  - Returns structured ``RebootAutopilotResponse`` with success status, status code, and reason
+  - Fallback verification via heartbeat drop/return detection when no ACK is received
+  - Comprehensive status codes for all failure scenarios (denied, rejected, unsupported, etc.)
+
+**Petal Loading Architecture:**
+
+- Updated ``proxies.yaml`` configuration to support two distinct petal loading strategies:
+
+  - **startup_petals**: Petals loaded immediately during server startup (blocking)
+    
+    - Use for critical petals that must be available before the server accepts requests
+    - Example: ``petal-user-journey-coordinator``
+
+  - **enabled_petals**: Petals loaded dynamically after server startup (non-blocking)
+    
+    - Use for non-critical petals that can be loaded on-demand
+    - Reduces server startup time and allows graceful degradation
+    - Example: ``flight-log-petal``, ``petal-warehouse``, ``petal-mission-planner``
+
 **S3 Bucket Proxy Improvements:**
 
 - Added ``move_file`` async method to ``bucket.py`` for moving (renaming) files within the S3 bucket, which performs a copy followed by a delete operation.

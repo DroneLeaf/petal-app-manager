@@ -2,6 +2,7 @@ enabled_petals:
 - flight-log-petal
 - petal-warehouse
 - petal-mission-planner
+startup_petals:
 - petal-user-journey-coordinator
 enabled_proxies:
 - mqtt
