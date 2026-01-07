@@ -16,7 +16,7 @@ class Config:
     # General configuration
     PETAL_LOG_LEVEL = os.environ.get("PETAL_LOG_LEVEL", "INFO").upper()
     PETAL_LOG_TO_FILE = os.environ.get("PETAL_LOG_TO_FILE", "true").lower() in ("true", "1", "yes")
-    PETAL_LOG_DIR = os.environ.get("PETAL_LOG_DIR", "/var/log/petal-app-manager")
+    PETAL_LOG_DIR = os.environ.get("PETAL_LOG_DIR", "logs")
 
     # Per-level logging output configuration
     @staticmethod
