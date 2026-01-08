@@ -1378,11 +1378,10 @@ class MavLinkExternalProxy(ExternalProxy):
             timeout,                    # param2: Timeout in seconds
             0,                          # Reserved
             0,                          # Reserved    
-        float(1100 + motor_idx),        # param5: Motor mapping (110x)
+            float(1100 + motor_idx),    # param5: Motor mapping (110x)
             0,                          # Reserved
             0                           # Reserved
         )
-
 
     async def reboot_autopilot(
         self,
