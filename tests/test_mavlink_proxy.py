@@ -255,7 +255,7 @@ def _patch_pymavlink(px4_time_msg=None):
 async def build_proxy(px4_time_msg=None) -> MavLinkExternalProxy:
     p_pkg, p_mod1, p_mod2, p_mod3 = _patch_pymavlink(px4_time_msg)
     with p_pkg, p_mod1, p_mod2, p_mod3:
-        proxy = MavLinkExternalProxy(endpoint="udp:dummy:14550", baud=57600, maxlen=200)
+        proxy = MavLinkExternalProxy(endpoint="udp:dummy:14550", baud=57600, maxlen=200, source_system_id=1, source_component_id=1)
         await proxy.start()
         
         # Force connection establishment for testing
@@ -277,7 +277,7 @@ async def build_proxy(px4_time_msg=None) -> MavLinkExternalProxy:
 async def build_ftp_proxy(px4_time_msg=None) -> MavLinkFTPProxy:
     p_pkg, p_mod1, p_mod2, p_mod3 = _patch_pymavlink(px4_time_msg)
     with p_pkg, p_mod1, p_mod2, p_mod3:
-        proxy = MavLinkExternalProxy(endpoint="udp:dummy:14550", baud=57600, maxlen=200)
+        proxy = MavLinkExternalProxy(endpoint="udp:dummy:14550", baud=57600, maxlen=200, source_system_id=1, source_component_id=1)
 
         ftp_proxy = MavLinkFTPProxy(mavlink_proxy=proxy)
         await proxy.start()
@@ -457,7 +457,7 @@ async def test_download_logs_hardware_integration(hardware_cleanup):
     
     try:
         print("Creating MavLinkExternalProxy...")
-        proxy = MavLinkExternalProxy(endpoint="udp:127.0.0.1:14551", baud=57600, maxlen=200)
+        proxy = MavLinkExternalProxy(endpoint="udp:127.0.0.1:14551", baud=57600, maxlen=200, source_system_id=1, source_component_id=1)
         ftp_proxy = MavLinkFTPProxy(mavlink_proxy=proxy)
         print("Starting proxy...")
         await proxy.start()
@@ -776,7 +776,7 @@ async def test_delete_with_retries():
     with p_pkg, p_mod1, p_mod2:
         with patch.object(_px, "_BlockingParser", RetryMockBlockingParser):
             # Build proxy within the patch context
-            proxy = MavLinkExternalProxy(endpoint="udp:dummy:14550", baud=57600, maxlen=200)
+            proxy = MavLinkExternalProxy(endpoint="udp:dummy:14550", baud=57600, maxlen=200, source_system_id=1, source_component_id=1)
             ftp_proxy = MavLinkFTPProxy(mavlink_proxy=proxy)
             await proxy.start()
             await ftp_proxy.start()

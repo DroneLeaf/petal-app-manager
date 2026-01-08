@@ -23,7 +23,7 @@ from petal_app_manager.proxies.external import (
 
 async def _test_mavlink_proxy():
     # Create proxy (use a local connection - adjust as needed)
-    proxy = MavLinkExternalProxy(endpoint="udp:127.0.0.1:14551", baud=57600, maxlen=200)
+    proxy = MavLinkExternalProxy(endpoint="udp:127.0.0.1:14551", baud=57600, maxlen=200, source_system_id=1, source_component_id=1)
     
     # Track received heartbeats
     heartbeats_received = []
@@ -88,7 +88,7 @@ class MockExternalProxy(MavLinkExternalProxy):
     """Mock implementation for testing burst and filtering features."""
     
     def __init__(self, maxlen: int = 10):
-        super().__init__(endpoint="udp:dummy:14550", baud=57600, maxlen=maxlen)
+        super().__init__(endpoint="udp:dummy:14550", baud=57600, maxlen=maxlen, source_system_id=1, source_component_id=1)
         self.sent_messages = defaultdict(list)
         self.received_messages = []
         self.master = None  # Override to avoid MAVLink connection
