@@ -1,6 +1,67 @@
 Changelog
 =========
 
+Version 0.1.51 (2026-01-08)
+---------------------------
+
+**Breaking Changes:**
+
+- Renamed ``flight-log-petal`` to ``petal-flight-log`` throughout the codebase for naming consistency:
+
+  - Updated all references in ``proxies.yaml`` (enabled petals, proxy mappings, dependencies)
+  - Updated API documentation and example requests
+  - Updated Postman collection and environment files
+
+**Dependency Updates:**
+
+- Updated ``petal-flight-log`` from ``v0.2.0`` to ``v0.2.1``:
+
+  - **Critical Fix**: Corrected MQTT topic prefix from ``flight-log-petal`` to ``petal-flight-log`` to match petal naming convention
+  - **Critical Fix**: Corrected MQTT topic prefix from ``petal-user-journey-coordinator`` to ``petal-flight-log`` to match petal naming convention: was causing a conflict with user journey coordinator
+  - Resolves MQTT subscription issues where topics were not matching expected patterns
+
+- Updated ``petal-user-journey-coordinator`` from ``v0.1.6`` to ``v0.1.7``:
+
+  - **Critical Fix**: Added MQTT topic prefix from ``petal-user-journey-coordinator`` to ``petal-user-journey-coordinator`` for consistency
+  - Ensures proper MQTT message routing and subscription handling
+
+- Updated ``petal-qgc-mission-server`` mapping and dependencies in ``proxies.yaml``
+
+**MAVLink Proxy Configuration:**
+
+- Added required MAVLink system identification parameters:
+
+  - ``SOURCE_SYSTEM_ID``: System ID for MAVLink messages (default: ``1``)
+  - ``SOURCE_COMPONENT_ID``: Component ID for MAVLink messages (default: ``1``)
+  - Exposed via environment variables and ``ProxyConfig`` in ``src/petal_app_manager/__init__.py``
+  - Passed to ``MavLinkExternalProxy`` constructor in ``main.py`` and ``external.py``
+
+- Changed default log directory from ``/var/log/petal-app-manager`` to ``logs`` for development convenience
+
+**Health Model Validation:**
+
+- Refactored all Pydantic health models in ``models/health.py`` to use Pydantic v2's ``@field_validator`` decorator:
+
+  - Updated validators for ``SystemHealthStatus``, ``PetalHealthStatus``, ``RedisHealthStatus``
+  - Updated validators for ``MqttHealthStatus``, ``MavLinkHealthStatus``, ``HealthStatus``
+  - Ensures compatibility with Pydantic v2 and removes deprecation warnings
+  - Maintains backward compatibility with existing health status enumeration values
+
+**Testing Improvements:**
+
+- Fixed unit tests in ``test_external_proxy.py`` to include required ``source_system_id`` and ``source_component_id`` parameters
+- Fixed unit tests in ``test_mavlink_proxy.py`` to use updated ``MavLinkExternalProxy`` constructor signature
+- Updated Postman environment file with new test variables (``test_flight_record``, ``CALLBACK_URL``, ``TS_CLIENT_URL``)
+
+**Migration Guide:**
+
+If you have existing configurations or integrations referencing ``flight-log-petal``, update them to ``petal-flight-log``:
+
+- Environment variable names
+- MQTT topic subscriptions
+- API endpoint references
+- Configuration files
+
 Version 0.1.50 (2026-01-05)
 ---------------------------
 

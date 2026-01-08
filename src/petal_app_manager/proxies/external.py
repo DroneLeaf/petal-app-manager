@@ -628,6 +628,8 @@ class MavLinkExternalProxy(ExternalProxy):
         self,
         endpoint: str,
         baud: int,
+        source_system_id: int,
+        source_component_id: int,
         maxlen: int,
         mavlink_worker_sleep_ms: float = 1.0,
         mavlink_heartbeat_send_frequency: float = 5.0,
@@ -637,6 +639,8 @@ class MavLinkExternalProxy(ExternalProxy):
         super().__init__(maxlen=maxlen, worker_threads=worker_threads, sleep_time_ms=mavlink_worker_sleep_ms)
         self.endpoint = endpoint
         self.baud = baud
+        self.source_system_id = source_system_id
+        self.source_component_id = source_component_id
         self.mavlink_heartbeat_send_frequency = mavlink_heartbeat_send_frequency
         self.root_sd_path = root_sd_path
         self.master: mavutil.mavfile | None = None
@@ -935,8 +939,8 @@ class MavLinkExternalProxy(ExternalProxy):
             self.endpoint, 
             baud=self.baud, 
             dialect="all",
-            source_system=2, 
-            source_component=140  # MAV_COMP_ID_USER1–USER4 140–143
+            source_system=self.source_system_id,
+            source_component=self.source_component_id
         )
     
     def _wait_for_heartbeat(self):
@@ -1353,6 +1357,30 @@ class MavLinkExternalProxy(ExternalProxy):
             param1,  # param1: reboot autopilot
             param2,  # param2: reboot onboard computer
             0, 0, 0, 0, 0  # param3..param7 unused
+        )
+
+    def build_motor_value_command(
+        self,
+        motor_idx: int, 
+        motor_value: float, 
+        timeout: float
+    ) -> mavutil.mavlink.MAVLink_command_long_message:
+        """Build MAV_CMD_ACTUATOR_TEST command for a motor."""                    
+        # param1 = throttle value (0-1 or NaN)
+        # param2 = timeout in seconds
+        # param5 = motor mapping (110x where x is motor index
+        return self.master.mav.command_long_encode(
+            1, # TODO: investigate best practice
+            1, # TODO: investigate best practice
+            mavutil.mavlink.MAV_CMD_ACTUATOR_TEST, 
+            0,                          # confirmation
+            motor_value,                # param1: Motor value (0-1 or NaN)
+            timeout,                    # param2: Timeout in seconds
+            0,                          # Reserved
+            0,                          # Reserved    
+            float(1100 + motor_idx),    # param5: Motor mapping (110x)
+            0,                          # Reserved
+            0                           # Reserved
         )
 
     async def reboot_autopilot(

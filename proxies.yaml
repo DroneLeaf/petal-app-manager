@@ -1,5 +1,5 @@
 enabled_petals:
-- flight-log-petal
+- petal-flight-log
 - petal-warehouse
 - petal-mission-planner
 startup_petals:
@@ -14,13 +14,13 @@ enabled_proxies:
 - ftp_mavlink
 # Fast loading: direct import paths (bypasses entry point discovery)
 petals:
-  flight-log-petal: "petal_flight_log.plugin:FlightLogPetal"
+  petal-flight-log: "petal_flight_log.plugin:FlightLogPetal"
   petal-warehouse: "petal_warehouse.plugin:PetalWarehouse"
   petal-mission-planner: "petal_leafsdk.plugin:PetalMissionPlanner"
   petal-user-journey-coordinator: "petal_user_journey_coordinator.plugin:PetalUserJourneyCoordinator"
-  petal-qgc-mission-server: "petal_qgc_mission_server.plugin:PetalQGCMissionServer"
+  petal-qgc-mission-server: "petal_qgc_mission_server.plugin:QGCMissionAdapterPetal"
 petal_dependencies:
-  flight-log-petal:
+  petal-flight-log:
   - redis
   - cloud
   - mqtt
@@ -35,6 +35,10 @@ petal_dependencies:
   petal-user-journey-coordinator:
   - mqtt
   - ext_mavlink
+  petal-qgc-mission-server:
+  - mqtt
+  - ext_mavlink
+  - redis
 proxy_dependencies:
   ftp_mavlink:
   - ext_mavlink

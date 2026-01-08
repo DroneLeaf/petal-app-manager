@@ -87,7 +87,7 @@ Interactive API Testing
 **3. Petal Requests:**
 
 - Expand **petal sections** (e.g., **petal-flight-log**)
-- Select an endpoint (e.g., **GET /petals/flight-log-petal/flight-records**)
+- Select an endpoint (e.g., **GET /petals/petal-flight-log/flight-records**)
 - Click **"Try it out"** → **"Execute"**
 - View petal-specific responses
 
@@ -162,7 +162,7 @@ Example API Calls
 
 .. code-block:: bash
 
-   curl http://localhost:9000/petals/flight-log-petal/flight-records
+   curl http://localhost:9000/petals/petal-flight-log/flight-records
 
 **Mission Planning:**
 
@@ -208,10 +208,10 @@ Quick Testing Workflow
 .. code-block:: bash
 
    # Flight records
-   curl http://localhost:9000/petals/flight-log-petal/flight-records
+   curl http://localhost:9000/petals/petal-flight-log/flight-records
    
    # Available logs
-   curl http://localhost:9000/petals/flight-log-petal/available-ulogs
+   curl http://localhost:9000/petals/petal-flight-log/available-ulogs
 
 **4. Use Interactive Interface:**
 
