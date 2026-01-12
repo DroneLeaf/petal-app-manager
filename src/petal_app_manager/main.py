@@ -295,8 +295,16 @@ def build_app() -> FastAPI:
         background_petal_loader_task = asyncio.create_task(load_enabled_petals_background())
         
         # Step 6: Log completion
-        logger.info("=== startup_all() completed successfully ===")
-        logger.info("Application is now ready to receive requests")
+        logger.info("============================================")
+        logger.info("=== STARTUP_ALL() COMPLETED SUCCESSFULLY ===")
+        logger.info("============================================")
+        logger.info("=" * 80)
+        logger.info("=" * 80)
+        logger.info("===                                                                          ===")
+        logger.info("===          🚀 APPLICATION IS NOW READY TO RECEIVE REQUESTS 🚀              ===")
+        logger.info("===                                                                          ===")
+        logger.info("=" * 80)
+        logger.info("=" * 80)
         logger.info("Enabled petals will continue loading in the background...")
     
     from .plugins.loader import load_petals
@@ -701,7 +709,13 @@ def build_app() -> FastAPI:
         # Shutdown
         logger.info("Starting FastAPI lifespan shutdown...")
         await shutdown_all()
-        logger.info("FastAPI lifespan shutdown completed")
+        logger.info("=" * 80)
+        logger.info("=" * 80)
+        logger.info("===                                                                          ===")
+        logger.info("===           🛑 FASTAPI LIFESPAN SHUTDOWN COMPLETED 🛑                      ===")
+        logger.info("===                                                                          ===")
+        logger.info("=" * 80)
+        logger.info("=" * 80)
 
     # Now create the FastAPI app with the lifespan
     app = FastAPI(title="PetalAppManager", lifespan=lifespan)
