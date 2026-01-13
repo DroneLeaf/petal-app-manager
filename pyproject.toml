@@ -1,6 +1,6 @@
 [project]
 name = "petal-app-manager"
-version = "0.1.51"
+version = "0.1.52"
 description = "A FastAPI interface for loading, managing and running Droneleaf Petal applications"
 authors = [
     {name = "Khalil Al Handawi", email = "khalil.alhandawi@droneleaf.io"},
@@ -32,14 +32,14 @@ cicd = [
     "pytest-asyncio>=1.0.0",
     "anyio>=4.9.0",
     "pytest-cov>=6.2.1",
-    "leaf-pymavlink>=0.1.11",
+    "leaf-pymavlink>=0.1.13",
 ]
 cicddocs = [
     "pytest>=8.4.0",
     "pytest-asyncio>=1.0.0",
     "anyio>=4.9.0",
     "pytest-cov>=6.2.1",
-    "leaf-pymavlink>=0.1.11",
+    "leaf-pymavlink>=0.1.13",
     # Documentation dependencies
     "sphinx>=7.0.0",
     "sphinx-rtd-theme>=2.0.0",
@@ -57,12 +57,12 @@ cicddocs = [
     "graphviz>=0.20.0",
 ]
 prod = [
-    "leaf-pymavlink>=0.1.11",
+    "leaf-pymavlink>=0.1.13",
     "petal-flight-log==0.2.1",
     "petal-warehouse==0.1.7",
-    "petal-leafsdk==0.2.2",
+    "petal-leafsdk==0.2.3",
     "petal-user-journey-coordinator==0.1.7",
-    # "petal-qgc-mission-server==0.1.1",
+    "petal-qgc-mission-server==0.1.2",
 ]
 dev = [
     "pytest>=8.4.0",
@@ -75,6 +75,7 @@ dev = [
     "-e file:///${PROJECT_ROOT}/../petal-leafsdk/#egg=petal-leafsdk",
     "-e file:///${PROJECT_ROOT}/../petal-warehouse/#egg=petal-warehouse",
     "-e file:///${PROJECT_ROOT}/../LeafSDK/#egg=LeafSDK",
+    "-e file:///${PROJECT_ROOT}/../petal-qgc-mission-server/#egg=petal-qgc-mission-server",
     # Documentation dependencies
     "sphinx>=7.0.0",
     "sphinx-rtd-theme>=2.0.0",
