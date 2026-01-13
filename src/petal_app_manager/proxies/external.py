@@ -1383,6 +1383,85 @@ class MavLinkExternalProxy(ExternalProxy):
             0                           # Reserved
         )
 
+    def build_request_message_command(self) -> mavutil.mavlink.MAVLink_command_long_message:
+        """
+        Build a MAVLink command to request a specific message once
+        using MAV_CMD_REQUEST_MESSAGE (common.xml).
+
+        Returns
+        -------
+        mavutil.mavlink.MAVLink_command_long_message
+            The MAVLink COMMAND_LONG message requesting the given message.
+
+        Raises
+        ------
+        RuntimeError
+            If MAVLink connection is not established.
+        """
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        return self.master.mav.command_long_encode(
+            self.master.target_system,
+            self.master.target_component,
+            mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE,
+            0,                 # confirmation
+            float(mavutil.mavlink.MAVLINK_MSG_ID_SYSTEM_TIME), # param1: requested message id
+            0, 0, 0, 0, 0, 0   # param2..param7 unused
+        )
+
+    def build_shell_serial_control_msgs(
+        self,
+        text: str,
+        device: int = 10,   # PX4 mavlink_shell.py uses devnum=10
+        respond: bool = True,
+        exclusive: bool = True,
+    ) -> list[mavutil.mavlink.MAVLink_serial_control_message]:
+        """
+        Build SERIAL_CONTROL messages that write `text` to the PX4 MAVLink shell.
+        Splits into <=70 byte chunks (MAVLink SERIAL_CONTROL data field).
+
+        Parameters
+        ----------
+        text : str
+            The text to send to the MAVLink shell.
+        device : int
+            The device number to use (default 10 for PX4 mavlink_shell).
+        respond : bool
+            If True, set the RESPOND flag (default True).
+        exclusive : bool
+            If True, set the EXCLUSIVE flag (default True).
+        """
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        flags = 0
+        if respond:
+            flags |= mavutil.mavlink.SERIAL_CONTROL_FLAG_RESPOND
+        if exclusive:
+            flags |= mavutil.mavlink.SERIAL_CONTROL_FLAG_EXCLUSIVE
+
+        b = text.encode("utf-8")
+        msgs = []
+
+        # MAVLink shell implementation chunks at 70 bytes
+        for i in range(0, len(b), 70):
+            chunk = b[i:i+70]
+            data = list(chunk) + [0] * (70 - len(chunk))
+
+            msgs.append(
+                self.master.mav.serial_control_encode(
+                    device,     # device
+                    flags,      # flags
+                    0,          # timeout (PX4 ignores it)
+                    0,          # baudrate (0 = no change)
+                    len(chunk), # count
+                    data,       # data[70]
+                )
+            )
+
+        return msgs
+
     async def reboot_autopilot(
         self,
         reboot_onboard_computer: bool = False,

@@ -58,9 +58,9 @@ cicddocs = [
 ]
 prod = [
     "leaf-pymavlink>=0.1.13",
-    "petal-flight-log==v0.2.1",
-    "petal-warehouse==v0.1.7",
-    "petal-leafsdk==v0.2.3",
+    "petal-flight-log==0.2.1",
+    "petal-warehouse==0.1.7",
+    "petal-leafsdk==0.2.3",
     "petal-user-journey-coordinator==0.1.7",
     "petal-qgc-mission-server==0.1.2",
 ]
