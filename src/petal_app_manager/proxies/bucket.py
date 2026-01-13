@@ -601,3 +601,48 @@ class S3BucketProxy(BaseProxy):
             return await self._loop.run_in_executor(self._exe, _move)
         except Exception as e:
             return {"error": f"Client initialization failed: {str(e)}"}
+        
+    async def head_object(self, s3_key: str) -> Dict[str, Any]:
+        """
+        Check if an object exists in S3 and retrieve its metadata.
+        
+        Args:
+            s3_key: S3 key of the object to check
+        Returns:
+            Dictionary with head object results
+        """
+        def _head():
+            try:
+                response = self.s3_client.head_object(
+                    Bucket=self.bucket_name,
+                    Key=s3_key
+                )
+                
+                self.log.info(f"Successfully retrieved metadata for {s3_key}")
+                return {
+                    "success": True,
+                    "s3_key": s3_key,
+                    "metadata": response.get('Metadata', {}),
+                    "content_length": response.get('ContentLength', 0),
+                    "content_type": response.get('ContentType', ''),
+                    "last_modified": response.get('LastModified').isoformat() if response.get('LastModified') else None
+                }
+                
+            except ClientError as e:
+                error_code = e.response['Error']['Code']
+                if error_code == '404':
+                    self.log.warning(f"File not found: {s3_key}")
+                    return {"error": "File not found"}
+                else:
+                    self.log.error(f"S3 head object failed: {error_code}")
+                    return {"error": f"Head object failed: {error_code}"}
+            except Exception as e:
+                self.log.error(f"Head object error: {e}")
+                return {"error": f"Head object failed: {str(e)}"}
+        
+        # Ensure we have a valid S3 client
+        try:
+            await self._refresh_s3_client()
+            return await self._loop.run_in_executor(self._exe, _head)
+        except Exception as e:
+            return {"error": f"Client initialization failed: {str(e)}"}
