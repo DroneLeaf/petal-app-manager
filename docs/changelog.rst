@@ -1,6 +1,83 @@
 Changelog
 =========
 
+Version 0.1.52 (2026-01-14)
+---------------------------
+
+**Configuration Updates:**
+
+- Updated ``proxies.yaml`` to replace ``petal-mission-planner`` with ``petal-leafsdk``
+- Updated plugin entry points for ``petal-leafsdk`` and ``petal-qgc-mission-server``
+- Revised petal dependencies for more accurate service configuration
+
+**New Proxy Functionality:**
+
+- Added async ``head_object`` method to ``bucket.py`` for checking S3 object existence and retrieving metadata
+- Added ``build_request_message_command`` method to ``external.py`` for requesting specific MAVLink messages
+- Added ``build_shell_serial_control_msgs`` method to ``external.py`` for sending shell commands to PX4 via MAVLink
+
+**Logging Improvements:**
+
+- Enhanced application startup and shutdown logs in ``main.py`` with clearer, more prominent status messages
+
+**Health Model Validation:**
+
+- Migrated all Pydantic v1 ``@validator`` decorators to Pydantic v2 ``@field_validator`` in ``models/health.py``:
+
+  - Added ``@classmethod`` decorator and proper type hints to all validators
+  - Updated import from ``validator`` to ``field_validator``
+  - Resolves deprecation warnings for Pydantic v2.0+ (to be removed in v3.0)
+
+**Dependency Updates:**
+
+- Upgraded ``leaf-pymavlink``, ``petal-leafsdk``, ``petal-user-journey-coordinator``, and ``petal-qgc-mission-server`` in ``pyproject.toml``
+- Added ``petal-qgc-mission-server`` as a local editable install in development dependencies
+
+- Updated ``petal-user-journey-coordinator`` from ``v0.1.7`` to ``v0.1.8``:
+
+  - **Fix**: Bulk parameter setting now handles floating-point precision issues correctly
+  - Uses ``math.isclose()`` with relative tolerance (1e-5) for float32/float64 comparison
+  - Resolves false validation failures for parameters like ``0.2`` vs ``0.20000000298023224``
+
+- Updated ``petal-flight-log`` from ``v0.2.1`` to ``v0.2.3``:
+
+  - **Refactor**: Centralized table name constants (``FLIGHT_RECORD_TABLE``, ``LEAF_FC_RECORD_TABLE``)
+  - Replaced all hardcoded table name strings with constants in ``jobs.py`` and ``plugin.py``
+  - Plugin version now set dynamically from package ``__version__``
+
+- Updated ``pymavlink`` to ``v0.1.14``:
+
+  - Added MAVLink definitions for ``petal-leafsdk`` v0.2.3 mission states and actions
+
+- Updated ``LeafSDK`` to ``v0.3.3``:
+
+  - Refactored class naming for improved clarity
+  - Distributed state synchronization
+  - Mission state analysis documentation
+  - Mission planning and trajectory updates
+  - Refactored mission step handling
+  - Joystick mode updates to match MAVLink
+  - New mission configuration format support
+
+- Updated ``petal-leafsdk`` to ``v0.2.3``:
+
+  - **Major Refactor**: Mission flow and state management overhaul
+  - Refactored mission execution logic with FSM and heartbeat modules
+  - Distributed state synchronization and centralized state management
+  - New MAVLink definitions integration
+  - Mission behavior bug fixes
+  - Enhanced mission step handling and joystick mode functionality
+  - Comprehensive documentation and testing utilities
+  - CI/CD pipeline integration
+
+- Updated ``petal-qgc-mission-server`` to ``v0.1.2``:
+
+  - **New Feature**: Working adapter for QGC mission planning and execution updates
+  - Renamed ``MissionStep`` to ``MissionPlanStep`` for consistency
+  - Renamed plugin class from ``QGCMissionAdapterPetal`` to ``PetalQGCMissionServer``
+  - Added ``calculate_yaw_to_target`` function for NED frame yaw calculations
+  - Renamed previous function to ``calculate_yaw_to_target_ENU`` for clarity
+
 Version 0.1.51 (2026-01-08)
 ---------------------------
 
