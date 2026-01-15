@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Version 0.1.54 (2026-01-15)
+---------------------------
+
+**Dependency Updates:**
+
+- Updated ``petal-leafsdk`` from ``v0.2.3`` to ``v0.2.4``:
+- Pinned ``leaf-pymavlink`` to ``v0.1.13`` for MAVLink compatibility stability
+
 Version 0.1.53 (2026-01-15)
 ---------------------------
 
