@@ -1,6 +1,20 @@
 Changelog
 =========
 
+Version 0.1.53 (2026-01-15)
+---------------------------
+
+**Dependency Updates:**
+
+- Updated ``petal-flight-log`` from ``v0.2.3`` to ``v0.2.4``:
+
+  - **Feature**: Improved progress tracking with weighted job distribution
+  - ULog download now accounts for 90% of sync progress when present
+  - S3 upload jobs split remaining 10% (5% each) when ULog download exists
+  - S3 jobs split 100% evenly (50% each, or 100% if single job) when no ULog download
+  - Added ``_calculate_job_weights()`` method for dynamic weight calculation
+  - Updated ``_monitor_sub_job_progress()`` to use weight-based progress slices
+
 Version 0.1.52 (2026-01-14)
 ---------------------------
 
