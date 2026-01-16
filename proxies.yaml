@@ -1,8 +1,8 @@
 enabled_petals:
 - petal-flight-log
 - petal-warehouse
-- petal-mission-planner
-# - petal-qgc-mission-server
+- petal-leafsdk
+- petal-qgc-mission-server
 startup_petals:
 - petal-user-journey-coordinator
 enabled_proxies:
@@ -17,7 +17,7 @@ enabled_proxies:
 petals:
   petal-flight-log: "petal_flight_log.plugin:FlightLogPetal"
   petal-warehouse: "petal_warehouse.plugin:PetalWarehouse"
-  petal-mission-planner: "petal_leafsdk.plugin:PetalMissionPlanner"
+  petal-leafsdk: "petal_leafsdk.plugin:MissionManager"
   petal-user-journey-coordinator: "petal_user_journey_coordinator.plugin:PetalUserJourneyCoordinator"
   petal-qgc-mission-server: "petal_qgc_mission_server.plugin:PetalQGCMissionServer"
 petal_dependencies:
@@ -26,13 +26,10 @@ petal_dependencies:
   - cloud
   - mqtt
   - db
-  petal-mission-planner:
+  petal-leafsdk:
   - redis
   - ext_mavlink
   - mqtt
-  petal-qgc-mission-server:
-  - ext_mavlink
-  - redis
   petal-warehouse:
   - redis
   - ext_mavlink
