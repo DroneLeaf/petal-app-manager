@@ -1,6 +1,57 @@
 Changelog
 =========
 
+Version 0.1.56 (2026-01-17)
+---------------------------
+
+**FTP Download Error Handling Improvements:**
+
+- Improved error handling in ``external.py`` FTP download logic to ensure failed or cancelled downloads raise a ``RuntimeError``, log the error, and clean up partial files
+- Added more granular error logging and FTP state reset logic after failures or cancellations, including after non-zero return codes from FTP operations
+- Ensured FTP state is reset after each download attempt and after recovering from temp files, preventing state leakage between operations
+
+**Dependency Updates:**
+
+- Updated ``petal-flight-log`` from ``v0.2.4`` to ``v0.2.5``:
+
+  - **Error Handling Improvements**:
+
+    - Added specific handling for ``RuntimeError`` during MAVFTP ULog downloads, providing clearer error messages when the remote file cannot be opened
+    - Changed logging for failed ULog downloads to exclude exception tracebacks for both MAVLink and MAVFTP errors, making logs less verbose
+
+  - **Reliability Enhancements**:
+
+    - Ensured flight record status is updated in the cloud database before exceptions are re-raised during sync job errors, improving consistency between job state and record status
+
+  - **Logic and Workflow Adjustments**:
+
+    - Updated ``start_sync_flight_record`` to always attempt ULog and Rosbag uploads if present, regardless of whether an S3 key already exists
+    - Added handling for files from both "pixhawk" and "local" storage types
+
+- Updated ``petal-leafsdk`` from ``v0.2.5`` to ``v0.2.6``:
+
+  - **Mission Abort and Drone State Handling**:
+
+    - Improved ``abort`` method to handle abort requests during takeoff or landing states
+    - Mission is cancelled locally without sending stop trajectory to flight controller during these states, preventing unsafe interruptions
+    - Added new ``is_drone_taking_off`` method in ``fc_status_provider.py``
+
+  - **MQTT Communication and Error Handling**:
+
+    - Refactored all MQTT command handlers to use new ``send_command_response`` method for sending responses and errors
+    - Replaced direct calls to ``publish_message`` for more consistent and reliable client communication
+
+  - **Startup and Proxy Initialization**:
+
+    - Improved startup logic by separating proxy initialization from asynchronous MQTT topic setup
+    - Added more robust logging and retry logic for MQTT proxy availability
+    - Simplified ``async_startup`` method, delegating complex logic to the main application
+
+  - **Mission Queue and RTL Safety**:
+
+    - Reduced mission queue size from 10 to 1 to avoid overloading the mission manager
+    - Decreased RTL (Return-To-Launch) mission return speed from 0.5 m/s to 0.1 m/s for safer drone returns
+
 Version 0.1.54 (2026-01-15)
 ---------------------------
 
