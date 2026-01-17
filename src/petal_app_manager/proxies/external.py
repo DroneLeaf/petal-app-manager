@@ -2848,7 +2848,9 @@ class MavLinkFTPProxy(BaseProxy):
                 )
                 if result:
                     completed_event.set()
-                return local_path if result else None
+                    return local_path
+                else:
+                    raise RuntimeError("Download was cancelled or failed without exception")
             except Exception as e:
                 self._log.error(f"Failed to download ulog via FTP on attempt {attempt + 1}/{n_attempts}: {e}")
                 last_exception = e
@@ -3086,7 +3088,9 @@ class _BlockingParser:
                         progress_callback=lambda x: _progress_cb(x)
                     )
                     if ret.return_code != 0:
-                        raise RuntimeError(f"OpenFileRO failed: {ret.return_code}")
+                        self._log.error(f"OpenFileRO failed: download failed with code {ret.return_code}")
+                        self._reset_ftp_state()
+                        return None
 
                     # Check for cancellation before processing reply
                     if cancel_event and cancel_event.is_set():
@@ -3097,7 +3101,15 @@ class _BlockingParser:
 
                     # Process the reply with a try-except to handle potential issues
                     try:
-                        self.ftp.process_ftp_reply(ret.operation_name, timeout=0)
+                        result = self.ftp.process_ftp_reply(ret.operation_name, timeout=0)
+                    
+                        if result.return_code != 0:
+                            self._log.error(f"OpenFileRO Download failed with code {result.return_code}")
+                            self._reset_ftp_state()
+                            if local_path.exists():
+                                local_path.unlink()
+                            return None
+                    
                     except DownloadCancelledException:
                         # Handle cancellation gracefully
                         self._log.info("Download cancelled by user")
@@ -3107,18 +3119,20 @@ class _BlockingParser:
                         return None
                     except (OSError, socket.error) as e:
                         self._log.error(f"FTP error during download: {str(e)}")
+                        return None
                     except Exception as e:
                         self._log.error(f"Error processing FTP reply: {str(e)}")
                         self._reset_ftp_state()
-                        raise
+                        return None
                     
-
                     if not local_path.exists():
                         # handle temp-file move failure
                         tmp = Path(self.ftp.temp_filename)
                         if tmp.exists():
                             shutil.move(tmp, local_path)
                             self._log.warning("Temp file recovered to %s", local_path)
+
+                    self._reset_ftp_state() # for next download
 
                     if not local_path.exists():
                         self._log.error("Failed to recover temp file to %s", local_path)
@@ -3135,7 +3149,8 @@ class _BlockingParser:
                 self._reset_ftp_state()
             if local_path.exists():
                 local_path.unlink()
-            return None
+
+            raise
         except (OSError, socket.error) as e:
             # Handle connection errors (including "Bad file descriptor")
             self._log.error(f"Download error: {str(e)}")
@@ -3150,6 +3165,20 @@ class _BlockingParser:
             # Re-raise the original exception
             raise
             
+        except RuntimeError as e:
+            self._log.error(f"Download error: {str(e)}")
+            # Always reset FTP state on error
+            with self.proxy._mav_lock:
+                with self.proxy._download_lock:
+                    self._reset_ftp_state()
+
+            # Clean up partial file
+            if local_path.exists():
+                local_path.unlink()
+                
+            # Re-raise the original exception
+            raise
+
         except Exception as e:
             self._log.error(f"Download error: {str(e)}")
             # Always reset FTP state on error
