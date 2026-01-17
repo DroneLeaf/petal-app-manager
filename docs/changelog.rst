@@ -52,6 +52,17 @@ Version 0.1.56 (2026-01-17)
     - Reduced mission queue size from 10 to 1 to avoid overloading the mission manager
     - Decreased RTL (Return-To-Launch) mission return speed from 0.5 m/s to 0.1 m/s for safer drone returns
 
+- Updated ``petal-qgc-mission-server`` from ``v0.1.2`` to ``v0.1.3``:
+
+  - **Mission Translation Logic Updates**:
+
+    - Replaced all uses of ``calculate_yaw_to_target`` with ``calculate_yaw_to_target_ENU`` in ``mission_translator.py``
+    - Affects takeoff, waypoint, land, and RTL command handling to ensure yaw calculations consistently use the ENU coordinate system
+
+  - **Logging Changes**:
+
+    - Changed logging level for local position NED updates in ``gps.py`` from ``info`` to ``debug``, reducing log verbosity for frequent updates
+
 Version 0.1.54 (2026-01-15)
 ---------------------------
 
