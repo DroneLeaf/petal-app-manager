@@ -374,6 +374,9 @@ def build_app() -> FastAPI:
                 if new_petals:
                     petals.extend(new_petals)
                     
+                    # Clear cached OpenAPI schema so new routes appear in /docs
+                    app.openapi_schema = None
+                    
                     # Handle async startup for newly loaded petal
                     for petal in new_petals:
                         await _handle_petal_async_startup(petal)
