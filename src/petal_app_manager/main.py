@@ -16,6 +16,7 @@ import time
 from datetime import datetime
 
 from contextlib import asynccontextmanager
+from . import Config
 
 def build_app() -> FastAPI:
     """
@@ -27,7 +28,6 @@ def build_app() -> FastAPI:
         The FastAPI application instance with configured routers and proxies.
     """
 
-    from . import Config
     from .proxies import CloudDBProxy, LocalDBProxy, RedisProxy, MavLinkExternalProxy, MavLinkFTPProxy, S3BucketProxy, MQTTProxy
     from .api import health, proxy_info, cloud_api, bucket_api, mavftp_api, mqtt_api, config_api
     from . import api
@@ -759,5 +759,9 @@ def build_app() -> FastAPI:
     app.include_router(mqtt_api.router, prefix="/mqtt")
 
     return app
+
+# Rotate logs if needed before building the app
+from .log_rotator import rotate_logs_if_needed
+rotate_logs_if_needed(base_dir=Path.home() / "petal-app-manager-dev")
 
 app = build_app()
