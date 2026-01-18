@@ -1,6 +1,17 @@
 Changelog
 =========
 
+Version 0.1.57 (2026-01-18)
+---------------------------
+
+**Dependency Updates:**
+
+- Updated ``leaf-pymavlink`` to ``v0.1.15``
+
+- Updated ``petal-leafsdk`` from ``v0.2.6`` to ``v0.2.7``:
+
+  - Pinned ``leaf-pymavlink`` to ``v0.1.15``
+
 Version 0.1.56 (2026-01-17)
 ---------------------------
 
