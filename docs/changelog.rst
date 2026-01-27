@@ -1,6 +1,21 @@
 Changelog
 =========
 
+Version 0.1.59 (2026-01-27)
+---------------------------
+
+**Dependency Updates:**
+
+- Updated ``leaf-pymavlink`` from ``v0.1.15`` to ``v0.1.16``:
+
+  - **Critical Fix**: Fixed PyPI wheel builds missing DroneLeaf LEAF_* MAVLink messages
+  - Root cause was pip's build isolation preventing the ``MDEF`` environment variable from reaching setup.py
+  - CI workflow now uses ``--no-build-isolation`` with explicit dependency installation to ensure custom message definitions are included in wheels
+
+- Updated ``petal-leafsdk`` from ``v0.2.7`` to ``v0.2.9``:
+
+  - Pinned ``leaf-pymavlink`` to ``v0.1.16``
+
 Version 0.1.57 (2026-01-18)
 ---------------------------
 
