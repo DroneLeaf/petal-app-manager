@@ -262,6 +262,148 @@ Example message definition structure:
      <field type="uint8_t" name="mode" enum="LEAF_MODE">The new leaf mode.</field>
    </message>
 
+Adding New DroneLeaf MAVLink Messages
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When adding a new custom DroneLeaf message, follow this complete workflow:
+
+**Step 1: Define the Message in XML**
+
+Edit ``message_definitions/v1.0/droneleaf_mav_msgs.xml``:
+
+.. code-block:: xml
+
+   <!-- Add a new message -->
+   <message id="77XXX" name="LEAF_YOUR_NEW_MESSAGE">
+     <description>Description of what this message does</description>
+     <field type="uint8_t" name="status">Status field description</field>
+     <field type="float" name="value">Value field description</field>
+   </message>
+
+   <!-- Add a new enum (if needed) -->
+   <enum name="LEAF_YOUR_NEW_ENUM">
+     <entry value="0" name="LEAF_YOUR_NEW_ENUM_VALUE1">
+       <description>First value description</description>
+     </entry>
+     <entry value="1" name="LEAF_YOUR_NEW_ENUM_VALUE2">
+       <description>Second value description</description>
+     </entry>
+   </enum>
+
+**Step 2: Use the Message in Python Code**
+
+After the message is built into pymavlink, use it in your petal code:
+
+.. code-block:: python
+
+   from pymavlink.dialects.v20 import droneleaf_mav_msgs as leafMAV
+
+   # Register a handler for receiving the message
+   proxy.register_handler(
+       str(leafMAV.MAVLINK_MSG_ID_LEAF_YOUR_NEW_MESSAGE),
+       my_handler_function
+   )
+
+   # Create and send the message
+   msg = leafMAV.MAVLink_leaf_your_new_message(
+       status=1,
+       value=3.14
+   )
+   proxy.send("mav", msg)
+
+   # Use enum values
+   if current_status == leafMAV.LEAF_YOUR_NEW_ENUM_VALUE1:
+       # Handle this state
+       pass
+
+**Step 3: Register in Message Verification Config**
+
+Edit ``mavlink/pymavlink/.github/workflows/required_pymavlink_messages.json`` to register 
+your new symbols. This ensures CI verifies they exist after building pymavlink.
+
+.. code-block:: json
+
+   {
+     "dialects": {
+       "pymavlink.dialects.v20.droneleaf_mav_msgs": {
+         "message_ids": {
+           "items": [
+             "MAVLINK_MSG_ID_LEAF_STATUS",
+             "MAVLINK_MSG_ID_LEAF_YOUR_NEW_MESSAGE"
+           ]
+         },
+         "message_classes": {
+           "items": [
+             "MAVLink_leaf_status_message",
+             "MAVLink_leaf_your_new_message"
+           ]
+         },
+         "enums": {
+           "LEAF_YOUR_NEW_ENUM": [
+             "LEAF_YOUR_NEW_ENUM_VALUE1",
+             "LEAF_YOUR_NEW_ENUM_VALUE2"
+           ]
+         }
+       }
+     }
+   }
+
+**What to Register:**
+
+.. list-table:: Message Verification Categories
+   :header-rows: 1
+   :widths: 25 35 40
+
+   * - Category
+     - Example
+     - When to Add
+   * - ``message_ids``
+     - ``MAVLINK_MSG_ID_LEAF_STATUS``
+     - When you register a handler for the message
+   * - ``message_classes``
+     - ``MAVLink_leaf_status_message``
+     - When you create/send the message
+   * - ``enums``
+     - ``LEAF_STATUS_FLYING``
+     - When you use enum values in code
+   * - ``constants``
+     - ``ENABLED_ALWAYS``
+     - When you use standalone constants
+
+**Step 4: Verify Locally (Optional)**
+
+.. code-block:: bash
+
+   # Create and activate a virtual environment with Python 3.11
+   cd ~/petal-app-manager-dev/mavlink/pymavlink
+   python3.11 -m venv .venv
+   source .venv/bin/activate
+
+   # Build and install pymavlink with new message definitions
+   # MDEF must point to the message_definitions directory
+   MDEF=~/petal-app-manager-dev/mavlink/message_definitions/v1.0 python3 -m pip install . -v
+
+   # Run verification script
+   python .github/workflows/verify_pymavlink_messages.py --verbose
+
+.. note::
+
+   The ``MDEF`` environment variable must point to the directory containing the message 
+   definition XML files. Typically, this is the ``message_definitions/v1.0`` folder in the 
+   mavlink repository (e.g., ``/home/droneleaf/petal-app-manager-dev/mavlink/message_definitions/v1.0``).
+
+**Step 5: Commit, Tag, and Push**
+
+Follow the standard release process above. The CI workflow will:
+
+1. Clone ``leaf-mavlink`` with latest message definitions
+2. Build pymavlink from source
+3. Run the verification script
+4. Fail if any registered symbol is missing
+
+**⚠️ Important**: Only messages that are **actually used in source code** should be 
+registered in the verification config - not all messages from the dialect files.
+
 Version Summary Table
 ---------------------
 
