@@ -55,12 +55,18 @@ def _load_class_from_entry_point(name: str):
     
     return ep.load()
 
-def load_petals(
-        app: FastAPI, 
+def initialize_petals(
         petal_name_list: List[str],
         proxies: Dict[str, BaseProxy],
         logger: logging.Logger,
     ) -> List[Petal]:
+    """
+    Initialize petals without starting them up.
+    Loads petal classes, instantiates them, and injects proxies.
+    Does NOT call petal.startup().
+    
+    Returns a list of initialized (but not started) Petal objects.
+    """
     from pathlib import Path
     from ..config import load_proxies_config
 
@@ -118,15 +124,51 @@ def load_petals(
             logger.error(f"Failed to load petal '{name}': {e}")
             continue
 
-        # Initialize and configure the petal
+        # Initialize and configure the petal (but don't start it)
         try:
             petal: Petal = petal_cls()
             petal.inject_proxies(proxies)
-            petal.startup()
             petal_list.append(petal)
-            logger.info(f"Mounted petal '{name}' (version: {getattr(petal, 'version', 'unknown')})")
+            logger.info(f"Initialized petal '{name}' (version: {getattr(petal, 'version', 'unknown')})")
         except Exception as e:
             logger.error(f"Failed to initialize petal '{name}': {e}")
+            continue
+
+    # Log loading statistics
+    total_initialized = len(petal_list)
+    if total_initialized > 0:
+        logger.info(f"Initialized {total_initialized} petals total:")
+        if direct_loads > 0:
+            logger.info(f"  - {direct_loads} via direct path (fast)")
+        if entry_point_loads > 0:
+            logger.info(f"  - {entry_point_loads} via entry points (fallback)")
+    else:
+        logger.warning("No petals initialized; ensure plugins are installed and configured correctly")
+        
+    return petal_list
+
+
+def startup_petals(
+        app: FastAPI,
+        petal_list: List[Petal],
+        logger: logging.Logger,
+    ) -> List[Petal]:
+    """
+    Start up initialized petals and mount them to the FastAPI app.
+    Calls petal.startup() and mounts static files, templates, and routers.
+    
+    Returns the list of successfully started petals.
+    """
+    started_petals: List[Petal] = []
+    
+    for petal in petal_list:
+        # Start up the petal
+        try:
+            petal.startup()
+            started_petals.append(petal)
+            logger.info(f"Started petal '{petal.name}' (version: {getattr(petal, 'version', 'unknown')})")
+        except Exception as e:
+            logger.error(f"Failed to start petal '{petal.name}': {e}")
             continue
 
         # Mount static files for this plugin
@@ -189,15 +231,27 @@ def load_petals(
                 
         app.include_router(router)
 
-    # Log loading statistics
-    total_loaded = len(petal_list)
-    if total_loaded > 0:
-        logger.info(f"Loaded {total_loaded} petals total:")
-        if direct_loads > 0:
-            logger.info(f"  - {direct_loads} via direct path (fast)")
-        if entry_point_loads > 0:
-            logger.info(f"  - {entry_point_loads} via entry points (fallback)")
+    if started_petals:
+        logger.info(f"Successfully started {len(started_petals)} petals")
     else:
-        logger.warning("No petals loaded; ensure plugins are installed and configured correctly")
+        logger.warning("No petals started successfully")
         
-    return petal_list
+    return started_petals
+
+
+def load_petals(
+        app: FastAPI, 
+        petal_name_list: List[str],
+        proxies: Dict[str, BaseProxy],
+        logger: logging.Logger,
+    ) -> List[Petal]:
+    """
+    Load, initialize, and start petals (convenience function).
+    This is a wrapper that calls initialize_petals() and startup_petals().
+    
+    For more control over the initialization and startup process,
+    use initialize_petals() and startup_petals() separately.
+    """
+    petal_list = initialize_petals(petal_name_list, proxies, logger)
+    started_petals = startup_petals(app, petal_list, logger)
+    return started_petals

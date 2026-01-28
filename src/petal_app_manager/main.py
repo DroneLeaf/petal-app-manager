@@ -17,6 +17,8 @@ from datetime import datetime
 
 from contextlib import asynccontextmanager
 
+from petal_app_manager.plugins.loader import startup_petals
+
 def build_app() -> FastAPI:
     """
     Builds the FastAPI application with necessary configurations and proxies.
@@ -307,7 +309,7 @@ def build_app() -> FastAPI:
         logger.info("=" * 80)
         logger.info("Enabled petals will continue loading in the background...")
     
-    from .plugins.loader import load_petals
+    from .plugins.loader import load_petals, initialize_petals, startup_petals
 
     async def load_petals_on_startup():
         """Load startup petals during server initialization (blocking)"""
@@ -361,15 +363,22 @@ def build_app() -> FastAPI:
                 # Mark petal as loading (for health reporting)
                 loading_petals.add(petal_name)
                 
-                # Small delay between loads to prevent resource contention
-                await asyncio.sleep(0.1)
-                
-                new_petals = load_petals(
-                    app=app,
+                # Run initialization in a separate thread (sequentially)
+                petal_list = await asyncio.to_thread(
+                    initialize_petals,
                     petal_name_list=[petal_name],
                     proxies=proxies,
                     logger=loader_logger
                 )
+                
+                new_petals = startup_petals(
+                    app=app,
+                    petal_list=petal_list,
+                    logger=loader_logger
+                )
+
+                # Small delay between loads to prevent resource contention
+                await asyncio.sleep(0.1)
                 
                 if new_petals:
                     petals.extend(new_petals)
