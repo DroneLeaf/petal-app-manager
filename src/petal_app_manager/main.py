@@ -771,11 +771,9 @@ def build_app() -> FastAPI:
     mqtt_api._set_logger(api_logger)  # Set the logger for MQTT API endpoints
     app.include_router(mqtt_api.router, prefix="/mqtt")
     
-    # Register MQTT callback router if MQTT proxy is enabled and has callbacks enabled
-    mqtt_proxy = proxies.get("mqtt")
-    if mqtt_proxy and mqtt_proxy.callback_router:
-        app.include_router(mqtt_proxy.callback_router, prefix="/mqtt-callback")
-        logger.info("Registered MQTT callback router at /mqtt-callback")
+    # Note: MQTT callbacks are handled by a dedicated uvicorn server (port 3005)
+    # running in its own thread, not via a router on the main app.
+    # This ensures fast message ingestion without competing with main app requests.
 
     return app
 

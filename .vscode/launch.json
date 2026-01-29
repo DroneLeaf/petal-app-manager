@@ -14,8 +14,8 @@
         "--port", "9000",
         "--reload",
         "--log-level", "info",
-        "--no-access-log",
-        "--http", "h11"
+        // "--no-access-log",
+        // "--http", "h11"
       ],
       "jinja": true,
       "env": {

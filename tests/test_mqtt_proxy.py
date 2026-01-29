@@ -45,8 +45,10 @@ async def proxy() -> AsyncGenerator[MQTTProxy, None]:
         proxy._worker_running.set()
         proxy._worker_threads = []
         
-        # Setup mock callback router
-        proxy.callback_router = MagicMock()
+        # Setup mock callback server (dedicated uvicorn server)
+        proxy.callback_server = MagicMock()
+        proxy.callback_app = MagicMock()
+        proxy.callback_thread = MagicMock()
         
         # Initialize seen message IDs deque for duplicate filtering
         from collections import deque
@@ -131,7 +133,7 @@ async def test_start_connection_with_callbacks(proxy: MQTTProxy):
     assert proxy.organization_id == "e8fc2cd9-f040-4229-84c0-62ea693b99f6"
     assert proxy.robot_instance_id == "ce93d985-d950-4f0d-be32-f778f1a00cdc"
     assert proxy.device_id == "Instance-ce93d985-d950-4f0d-be32-f778f1a00cdc"
-    assert proxy.callback_router is not None
+    assert proxy.callback_server is not None
     assert proxy.enable_callbacks is True
 
 
@@ -139,7 +141,7 @@ async def test_start_connection_with_callbacks(proxy: MQTTProxy):
 async def test_start_connection_without_callbacks(proxy_no_callbacks: MQTTProxy):
     """Test that MQTT connection is established correctly without callback server."""
     assert proxy_no_callbacks.is_connected is True
-    assert proxy_no_callbacks.callback_router is None
+    assert proxy_no_callbacks.callback_server is None
     assert proxy_no_callbacks.enable_callbacks is False
     
     # Verify health check was called
