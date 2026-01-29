@@ -61,7 +61,8 @@ class RedisProxy(BaseProxy):
         self._pubsub = None
         self._pubsub_pattern = None
         self._loop = None
-        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="RedisProxy")
+        # Use worker_threads + 2 for executor to handle Redis ops + listen loops without blocking
+        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=worker_threads + 2, thread_name_prefix="RedisProxy")
         self.log = logging.getLogger("RedisProxy")
         
         # Message buffer for worker dispatch (listen loop -> workers)
@@ -605,23 +606,40 @@ class RedisProxy(BaseProxy):
                 # Pattern subscription message
                 callback = self._pattern_callbacks.get(channel)
                 if callback:
-                    self.log.info(f"Processing pattern message for channel: {channel}")
-                    callback(channel, data)
-                    self.log.debug(f"Pattern callback executed for channel: {channel}")
+                    self.log.debug(f"Processing pattern message for channel: {channel}")
+                    self._invoke_callback_safely(callback, channel, data)
                 else:
                     self.log.debug(f"No pattern callback registered for channel: {channel}")
             else:
                 # Normal subscription message
                 callback = self._subscriptions.get(channel)
                 if callback:
-                    self.log.info(f"Processing message for channel: {channel}")
-                    callback(channel, data)
-                    self.log.debug(f"Callback executed for channel: {channel}")
+                    self.log.debug(f"Processing message for channel: {channel}")
+                    self._invoke_callback_safely(callback, channel, data)
                 else:
                     self.log.debug(f"No callback registered for channel: {channel}")
                     
         except Exception as e:
             self.log.error(f"Error processing message for channel {message.channel}: {e}")
+    
+    def _invoke_callback_safely(self, callback: Callable, channel: str, data: str):
+        """Safely invoke a callback, handling both sync and async functions.
+        
+        Async callbacks are scheduled on the main event loop to ensure compatibility
+        with other proxies (LocalDB, Cloud, etc.) that are bound to the main loop.
+        """
+        try:
+            if asyncio.iscoroutinefunction(callback):
+                # Async callback - schedule on main event loop
+                if self._loop and not self._loop.is_closed():
+                    asyncio.run_coroutine_threadsafe(callback(channel, data), self._loop)
+                else:
+                    self.log.warning(f"Cannot invoke async callback for {channel}: event loop not available")
+            else:
+                # Sync callback - call directly in worker thread
+                callback(channel, data)
+        except Exception as e:
+            self.log.error(f"Error in callback for channel {channel}: {e}")
 
     def _reconnect_pubsub(self):
         """Tear down the old PubSub and re-subscribe to all channels."""
