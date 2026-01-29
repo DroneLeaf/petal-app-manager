@@ -129,7 +129,7 @@ class MQTTProxy(BaseProxy):
         self._health_check_interval = health_check_interval
 
         self._loop = None
-        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=self.worker_threads, thread_name_prefix="MQTTProxyPublishWorker")
+        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="MQTTProxy")
         self.log = logging.getLogger("MQTTProxy")
         
         # Setup callback router in __init__ so it's available for registration with main app

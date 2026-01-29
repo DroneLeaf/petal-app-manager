@@ -113,6 +113,7 @@ def build_app() -> FastAPI:
                         db=Config.REDIS_DB,
                         password=Config.REDIS_PASSWORD,
                         unix_socket_path=Config.REDIS_UNIX_SOCKET_PATH,
+                        worker_threads=Config.REDIS_WORKER_THREADS,
                     )
                 elif proxy_name == "db":
                     proxies["db"] = LocalDBProxy(
