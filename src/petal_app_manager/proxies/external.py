@@ -656,7 +656,7 @@ class MavLinkExternalProxy(ExternalProxy):
         self._log = logging.getLogger("MavLinkExternalProxy")
 
         self._loop: asyncio.AbstractEventLoop | None = None
-        self._exe = ThreadPoolExecutor(max_workers=1)
+        self._exe = ThreadPoolExecutor(max_workers=1, thread_name_prefix="MavLinkExternalProxy")
         self.connected = False
         self._last_heartbeat_time = time.time()
         self.leaf_fc_connected = False
@@ -1860,7 +1860,7 @@ class MavLinkExternalProxy(ExternalProxy):
                         break
                     time.sleep(0.1)
 
-            cancel_checker = threading.Thread(target=_cancel_checker, daemon=True)
+            cancel_checker = threading.Thread(target=_cancel_checker, daemon=True, name="_mavlink_send_and_wait_cancel_checker")
             cancel_checker.start()
 
         try:
@@ -2720,7 +2720,7 @@ class MavLinkFTPProxy(BaseProxy):
     ):
         self._log = logging.getLogger("MavLinkFTPProxy")
         self._loop: asyncio.AbstractEventLoop | None = None
-        self._exe = ThreadPoolExecutor(max_workers=1)
+        self._exe = ThreadPoolExecutor(max_workers=1, thread_name_prefix="MavLinkFTPProxyWorker")
         self.mavlink_proxy: MavLinkExternalProxy = mavlink_proxy
 
     # ------------------------ life-cycle --------------------- #

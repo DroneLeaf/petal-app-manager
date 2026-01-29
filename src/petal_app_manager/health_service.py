@@ -566,7 +566,7 @@ class HealthService:
                 )
             
             return MavlinkProxyHealth(
-                status=HealthStatus.HEALTHY if proxy.connected and proxy.leaf_fc_connected else HealthStatus.UNHEALTHY,
+                status=HealthStatus.HEALTHY if proxy.connected else HealthStatus.UNHEALTHY, # and proxy.leaf_fc_connected is not important
                 connection=MavlinkConnectionInfo(
                     endpoint=proxy.endpoint,
                     baud=proxy.baud,

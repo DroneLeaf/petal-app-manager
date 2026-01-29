@@ -197,14 +197,15 @@
                     ],
                     "body": {
                       "mode": "raw",
-                      "raw": "{\n    \"topic\": \"org/{{org_id}}/device/{{device_id}}/command/edge\",\n    \"waitResponse\": true,\n    \"messageId\": \"{{test_message_id}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/bulk_set_parameters\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"waitResponse\": true,\n        \"messageId\": \"{{test_message_id}}\",\n        \"deviceId\": \"{{robot_instance_id}}\",\n        \"command\": \"petal-user-journey-coordinator/bulk_set_parameters\",\n        \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n        \"payload\": {\n            \"parameters\": [\n                {\n                    \"parameter_name\": \"CA_ROTOR_COUNT\",\n                    \"parameter_value\": 3,\n                    \"parameter_type\": \"INT32\"\n                },\n                {\n                    \"parameter_name\": \"GPS_1_CONFIG\",\n                    \"parameter_value\": 1,\n                    \"parameter_type\": \"INT32\"\n                },\n                {\n                    \"parameter_name\": \"EKF2_RNG_A_HMAX\",\n                    \"parameter_value\": 50.0,\n                    \"parameter_type\": \"REAL32\"\n                }\n            ]\n        }\n    }\n}"
+                      "raw": "{\n    \"topic\": \"org/{{org_id}}/device/{{device_id}}/command/edge\",\n    \"waitResponse\": true,\n    \"messageId\": \"{{$guid}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/bulk_set_parameters\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"waitResponse\": true,\n        \"messageId\": \"{{$guid}}\",\n        \"deviceId\": \"{{robot_instance_id}}\",\n        \"command\": \"petal-user-journey-coordinator/bulk_set_parameters\",\n        \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n        \"payload\": {\n            \"parameters\": [\n                {\n                    \"parameter_name\": \"CA_ROTOR_COUNT\",\n                    \"parameter_value\": 3,\n                    \"parameter_type\": \"INT32\"\n                },\n                {\n                    \"parameter_name\": \"GPS_1_CONFIG\",\n                    \"parameter_value\": 1,\n                    \"parameter_type\": \"INT32\"\n                },\n                {\n                    \"parameter_name\": \"EKF2_RNG_A_HMAX\",\n                    \"parameter_value\": 50.0,\n                    \"parameter_type\": \"REAL32\"\n                }\n            ]\n        }\n    }\n}"
                     },
                     "url": {
-                      "raw": "{{CALLBACK_URL}}/callback",
+                      "raw": "{{CALLBACK_URL}}/mqtt-callback/callback",
                       "host": [
                         "{{CALLBACK_URL}}"
                       ],
                       "path": [
+                        "mqtt-callback",
                         "callback"
                       ],
                       "query": [

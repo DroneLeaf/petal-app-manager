@@ -56,7 +56,7 @@ class CloudDBProxy(BaseProxy):
         self.request_timeout = request_timeout
         
         self._loop = None
-        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="CloudDBProxy")
         self.log = logging.getLogger("CloudDBProxy")
         
         # Session management

@@ -64,6 +64,7 @@ class Config:
         PASSWORD = os.environ.get('PETAL_REDIS_PASSWORD', None)
         UNIX_SOCKET_PATH = os.environ.get('PETAL_REDIS_UNIX_SOCKET_PATH', None)
         HEALTH_MESSAGE_RATE = float(os.environ.get('PETAL_REDIS_HEALTH_MESSAGE_RATE', 3.0))
+        WORKER_THREADS = int(os.environ.get('PETAL_REDIS_WORKER_THREADS', 4))
 
     # URLs for data operations
     GET_DATA_URL    = os.environ.get('PETAL_GET_DATA_URL', '/drone/onBoard/config/getData')
@@ -76,7 +77,7 @@ class Config:
         TS_CLIENT_HOST = os.environ.get('PETAL_TS_CLIENT_HOST', 'localhost')
         TS_CLIENT_PORT = int(os.environ.get('PETAL_TS_CLIENT_PORT', 3004))
         CALLBACK_HOST  = os.environ.get('PETAL_CALLBACK_HOST', 'localhost')
-        CALLBACK_PORT  = int(os.environ.get('PETAL_CALLBACK_PORT', 3005))
+        CALLBACK_PORT  = int(os.environ.get('PETAL_CALLBACK_PORT', 9000))
         ENABLE_CALLBACKS = os.environ.get('PETAL_ENABLE_CALLBACKS', 'true').lower() in ('true', '1', 'yes')
         COMMAND_EDGE_TOPIC = os.environ.get('PETAL_COMMAND_EDGE_TOPIC', 'command/edge')
         RESPONSE_TOPIC = os.environ.get('PETAL_RESPONSE_TOPIC', 'response')
@@ -130,6 +131,7 @@ class Config:
     REDIS_PASSWORD = RedisConfig.PASSWORD
     REDIS_UNIX_SOCKET_PATH = RedisConfig.UNIX_SOCKET_PATH
     REDIS_HEALTH_MESSAGE_RATE = RedisConfig.HEALTH_MESSAGE_RATE
+    REDIS_WORKER_THREADS = RedisConfig.WORKER_THREADS
 
     TS_CLIENT_HOST = MQTTConfig.TS_CLIENT_HOST
     TS_CLIENT_PORT = MQTTConfig.TS_CLIENT_PORT

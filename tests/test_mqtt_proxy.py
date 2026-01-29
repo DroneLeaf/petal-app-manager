@@ -45,11 +45,12 @@ async def proxy() -> AsyncGenerator[MQTTProxy, None]:
         proxy._worker_running.set()
         proxy._worker_threads = []
         
-        # Setup mock callback app
-        proxy.callback_app = MagicMock()
-        proxy.callback_server = MagicMock()
-        proxy.callback_thread = MagicMock()
-        proxy.callback_thread.is_alive.return_value = True
+        # Setup mock callback router
+        proxy.callback_router = MagicMock()
+        
+        # Initialize seen message IDs deque for duplicate filtering
+        from collections import deque
+        proxy._seen_message_ids = deque(maxlen=proxy.max_message_buffer)
         
         # Setup mock responses for health checks
         mock_health_response = MagicMock()
@@ -130,7 +131,7 @@ async def test_start_connection_with_callbacks(proxy: MQTTProxy):
     assert proxy.organization_id == "e8fc2cd9-f040-4229-84c0-62ea693b99f6"
     assert proxy.robot_instance_id == "ce93d985-d950-4f0d-be32-f778f1a00cdc"
     assert proxy.device_id == "Instance-ce93d985-d950-4f0d-be32-f778f1a00cdc"
-    assert proxy.callback_app is not None
+    assert proxy.callback_router is not None
     assert proxy.enable_callbacks is True
 
 
@@ -138,7 +139,7 @@ async def test_start_connection_with_callbacks(proxy: MQTTProxy):
 async def test_start_connection_without_callbacks(proxy_no_callbacks: MQTTProxy):
     """Test that MQTT connection is established correctly without callback server."""
     assert proxy_no_callbacks.is_connected is True
-    assert proxy_no_callbacks.callback_app is None
+    assert proxy_no_callbacks.callback_router is None
     assert proxy_no_callbacks.enable_callbacks is False
     
     # Verify health check was called
@@ -824,30 +825,44 @@ async def test_message_enqueue_dequeue(proxy: MQTTProxy):
 
 @pytest.mark.asyncio
 async def test_duplicate_message_filtering(proxy: MQTTProxy):
-    """Test duplicate message filtering by messageId."""
+    """Test duplicate message filtering by messageId at processing time."""
     from petal_app_manager.proxies.mqtt import MQTTMessage
+    from collections import deque
+    
+    # Ensure seen_message_ids is initialized
+    proxy._seen_message_ids = deque(maxlen=proxy.max_message_buffer)
+    
+    # Setup a handler to track processed messages
+    processed_messages = []
+    
+    def tracking_handler(topic: str, payload: dict):
+        processed_messages.append(payload)
+    
+    # Setup topic and handler
+    test_topic = "test/topic"
+    proxy.subscribed_topics.add(test_topic)
+    proxy._handlers[test_topic].append({
+        "callback": tracking_handler,
+        "subscription_id": "test-sub"
+    })
     
     # Create duplicate messages with same messageId
     message1 = MQTTMessage(
-        topic="test/topic", 
+        topic=test_topic, 
         payload={"messageId": "msg-123", "data": "first"}
     )
     message2 = MQTTMessage(
-        topic="test/topic", 
+        topic=test_topic, 
         payload={"messageId": "msg-123", "data": "duplicate"}
     )
     
-    # Enqueue both messages
-    proxy._enqueue_message(message1)
-    proxy._enqueue_message(message2)  # Should be filtered out
+    # Process both messages (duplicate filtering happens at processing time)
+    proxy._process_message_in_worker(message1)
+    proxy._process_message_in_worker(message2)  # Should be filtered out
     
-    # Verify only one message in buffer
-    with proxy._buffer_lock:
-        assert len(proxy._message_buffer) == 1
-    
-    # Verify the first message is kept
-    retrieved = proxy._get_next_message()
-    assert retrieved.payload["data"] == "first"
+    # Verify only one message was processed
+    assert len(processed_messages) == 1
+    assert processed_messages[0]["data"] == "first"
 
 
 @pytest.mark.asyncio
