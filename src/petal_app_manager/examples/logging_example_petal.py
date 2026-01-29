@@ -64,7 +64,7 @@ class LoggingExamplePetal(Petal):
             }
             
             self.running = True
-            self.thread = threading.Thread(target=self._logging_loop)
+            self.thread = threading.Thread(target=self._logging_loop, name="LoggingExampleThread")
             self.thread.daemon = True
             self.thread.start()
             

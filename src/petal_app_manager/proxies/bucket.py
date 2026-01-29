@@ -45,7 +45,7 @@ class S3BucketProxy(BaseProxy):
         self.request_timeout = request_timeout
         
         self._loop = None
-        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="S3BucketProxy")
         self.log = logging.getLogger("S3BucketProxy")
         
         # Session management

@@ -76,7 +76,7 @@ class Config:
         TS_CLIENT_HOST = os.environ.get('PETAL_TS_CLIENT_HOST', 'localhost')
         TS_CLIENT_PORT = int(os.environ.get('PETAL_TS_CLIENT_PORT', 3004))
         CALLBACK_HOST  = os.environ.get('PETAL_CALLBACK_HOST', 'localhost')
-        CALLBACK_PORT  = int(os.environ.get('PETAL_CALLBACK_PORT', 3005))
+        CALLBACK_PORT  = int(os.environ.get('PETAL_CALLBACK_PORT', 9000))
         ENABLE_CALLBACKS = os.environ.get('PETAL_ENABLE_CALLBACKS', 'true').lower() in ('true', '1', 'yes')
         COMMAND_EDGE_TOPIC = os.environ.get('PETAL_COMMAND_EDGE_TOPIC', 'command/edge')
         RESPONSE_TOPIC = os.environ.get('PETAL_RESPONSE_TOPIC', 'response')

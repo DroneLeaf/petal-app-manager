@@ -495,7 +495,7 @@ class RedisProxy(BaseProxy):
                     callback = self._subscriptions.get(channel)
                     if callback:
                         try:
-                            callback(channel, data)
+                            callback(channel, data) # TODO: 
                             self.log.info(f"Callback executed for channel: {channel}")
                         except Exception as cb_err:
                             self.log.error(f"Error in callback for channel {channel}: {cb_err}")

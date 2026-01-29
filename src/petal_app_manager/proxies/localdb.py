@@ -50,7 +50,7 @@ class LocalDBProxy(BaseProxy):
         self.debug = debug
         
         self._loop = None
-        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="LocalDBProxy")
         self.log = logging.getLogger("LocalDBProxy")
         self._machine_id = None
         self._organization_id = None
