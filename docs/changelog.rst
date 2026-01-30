@@ -1,6 +1,46 @@
 Changelog
 =========
 
+Version 0.1.60 (2026-01-30)
+---------------------------
+
+**Plugin Loading & Startup Refactor:**
+
+- Separated petal loading into two distinct phases for finer control and clearer logging:
+
+  - ``initialize_petals``: Loads and configures petals without starting them
+  - ``startup_petals``: Starts up and mounts petals to the FastAPI app
+  - Original ``load_petals`` function now wraps these two steps
+
+- Updated main application startup logic to use new initialization pattern, ensuring petals are loaded and started sequentially and safely in the background
+
+**MQTT Callback & Routing Improvements:**
+
+- Registered MQTT callback router under ``/mqtt-callback`` path only when MQTT proxy and callbacks are enabled
+- Changed default MQTT callback port to ``9000`` to match main app's port (previously used dedicated server on port 3005)
+- Updated Postman collection and FastAPI launch configuration for new callback endpoint URL
+
+**Proxy & Threading Enhancements:**
+
+- Added explicit thread name prefixes to all proxy thread pools and background threads for easier debugging and log tracing:
+
+  - ``S3BucketProxy``: Thread pool naming for S3 operations
+  - ``CloudProxy``: Thread pool naming for cloud operations
+  - ``LocalDbProxy``: Thread pool naming for database operations
+  - ``MavLinkExternalProxy``: I/O and worker thread naming
+
+- Exposed ``PETAL_REDIS_WORKER_THREADS`` environment variable to configure Redis proxy worker threads
+- Increased Redis proxy ``ThreadPoolExecutor`` workers to prevent blocking listen loops from starving key/value operations
+- Added ``_invoke_callback_safely()`` method in Redis proxy for proper async callback handling from worker threads using ``asyncio.run_coroutine_threadsafe()``
+
+**Health Check Logic:**
+
+- Simplified MavLink proxy health check to only consider main connection status, excluding ``leaf_fc_connected`` flag
+
+**Dependency Updates:**
+
+- Updated ``petal-warehouse`` dependency version
+
 Version 0.1.59 (2026-01-27)
 ---------------------------
 
