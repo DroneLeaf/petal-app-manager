@@ -39,7 +39,10 @@ Version 0.1.60 (2026-01-30)
 
 **Dependency Updates:**
 
-- Updated ``petal-warehouse`` dependency version
+- Updated ``petal-warehouse`` from ``v0.1.7`` to ``v0.1.8``:
+
+  - **Version Management**: ``PetalWarehouse.version`` attribute now dynamically references package ``__version__`` instead of being hardcoded
+  - **Thread Naming**: Background thread for sending position and yaw data to Blender now named ``BlenderPositionSender`` for improved debugging and monitoring
 
 Version 0.1.59 (2026-01-27)
 ---------------------------
