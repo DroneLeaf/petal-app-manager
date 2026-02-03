@@ -767,26 +767,45 @@ These commands provide system-level operations for the flight controller.
 reboot_px4
 ^^^^^^^^^^
 
-**Command:** ``petal-user-journey-coordinator/reboot_px4``
+**Command:** ``petal-user-journey-coordinator/reboot_autopilot``
 
-Reboots the PX4 flight controller. This command is blocked if any active operation (ESC calibration, motor testing, etc.) is in progress.
+Reboots the PX4 flight controller. This command uses a two-phase response pattern:
+
+1. **Immediate Response** (via ``send_command_response``): Acknowledges the command was received
+2. **Status Publish** (via ``publish_message``): Reports the actual reboot result after completion
+
+**Understanding ``waitResponse``:**
+
+When ``waitResponse: true`` is set in the request, the petal will call ``send_command_response`` to deliver an immediate acknowledgement back to the client. This response is delivered via the MQTT proxy's request-response mechanism and confirms:
+
+- The command was received and validated
+- No blocking operations are in progress  
+- The reboot process has been initiated
+
+The client does **not** wait for the actual reboot to complete—that would block for several seconds.
 
 **Payload:** None required (empty object ``{}``)
 
-**Response (Success):**
+**Phase 1: Immediate Response (waitResponse)**
+
+Sent immediately via ``send_command_response`` when ``waitResponse: true``:
 
 .. code-block:: json
 
    {
      "status": "success",
-     "message": "PX4 reboot command successful",
+     "message": "PX4 reboot command initiated",
      "data": {
-       "success": true,
-       "message": "Reboot command acknowledged"
+       "reboot_initiated": true,
+       "message": "Reboot in progress, status will be published to command/web"
      }
    }
 
-**Response (Error - Operation Active):**
+**Phase 1: Error Responses**
+
+Error responses are sent immediately via ``send_command_response`` when ``waitResponse: true``.
+
+*Operation Blocked:*
 
 .. code-block:: json
 
@@ -796,36 +815,104 @@ Reboots the PX4 flight controller. This command is blocked if any active operati
      "error_code": "OPERATION_ACTIVE"
    }
 
-**Response (Error - Reboot Failed):**
+*Validation Error:*
 
 .. code-block:: json
 
    {
      "status": "error",
-     "message": "PX4 reboot command failed or timed out",
-     "error_code": "REBOOT_FAILED",
-     "data": {
-       "success": false,
-       "message": "Timeout waiting for reboot acknowledgment"
+     "message": "Invalid PX4 reboot message: <validation details>",
+     "error_code": "VALIDATION_ERROR"
+   }
+
+*Handler Error:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "PX4 reboot message handler error: <error details>",
+     "error_code": "HANDLER_ERROR"
+   }
+
+**Phase 2: Status Publish (publish_message)**
+
+After the reboot completes (or fails), the petal publishes the result to the ``command/web`` MQTT topic. The front-end must subscribe to this topic and filter messages by the ``command`` field.
+
+**Status Publish Command Name Pattern:**
+
+.. code-block:: text
+
+   /<petal_name>/reboot_px4_status
+
+For this petal, the command will be:
+
+.. code-block:: text
+
+   /petal-user-journey-coordinator/reboot_px4_status
+
+**Front-End Handling:**
+
+The front-end should:
+
+1. Subscribe to the ``command/web`` MQTT topic
+2. Filter incoming messages by checking if ``message.command`` equals ``/petal-user-journey-coordinator/reboot_px4_status``
+3. Use the ``messageId`` field to correlate the status with the original request
+
+**Status Publish (Success):**
+
+.. code-block:: json
+
+   {
+     "messageId": "reboot-001",
+     "command": "/petal-user-journey-coordinator/reboot_px4_status",
+     "timestamp": "2026-01-07T12:00:05.000Z",
+     "payload": {
+       "reboot_initiated": true,
+       "reboot_success": true,
+       "status": "success",
+       "message": "PX4 reboot completed successfully",
+       "error_code": null,
+       "timestamp": "2026-01-07T12:00:05.000Z"
      }
    }
 
-**Example:**
+**Status Publish (Failed):**
 
-.. code-block:: python
+.. code-block:: json
 
-   # Reboot the PX4 flight controller
    {
-     "command": "petal-user-journey-coordinator/reboot_px4",
      "messageId": "reboot-001",
-     "waitResponse": true,
-     "payload": {}
+     "command": "/petal-user-journey-coordinator/reboot_px4_status",
+     "timestamp": "2026-01-07T12:00:05.000Z",
+     "payload": {
+       "reboot_initiated": true,
+       "reboot_success": false,
+       "status": "failed",
+       "message": "PX4 reboot command failed or timed out",
+       "error_code": "REBOOT_FAILED",
+       "timestamp": "2026-01-07T12:00:05.000Z"
+     }
    }
+
+**Status Payload Fields:**
+
+- ``reboot_initiated`` (bool): Always ``true`` if status is published (reboot was attempted)
+- ``reboot_success`` (bool): ``true`` if reboot succeeded, ``false`` if it failed
+- ``status`` (str): ``"success"`` or ``"failed"``
+- ``message`` (str): Human-readable status message from the MAVLink response
+- ``error_code`` (str|null): Error code if failed (``"REBOOT_FAILED"``, ``"EXECUTION_ERROR"``)
+- ``timestamp`` (str): ISO 8601 timestamp of when the reboot completed
 
 .. warning::
    The reboot command will be rejected if any ESC calibration, motor testing, or other 
    active operations are in progress. Ensure all operations are complete or cancelled 
    before attempting to reboot.
+
+.. note::
+   The ``messageId`` in both the immediate response and the status publish matches the 
+   original request's ``messageId``, allowing the front-end to correlate responses with 
+   their originating requests.
 
 Complete Usage Example
 ----------------------
@@ -916,6 +1003,93 @@ All commands return error responses in a consistent format:
 - ``TIMEOUT_ERROR`` - Operation timed out
 - ``MAVLINK_ERROR`` - MAVLink communication failed
 - ``NOT_INITIALIZED`` - Petal not fully initialized
+
+MQTT Topics Reference
+---------------------
+
+This section provides a comprehensive reference of all MQTT topics used by the petal.
+
+Commands (Received on ``command/edge``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Commands are received on the ``command/edge`` topic with the following format:
+``petal-user-journey-coordinator/<command_name>``
+
+**ESC Calibration:**
+
+- ``petal-user-journey-coordinator/esc_calibration`` - ESC calibration control
+- ``petal-user-journey-coordinator/esc_force_run_all`` - Force run all motors
+- ``petal-user-journey-coordinator/esc_force_run_single`` - Force run single motor
+- ``petal-user-journey-coordinator/esc_update_calibration_limits`` - Update ESC calibration limits
+
+**Geometry & Sensor Configuration:**
+
+- ``petal-user-journey-coordinator/geometry`` - Set drone geometry
+- ``petal-user-journey-coordinator/gps_module`` - Configure GPS module
+- ``petal-user-journey-coordinator/dist_module`` - Configure distance sensor module
+- ``petal-user-journey-coordinator/oflow_module`` - Configure optical flow module
+- ``petal-user-journey-coordinator/gps_spatial_offset`` - Set GPS spatial offset
+- ``petal-user-journey-coordinator/distance_spatial_offset`` - Set distance sensor offset
+- ``petal-user-journey-coordinator/optical_flow_spatial_offset`` - Set optical flow offset
+
+**Parameter Management:**
+
+- ``petal-user-journey-coordinator/bulk_set_parameters`` - Bulk set PX4 parameters
+- ``petal-user-journey-coordinator/bulk_get_parameters`` - Bulk get PX4 parameters
+
+**Telemetry Stream Subscriptions:**
+
+- ``petal-user-journey-coordinator/subscribe_rc_value_stream`` - Subscribe to RC stream
+- ``petal-user-journey-coordinator/unsubscribe_rc_value_stream`` - Unsubscribe from RC stream
+- ``petal-user-journey-coordinator/subscribe_pose_value_stream`` - Subscribe to pose stream
+- ``petal-user-journey-coordinator/unsubscribe_pose_value_stream`` - Unsubscribe from pose stream
+- ``petal-user-journey-coordinator/subscribe_ks_status_stream`` - Subscribe to kill switch status
+- ``petal-user-journey-coordinator/unsubscribe_ks_status_stream`` - Unsubscribe from kill switch status
+- ``petal-user-journey-coordinator/subscribe_mfs_a_status_stream`` - Subscribe to MFS A status
+- ``petal-user-journey-coordinator/unsubscribe_mfs_a_status_stream`` - Unsubscribe from MFS A status
+- ``petal-user-journey-coordinator/subscribe_mfs_b_status_stream`` - Subscribe to MFS B status
+- ``petal-user-journey-coordinator/unsubscribe_mfs_b_status_stream`` - Unsubscribe from MFS B status
+- ``petal-user-journey-coordinator/unsubscribeall`` - Unsubscribe from all streams
+
+**Verification Commands:**
+
+- ``petal-user-journey-coordinator/verify_pos_yaw_directions`` - Start position/yaw verification
+- ``petal-user-journey-coordinator/verify_pos_yaw_directions_complete`` - Complete position/yaw verification
+
+**Network Configuration:**
+
+- ``petal-user-journey-coordinator/connect_to_wifi_and_verify_optitrack`` - Connect WiFi and verify OptiTrack
+- ``petal-user-journey-coordinator/set_static_ip_address`` - Set static IP address
+
+**System Commands:**
+
+- ``petal-user-journey-coordinator/reboot_autopilot`` - Reboot the PX4 autopilot
+
+Published Topics (Sent to ``command/web``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The petal publishes status updates and async results to ``command/web`` with the following topics:
+
+**System Status:**
+
+- ``/petal-user-journey-coordinator/reboot_px4_status`` - Reboot operation status (success/failure)
+
+**Telemetry Streams:**
+
+- ``/petal-user-journey-coordinator/publish_rc_value_stream`` - RC value stream data
+- ``/petal-user-journey-coordinator/publish_pose_value_stream`` - Pose value stream data
+- ``/petal-user-journey-coordinator/publish_ks_status_stream`` - Kill switch status stream data
+- ``/petal-user-journey-coordinator/publish_mfs_a_status_stream`` - MFS A status stream data
+- ``/petal-user-journey-coordinator/publish_mfs_b_status_stream`` - MFS B status stream data
+
+**Verification Results:**
+
+- ``/petal-user-journey-coordinator/verify_pos_yaw_directions_results`` - Position/yaw verification results
+
+**Acknowledgments:**
+
+- ``petal-user-journey-coordinator/acknowledge`` - Generic command acknowledgment
+- ``petal-user-journey-coordinator/set_static_ip_address_ack`` - Static IP address set acknowledgment
 
 See Also
 --------

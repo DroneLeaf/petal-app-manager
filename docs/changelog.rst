@@ -1,6 +1,37 @@
 Changelog
 =========
 
+Version 0.1.61 (2026-02-03)
+---------------------------
+
+**Documentation Updates:**
+
+- Added comprehensive MQTT Topics Reference sections to petal documentation:
+
+  - **petal-user-journey-coordinator**: Lists all commands received on ``command/edge`` and topics published to ``command/web``
+  - **petal-flight-log**: Lists all commands received on ``command/edge`` and topics published to ``command/web``
+
+- Enhanced ``reboot_px4`` command documentation with two-phase response pattern:
+
+  - Phase 1: Immediate ``send_command_response`` for command acknowledgement
+  - Phase 2: Async ``publish_message`` to ``command/web`` with reboot status
+  - Documented all error response types (``OPERATION_ACTIVE``, ``VALIDATION_ERROR``, ``HANDLER_ERROR``)
+  - Added front-end handling instructions for status subscription
+
+**Dependency Updates:**
+
+- Updated ``petal-user-journey-coordinator`` from ``v0.1.8`` to ``v0.1.9``:
+
+  - **Refactor**: Refactored ``_reboot_px4_message_handler`` with two-phase response pattern:
+
+    - Immediate ``send_command_response`` acknowledges command receipt
+    - Sequential ``await reboot_autopilot`` executes the reboot
+    - ``publish_message`` publishes final status to ``/petal-user-journey-coordinator/reboot_px4_status``
+
+  - **Feature**: Added ``RebootPX4StatusPayload`` Pydantic model for structured reboot status payloads
+  - **Fix**: Added missing ``return`` statement after ``ValidationError`` handler to prevent fall-through execution
+  - **Improvement**: All error responses (validation, handler errors) now sent immediately via ``send_command_response``
+
 Version 0.1.60 (2026-01-30)
 ---------------------------
 
