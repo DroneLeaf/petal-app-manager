@@ -801,7 +801,11 @@ Sent immediately via ``send_command_response`` when ``waitResponse: true``:
      }
    }
 
-**Phase 1: Error Response (if operation blocked)**
+**Phase 1: Error Responses**
+
+Error responses are sent immediately via ``send_command_response`` when ``waitResponse: true``.
+
+*Operation Blocked:*
 
 .. code-block:: json
 
@@ -809,6 +813,26 @@ Sent immediately via ``send_command_response`` when ``waitResponse: true``:
      "status": "error",
      "message": "PX4 reboot blocked - Active operation in progress",
      "error_code": "OPERATION_ACTIVE"
+   }
+
+*Validation Error:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "Invalid PX4 reboot message: <validation details>",
+     "error_code": "VALIDATION_ERROR"
+   }
+
+*Handler Error:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "PX4 reboot message handler error: <error details>",
+     "error_code": "HANDLER_ERROR"
    }
 
 **Phase 2: Status Publish (publish_message)**
@@ -979,6 +1003,93 @@ All commands return error responses in a consistent format:
 - ``TIMEOUT_ERROR`` - Operation timed out
 - ``MAVLINK_ERROR`` - MAVLink communication failed
 - ``NOT_INITIALIZED`` - Petal not fully initialized
+
+MQTT Topics Reference
+---------------------
+
+This section provides a comprehensive reference of all MQTT topics used by the petal.
+
+Commands (Received on ``command/edge``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Commands are received on the ``command/edge`` topic with the following format:
+``petal-user-journey-coordinator/<command_name>``
+
+**ESC Calibration:**
+
+- ``petal-user-journey-coordinator/esc_calibration`` - ESC calibration control
+- ``petal-user-journey-coordinator/esc_force_run_all`` - Force run all motors
+- ``petal-user-journey-coordinator/esc_force_run_single`` - Force run single motor
+- ``petal-user-journey-coordinator/esc_update_calibration_limits`` - Update ESC calibration limits
+
+**Geometry & Sensor Configuration:**
+
+- ``petal-user-journey-coordinator/geometry`` - Set drone geometry
+- ``petal-user-journey-coordinator/gps_module`` - Configure GPS module
+- ``petal-user-journey-coordinator/dist_module`` - Configure distance sensor module
+- ``petal-user-journey-coordinator/oflow_module`` - Configure optical flow module
+- ``petal-user-journey-coordinator/gps_spatial_offset`` - Set GPS spatial offset
+- ``petal-user-journey-coordinator/distance_spatial_offset`` - Set distance sensor offset
+- ``petal-user-journey-coordinator/optical_flow_spatial_offset`` - Set optical flow offset
+
+**Parameter Management:**
+
+- ``petal-user-journey-coordinator/bulk_set_parameters`` - Bulk set PX4 parameters
+- ``petal-user-journey-coordinator/bulk_get_parameters`` - Bulk get PX4 parameters
+
+**Telemetry Stream Subscriptions:**
+
+- ``petal-user-journey-coordinator/subscribe_rc_value_stream`` - Subscribe to RC stream
+- ``petal-user-journey-coordinator/unsubscribe_rc_value_stream`` - Unsubscribe from RC stream
+- ``petal-user-journey-coordinator/subscribe_pose_value_stream`` - Subscribe to pose stream
+- ``petal-user-journey-coordinator/unsubscribe_pose_value_stream`` - Unsubscribe from pose stream
+- ``petal-user-journey-coordinator/subscribe_ks_status_stream`` - Subscribe to kill switch status
+- ``petal-user-journey-coordinator/unsubscribe_ks_status_stream`` - Unsubscribe from kill switch status
+- ``petal-user-journey-coordinator/subscribe_mfs_a_status_stream`` - Subscribe to MFS A status
+- ``petal-user-journey-coordinator/unsubscribe_mfs_a_status_stream`` - Unsubscribe from MFS A status
+- ``petal-user-journey-coordinator/subscribe_mfs_b_status_stream`` - Subscribe to MFS B status
+- ``petal-user-journey-coordinator/unsubscribe_mfs_b_status_stream`` - Unsubscribe from MFS B status
+- ``petal-user-journey-coordinator/unsubscribeall`` - Unsubscribe from all streams
+
+**Verification Commands:**
+
+- ``petal-user-journey-coordinator/verify_pos_yaw_directions`` - Start position/yaw verification
+- ``petal-user-journey-coordinator/verify_pos_yaw_directions_complete`` - Complete position/yaw verification
+
+**Network Configuration:**
+
+- ``petal-user-journey-coordinator/connect_to_wifi_and_verify_optitrack`` - Connect WiFi and verify OptiTrack
+- ``petal-user-journey-coordinator/set_static_ip_address`` - Set static IP address
+
+**System Commands:**
+
+- ``petal-user-journey-coordinator/reboot_autopilot`` - Reboot the PX4 autopilot
+
+Published Topics (Sent to ``command/web``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The petal publishes status updates and async results to ``command/web`` with the following topics:
+
+**System Status:**
+
+- ``/petal-user-journey-coordinator/reboot_px4_status`` - Reboot operation status (success/failure)
+
+**Telemetry Streams:**
+
+- ``/petal-user-journey-coordinator/publish_rc_value_stream`` - RC value stream data
+- ``/petal-user-journey-coordinator/publish_pose_value_stream`` - Pose value stream data
+- ``/petal-user-journey-coordinator/publish_ks_status_stream`` - Kill switch status stream data
+- ``/petal-user-journey-coordinator/publish_mfs_a_status_stream`` - MFS A status stream data
+- ``/petal-user-journey-coordinator/publish_mfs_b_status_stream`` - MFS B status stream data
+
+**Verification Results:**
+
+- ``/petal-user-journey-coordinator/verify_pos_yaw_directions_results`` - Position/yaw verification results
+
+**Acknowledgments:**
+
+- ``petal-user-journey-coordinator/acknowledge`` - Generic command acknowledgment
+- ``petal-user-journey-coordinator/set_static_ip_address_ack`` - Static IP address set acknowledgment
 
 See Also
 --------

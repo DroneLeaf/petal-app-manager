@@ -509,3 +509,63 @@ All commands return standardized error responses:
 - ``JOB_MONITOR_NOT_INITIALIZED`` - Job monitoring system not ready
 - ``INTERNAL_ERROR`` - Unexpected server error
 - ``PROCESSING_ERROR`` - Error during command processing
+
+MQTT Topics Reference
+---------------------
+
+This section provides a comprehensive reference of all MQTT topics used by the petal.
+
+Commands (Received on ``command/edge``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Commands are received on the ``command/edge`` topic with the following format:
+``petal-flight-log/<command_name>``
+
+**Flight Record Fetch:**
+
+- ``petal-flight-log/fetch_flight_records`` - Scan and match flight records from multiple sources
+- ``petal-flight-log/fetch_existing_flight_records`` - Fetch previously fetched records from cache
+
+**Flight Record Management:**
+
+- ``petal-flight-log/delete_flight_record`` - Delete a flight record and associated files
+
+**Sync Job Management:**
+
+- ``petal-flight-log/start_sync_flight_record`` - Start a sync job for ULog download and S3 upload
+- ``petal-flight-log/cancel_sync_job`` - Cancel an active sync job
+
+**Stream Subscriptions:**
+
+- ``petal-flight-log/subscribe_sync_job_value_stream`` - Subscribe to sync job progress updates
+- ``petal-flight-log/unsubscribe_sync_job_value_stream`` - Unsubscribe from sync job progress
+- ``petal-flight-log/subscribe_fetch_flight_records`` - Subscribe to fetch job progress updates
+- ``petal-flight-log/unsubscribe_fetch_flight_records`` - Unsubscribe from fetch job progress
+- ``petal-flight-log/cancel_fetch_flight_records`` - Cancel an active fetch job
+
+Published Topics (Sent to ``command/web``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The petal publishes status updates and progress to ``command/web`` with the following topics:
+
+**Progress Streams:**
+
+- ``/petal-flight-log/log_download/progress`` - ULog download progress updates
+- ``/petal-flight-log/s3_upload/progress`` - S3 upload progress updates
+
+**Job Status Streams:**
+
+- ``/petal-flight-log/publish_sync_job_value_stream`` - Sync job status and progress
+- ``/petal-flight-log/publish_fetch_flight_records_job_value_stream`` - Fetch job status and progress
+
+**Job Results:**
+
+- ``/petal-flight-log/delete_flight_record`` - Delete operation result
+- ``/petal-flight-log/cancel_sync_job`` - Cancel operation result
+- ``/petal-flight-log/check_sync_job`` - Sync job check result
+
+See Also
+--------
+
+- :doc:`../development_contribution/using_proxies` - Proxy usage documentation
+- :doc:`../changelog` - Version history and changes
