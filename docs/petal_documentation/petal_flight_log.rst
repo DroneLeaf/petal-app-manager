@@ -20,7 +20,7 @@ This petal communicates via MQTT messages on the ``command/edge`` topic. All com
        "deviceId": "device-id",
        "command": "petal-flight-log/<command_name>",
        "timestamp": "2026-01-15T14:30:00Z",
-       "payload": { ... }
+       "payload": {}
    }
 
 Required Proxies
