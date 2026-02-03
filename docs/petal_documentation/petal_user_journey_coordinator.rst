@@ -2,7 +2,7 @@ Petal User Journey Coordinator
 ================================
 
 .. note::
-   This documentation is for **petal-user-journey-coordinator v0.1.6**
+   This documentation is for **petal-user-journey-coordinator v0.1.8**
 
 The **petal-user-journey-coordinator** is a critical petal that provides MQTT-based command handling for drone configuration, calibration, real-time telemetry streaming, and trajectory verification. It serves as the primary interface between web/mobile applications and the drone's flight controller.
 
@@ -758,6 +758,74 @@ Sets a static IP address within the OptiTrack network.
      "assigned_static_ip": "10.0.0.25",
      "was_successful": true
    }
+
+System Commands
+---------------
+
+These commands provide system-level operations for the flight controller.
+
+reboot_px4
+^^^^^^^^^^
+
+**Command:** ``petal-user-journey-coordinator/reboot_px4``
+
+Reboots the PX4 flight controller. This command is blocked if any active operation (ESC calibration, motor testing, etc.) is in progress.
+
+**Payload:** None required (empty object ``{}``)
+
+**Response (Success):**
+
+.. code-block:: json
+
+   {
+     "status": "success",
+     "message": "PX4 reboot command successful",
+     "data": {
+       "success": true,
+       "message": "Reboot command acknowledged"
+     }
+   }
+
+**Response (Error - Operation Active):**
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "PX4 reboot blocked - Active operation in progress",
+     "error_code": "OPERATION_ACTIVE"
+   }
+
+**Response (Error - Reboot Failed):**
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "PX4 reboot command failed or timed out",
+     "error_code": "REBOOT_FAILED",
+     "data": {
+       "success": false,
+       "message": "Timeout waiting for reboot acknowledgment"
+     }
+   }
+
+**Example:**
+
+.. code-block:: python
+
+   # Reboot the PX4 flight controller
+   {
+     "command": "petal-user-journey-coordinator/reboot_px4",
+     "messageId": "reboot-001",
+     "waitResponse": true,
+     "payload": {}
+   }
+
+.. warning::
+   The reboot command will be rejected if any ESC calibration, motor testing, or other 
+   active operations are in progress. Ensure all operations are complete or cancelled 
+   before attempting to reboot.
 
 Complete Usage Example
 ----------------------
