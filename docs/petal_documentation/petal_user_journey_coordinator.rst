@@ -767,26 +767,41 @@ These commands provide system-level operations for the flight controller.
 reboot_px4
 ^^^^^^^^^^
 
-**Command:** ``petal-user-journey-coordinator/reboot_px4``
+**Command:** ``petal-user-journey-coordinator/reboot_autopilot``
 
-Reboots the PX4 flight controller. This command is blocked if any active operation (ESC calibration, motor testing, etc.) is in progress.
+Reboots the PX4 flight controller. This command uses a two-phase response pattern:
+
+1. **Immediate Response** (via ``send_command_response``): Acknowledges the command was received
+2. **Status Publish** (via ``publish_message``): Reports the actual reboot result after completion
+
+**Understanding ``waitResponse``:**
+
+When ``waitResponse: true`` is set in the request, the petal will call ``send_command_response`` to deliver an immediate acknowledgement back to the client. This response is delivered via the MQTT proxy's request-response mechanism and confirms:
+
+- The command was received and validated
+- No blocking operations are in progress  
+- The reboot process has been initiated
+
+The client does **not** wait for the actual reboot to complete—that would block for several seconds.
 
 **Payload:** None required (empty object ``{}``)
 
-**Response (Success):**
+**Phase 1: Immediate Response (waitResponse)**
+
+Sent immediately via ``send_command_response`` when ``waitResponse: true``:
 
 .. code-block:: json
 
    {
      "status": "success",
-     "message": "PX4 reboot command successful",
+     "message": "PX4 reboot command initiated",
      "data": {
-       "success": true,
-       "message": "Reboot command acknowledged"
+       "reboot_initiated": true,
+       "message": "Reboot in progress, status will be published to command/web"
      }
    }
 
-**Response (Error - Operation Active):**
+**Phase 1: Error Response (if operation blocked)**
 
 .. code-block:: json
 
@@ -796,36 +811,84 @@ Reboots the PX4 flight controller. This command is blocked if any active operati
      "error_code": "OPERATION_ACTIVE"
    }
 
-**Response (Error - Reboot Failed):**
+**Phase 2: Status Publish (publish_message)**
+
+After the reboot completes (or fails), the petal publishes the result to the ``command/web`` MQTT topic. The front-end must subscribe to this topic and filter messages by the ``command`` field.
+
+**Status Publish Command Name Pattern:**
+
+.. code-block:: text
+
+   /<petal_name>/reboot_px4_status
+
+For this petal, the command will be:
+
+.. code-block:: text
+
+   /petal-user-journey-coordinator/reboot_px4_status
+
+**Front-End Handling:**
+
+The front-end should:
+
+1. Subscribe to the ``command/web`` MQTT topic
+2. Filter incoming messages by checking if ``message.command`` equals ``/petal-user-journey-coordinator/reboot_px4_status``
+3. Use the ``messageId`` field to correlate the status with the original request
+
+**Status Publish (Success):**
 
 .. code-block:: json
 
    {
-     "status": "error",
-     "message": "PX4 reboot command failed or timed out",
-     "error_code": "REBOOT_FAILED",
-     "data": {
-       "success": false,
-       "message": "Timeout waiting for reboot acknowledgment"
+     "messageId": "reboot-001",
+     "command": "/petal-user-journey-coordinator/reboot_px4_status",
+     "timestamp": "2026-01-07T12:00:05.000Z",
+     "payload": {
+       "reboot_initiated": true,
+       "reboot_success": true,
+       "status": "success",
+       "message": "PX4 reboot completed successfully",
+       "error_code": null,
+       "timestamp": "2026-01-07T12:00:05.000Z"
      }
    }
 
-**Example:**
+**Status Publish (Failed):**
 
-.. code-block:: python
+.. code-block:: json
 
-   # Reboot the PX4 flight controller
    {
-     "command": "petal-user-journey-coordinator/reboot_px4",
      "messageId": "reboot-001",
-     "waitResponse": true,
-     "payload": {}
+     "command": "/petal-user-journey-coordinator/reboot_px4_status",
+     "timestamp": "2026-01-07T12:00:05.000Z",
+     "payload": {
+       "reboot_initiated": true,
+       "reboot_success": false,
+       "status": "failed",
+       "message": "PX4 reboot command failed or timed out",
+       "error_code": "REBOOT_FAILED",
+       "timestamp": "2026-01-07T12:00:05.000Z"
+     }
    }
+
+**Status Payload Fields:**
+
+- ``reboot_initiated`` (bool): Always ``true`` if status is published (reboot was attempted)
+- ``reboot_success`` (bool): ``true`` if reboot succeeded, ``false`` if it failed
+- ``status`` (str): ``"success"`` or ``"failed"``
+- ``message`` (str): Human-readable status message from the MAVLink response
+- ``error_code`` (str|null): Error code if failed (``"REBOOT_FAILED"``, ``"EXECUTION_ERROR"``)
+- ``timestamp`` (str): ISO 8601 timestamp of when the reboot completed
 
 .. warning::
    The reboot command will be rejected if any ESC calibration, motor testing, or other 
    active operations are in progress. Ensure all operations are complete or cancelled 
    before attempting to reboot.
+
+.. note::
+   The ``messageId`` in both the immediate response and the status publish matches the 
+   original request's ``messageId``, allowing the front-end to correlate responses with 
+   their originating requests.
 
 Complete Usage Example
 ----------------------
