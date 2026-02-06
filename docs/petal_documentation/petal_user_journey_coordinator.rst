@@ -2,7 +2,7 @@ Petal User Journey Coordinator
 ================================
 
 .. note::
-   This documentation is for **petal-user-journey-coordinator v0.1.8**
+   This documentation is for **petal-user-journey-coordinator v0.1.10**
 
 The **petal-user-journey-coordinator** is a critical petal that provides MQTT-based command handling for drone configuration, calibration, real-time telemetry streaming, and trajectory verification. It serves as the primary interface between web/mobile applications and the drone's flight controller.
 
@@ -170,6 +170,131 @@ Forces a single motor to run for individual motor testing.
 - ``motor_command`` (float): Motor command value [1000..2000]
 - ``safety_timeout_s`` (float): Safety timeout in seconds (0-3)
 - ``force_cancel`` (bool): Force cancel operation
+
+esc_calibration_single
+^^^^^^^^^^^^^^^^^^^^^^
+
+**Command:** ``petal-user-journey-coordinator/esc_calibration_single``
+
+Initiates and controls ESC calibration for a **single motor**. This is useful when you need to calibrate ESCs individually rather than all at once. The workflow mirrors ``esc_calibration`` but targets only the specified motor.
+
+**Payload:**
+
+.. code-block:: json
+
+   {
+     "motor_idx": 1,
+     "is_calibration_started": false,
+     "safety_timeout_s": 3.0,
+     "force_cancel_calibration": false,
+     "esc_interface_signal_type": "PWM",
+     "throttle": null,
+     "safe_stop_calibration": false
+   }
+
+**Parameters:**
+
+- ``motor_idx`` (int, required): Motor index (1-based). Cannot be changed while calibration is active.
+- ``is_calibration_started`` (bool, required): Whether calibration sequence has begun
+- ``safety_timeout_s`` (float, required): Safety timeout in seconds (0-3) before automatic motor shutoff
+- ``force_cancel_calibration`` (bool): Force stop the motor immediately (emergency stop)
+- ``esc_interface_signal_type`` (str): Signal type - ``"PWM"``, ``"OneShot125"``, ``"OneShot42"``, ``"Multishot"``, ``"DShot150"``, ``"DShot300"``, ``"DShot600"``, ``"DShot1200"``
+- ``throttle`` (str|null): Throttle command - ``"maximum"``, ``"minimum"``, or ``null``
+- ``safe_stop_calibration`` (bool): Gracefully stop the calibration process
+
+**Example - Full Single-Motor Calibration Sequence:**
+
+.. code-block:: python
+
+   # Step 1: Initialize calibration for motor 1 (drone powered OFF)
+   # Sets PWM_AUX_TIM0, PWM_AUX_MAX/MIN/FUNC for the target motor
+   {
+     "command": "petal-user-journey-coordinator/esc_calibration_single",
+     "messageId": "esc-cal-single-001",
+     "waitResponse": true,
+     "payload": {
+       "motor_idx": 1,
+       "is_calibration_started": false,
+       "safety_timeout_s": 3.0,
+       "force_cancel_calibration": false,
+       "esc_interface_signal_type": "PWM",
+       "throttle": null
+     }
+   }
+
+   # Step 2: Send maximum throttle to motor 1 (then power ON drone)
+   {
+     "command": "petal-user-journey-coordinator/esc_calibration_single",
+     "messageId": "esc-cal-single-002",
+     "waitResponse": true,
+     "payload": {
+       "motor_idx": 1,
+       "is_calibration_started": true,
+       "safety_timeout_s": 3.0,
+       "throttle": "maximum"
+     }
+   }
+
+   # Step 3: Send minimum throttle to motor 1 (after ESC beeps)
+   {
+     "command": "petal-user-journey-coordinator/esc_calibration_single",
+     "messageId": "esc-cal-single-003",
+     "waitResponse": true,
+     "payload": {
+       "motor_idx": 1,
+       "is_calibration_started": true,
+       "safety_timeout_s": 3.0,
+       "throttle": "minimum"
+     }
+   }
+
+   # Step 4: Gracefully stop calibration
+   {
+     "command": "petal-user-journey-coordinator/esc_calibration_single",
+     "messageId": "esc-cal-single-004",
+     "waitResponse": true,
+     "payload": {
+       "motor_idx": 1,
+       "is_calibration_started": false,
+       "safety_timeout_s": 3.0,
+       "safe_stop_calibration": true
+     }
+   }
+
+   # Alternative Step 4: Emergency stop (force cancel)
+   {
+     "command": "petal-user-journey-coordinator/esc_calibration_single",
+     "messageId": "esc-cal-single-005",
+     "waitResponse": true,
+     "payload": {
+       "motor_idx": 1,
+       "is_calibration_started": false,
+       "safety_timeout_s": 3.0,
+       "force_cancel_calibration": true
+     }
+   }
+
+**Response:**
+
+.. code-block:: json
+
+   {
+     "status": "success",
+     "message": "Single-motor ESC calibration state: maximum (motor 1)",
+     "calibration_state": "maximum",
+     "is_active": true,
+     "target_motor": 1
+   }
+
+**Important Notes:**
+
+- You **cannot change** ``motor_idx`` while a calibration is active. You will receive an error response asking you to stop the current calibration first via ``safe_stop_calibration: true``.
+- The ``throttle`` value is only accepted when ``is_calibration_started`` is ``true`` and the controller is active.
+- The motor will automatically stop if ``safety_timeout_s`` elapses without receiving a new command.
+- Use ``force_cancel_calibration: true`` for emergency situations; use ``safe_stop_calibration: true`` for graceful shutdown.
+
+.. warning::
+   Ensure propellers are removed before running ESC calibration!
 
 Parameter Configuration Commands
 --------------------------------
@@ -769,10 +894,13 @@ reboot_px4
 
 **Command:** ``petal-user-journey-coordinator/reboot_autopilot``
 
-Reboots the PX4 flight controller. This command uses a two-phase response pattern:
+Reboots the PX4 flight controller with full heartbeat confirmation. The command sends
+``MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN``, then waits for the autopilot heartbeat to **drop**
+(confirming the reboot started) and **return** (confirming the autopilot is alive again).
+This uses a two-phase response pattern:
 
 1. **Immediate Response** (via ``send_command_response``): Acknowledges the command was received
-2. **Status Publish** (via ``publish_message``): Reports the actual reboot result after completion
+2. **Status Publish** (via ``publish_message``): Reports the **confirmed** reboot result after heartbeat returns
 
 **Understanding ``waitResponse``:**
 
@@ -782,7 +910,8 @@ When ``waitResponse: true`` is set in the request, the petal will call ``send_co
 - No blocking operations are in progress  
 - The reboot process has been initiated
 
-The client does **not** wait for the actual reboot to complete—that would block for several seconds.
+The client does **not** wait for the actual reboot to complete—that would block for up to
+~35 seconds (ACK timeout + heartbeat drop window + heartbeat return window).
 
 **Payload:** None required (empty object ``{}``)
 
@@ -797,7 +926,7 @@ Sent immediately via ``send_command_response`` when ``waitResponse: true``:
      "message": "PX4 reboot command initiated",
      "data": {
        "reboot_initiated": true,
-       "message": "Reboot in progress, status will be published to command/web"
+       "message": "Reboot in progress, confirmed status will be published to command/web"
      }
    }
 
@@ -871,7 +1000,7 @@ The front-end should:
        "reboot_initiated": true,
        "reboot_success": true,
        "status": "success",
-       "message": "PX4 reboot completed successfully",
+       "message": "Reboot confirmed: COMMAND_ACK accepted and heartbeat drop + return observed.",
        "error_code": null,
        "timestamp": "2026-01-07T12:00:05.000Z"
      }
@@ -889,8 +1018,8 @@ The front-end should:
        "reboot_initiated": true,
        "reboot_success": false,
        "status": "failed",
-       "message": "PX4 reboot command failed or timed out",
-       "error_code": "REBOOT_FAILED",
+       "message": "Heartbeat drop observed but heartbeat did not return within 30.0s. Autopilot may still be rebooting.",
+       "error_code": "FAIL_REBOOT_NOT_CONFIRMED_HB_NO_RETURN",
        "timestamp": "2026-01-07T12:00:05.000Z"
      }
    }
@@ -901,7 +1030,15 @@ The front-end should:
 - ``reboot_success`` (bool): ``true`` if reboot succeeded, ``false`` if it failed
 - ``status`` (str): ``"success"`` or ``"failed"``
 - ``message`` (str): Human-readable status message from the MAVLink response
-- ``error_code`` (str|null): Error code if failed (``"REBOOT_FAILED"``, ``"EXECUTION_ERROR"``)
+- ``error_code`` (str|null): Error code if failed, from ``RebootStatusCode``:
+
+  - ``FAIL_ACK_DENIED`` - Autopilot rejected the command
+  - ``FAIL_ACK_TEMPORARILY_REJECTED`` - Temporarily rejected
+  - ``FAIL_NO_HEARTBEAT_TRACKING`` - Heartbeat tracking unavailable
+  - ``FAIL_REBOOT_NOT_CONFIRMED_NO_HB_DROP`` - Heartbeat did not drop
+  - ``FAIL_REBOOT_NOT_CONFIRMED_HB_NO_RETURN`` - Heartbeat dropped but did not return
+  - ``EXECUTION_ERROR`` - Unexpected error during reboot
+
 - ``timestamp`` (str): ISO 8601 timestamp of when the reboot completed
 
 .. warning::
@@ -1017,7 +1154,8 @@ Commands are received on the ``command/edge`` topic with the following format:
 
 **ESC Calibration:**
 
-- ``petal-user-journey-coordinator/esc_calibration`` - ESC calibration control
+- ``petal-user-journey-coordinator/esc_calibration`` - ESC calibration control (all motors)
+- ``petal-user-journey-coordinator/esc_calibration_single`` - ESC calibration control (single motor)
 - ``petal-user-journey-coordinator/esc_force_run_all`` - Force run all motors
 - ``petal-user-journey-coordinator/esc_force_run_single`` - Force run single motor
 - ``petal-user-journey-coordinator/esc_update_calibration_limits`` - Update ESC calibration limits

@@ -1,6 +1,41 @@
 Changelog
 =========
 
+Version 0.1.62 (2026-02-06)
+---------------------------
+
+**New Features:**
+
+- Added single-motor ESC calibration (``esc_calibration_single``) documentation and Postman API collection entries:
+
+  - Detailed step-by-step workflow: initialization, maximum throttle, minimum throttle, safe stop
+  - Emergency stop handling via ``force_cancel_calibration``
+  - Separate Postman requests for each calibration step targeting ``{{CALLBACK_URL}}/mqtt-callback/callback``
+
+**PX4 Reboot Workflow Improvements:**
+
+- Enhanced ``reboot_px4`` command documentation to clarify heartbeat-based reboot confirmation:
+
+  - Reboot is confirmed via heartbeat drop (PX4 shutting down) and heartbeat return (PX4 alive again)
+  - Updated immediate response message to specify confirmed status is published to ``command/web``
+  - Clarified client timing expectations: reboot confirmation can take up to ~35 seconds
+
+- Improved Postman reboot request descriptions and payloads to reflect the confirmed reboot flow
+
+**Documentation & Metadata Updates:**
+
+- Updated petal-user-journey-coordinator documentation version from ``v0.1.8`` to ``v0.1.10``
+- Improved Postman collection metadata and preview settings for better usability
+
+**Dependency Updates:**
+
+- Updated ``petal-user-journey-coordinator`` from ``v0.1.9`` to ``v0.1.10``:
+
+  - **Feature**: Added ``ESCCalibrationSingleController`` class implementing step-by-step single-motor ESC calibration workflow with interface setup, per-motor parameter configuration, and throttle control
+  - **Feature**: Introduced ``ESCCalibrationSinglePayload`` Pydantic model with motor index, calibration state, safety timeout, throttle commands, and ESC interface selection
+  - **Feature**: Added ``ESC_CALIBRATION_SINGLE`` operation mode to the ``OperationMode`` enum
+  - **Integration**: Registered ``ESCCalibrationSingleController`` and ``ESCCalibrationSinglePayload`` in the plugin startup routine and command handler setup
+
 Version 0.1.61 (2026-02-03)
 ---------------------------
 
