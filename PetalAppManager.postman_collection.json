@@ -268,6 +268,226 @@
 										"description": "Sends a PX4 reboot command via the MQTT callback server with full heartbeat confirmation.\n\nFlow:\n1. Validates message and checks for active operations\n2. Immediately responds with acknowledgement (send_command_response)\n3. Sends MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN to PX4\n4. Waits for heartbeat DROP (confirming PX4 is rebooting)\n5. Waits for heartbeat RETURN (confirming PX4 is alive again)\n6. Publishes confirmed reboot status to command/web topic\n\nThe front-end should await the published status on command/web to confirm the reboot completed successfully.\n\nTimeout defaults (configurable via env vars):\n- ACK_TIMEOUT: 3.0s (PETAL_REBOOT_ACK_TIMEOUT)\n- HEARTBEAT_DROP_WINDOW: 5.0s (PETAL_REBOOT_HB_DROP_WINDOW)\n- HEARTBEAT_DROP_GAP: 1.5s (PETAL_REBOOT_HB_DROP_GAP)\n- HEARTBEAT_RETURN_WINDOW: 30.0s (PETAL_REBOOT_HB_RETURN_WINDOW)"
 									},
 									"response": []
+								},
+								{
+									"name": "esc_calibration_single — Step 1: Initialize (motor 1)",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"topic\": \"org/{{org_id}}/device/{{device_id}}/command/edge\",\n    \"waitResponse\": true,\n    \"messageId\": \"{{$guid}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/esc_calibration_single\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"waitResponse\": true,\n        \"messageId\": \"{{$guid}}\",\n        \"deviceId\": \"{{robot_instance_id}}\",\n        \"command\": \"petal-user-journey-coordinator/esc_calibration_single\",\n        \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n        \"payload\": {\n            \"motor_idx\": 1,\n            \"is_calibration_started\": false,\n            \"safety_timeout_s\": 3.0,\n            \"force_cancel_calibration\": false,\n            \"esc_interface_signal_type\": \"PWM\",\n            \"throttle\": null\n        }\n    }\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{CALLBACK_URL}}/mqtt-callback/callback",
+											"host": [
+												"{{CALLBACK_URL}}"
+											],
+											"path": [
+												"mqtt-callback",
+												"callback"
+											],
+											"query": [
+												{
+													"key": "topic",
+													"value": "test_topic",
+													"disabled": true
+												}
+											]
+										},
+										"description": "Step 1: Initialize single-motor ESC calibration for motor 1.\n\nSets is_calibration_started=false to configure PWM_AUX_TIM0, PWM_AUX_MAX/MIN/FUNC parameters for the target motor. The calibration_state transitions to 'configured'.\n\nExpected response: calibration_state='configured', is_active=true, target_motor=1\n\nNote: safety_timeout_s=3.0 means the motor will auto-stop 3s after the last command. In Postman you cannot send periodic keep-alive messages, so fire Step 2 within 3s or the controller will time out and you'll need to re-initialize."
+									},
+									"response": []
+								},
+								{
+									"name": "esc_calibration_single — Step 2: Maximum throttle (motor 1)",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"topic\": \"org/{{org_id}}/device/{{device_id}}/command/edge\",\n    \"waitResponse\": true,\n    \"messageId\": \"{{$guid}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/esc_calibration_single\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"waitResponse\": true,\n        \"messageId\": \"{{$guid}}\",\n        \"deviceId\": \"{{robot_instance_id}}\",\n        \"command\": \"petal-user-journey-coordinator/esc_calibration_single\",\n        \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n        \"payload\": {\n            \"motor_idx\": 1,\n            \"is_calibration_started\": true,\n            \"safety_timeout_s\": 3.0,\n            \"throttle\": \"maximum\"\n        }\n    }\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{CALLBACK_URL}}/mqtt-callback/callback",
+											"host": [
+												"{{CALLBACK_URL}}"
+											],
+											"path": [
+												"mqtt-callback",
+												"callback"
+											],
+											"query": [
+												{
+													"key": "topic",
+													"value": "test_topic",
+													"disabled": true
+												}
+											]
+										},
+										"description": "Step 2: Send maximum throttle to motor 1.\n\nSets is_calibration_started=true with throttle='maximum'. The calibration loop will begin sending max throttle commands to the target motor every 0.5s.\n\nFire this within safety_timeout_s of Step 1, otherwise the controller will have timed out.\n\nExpected response: calibration_state='maximum', is_active=true, target_motor=1"
+									},
+									"response": []
+								},
+								{
+									"name": "esc_calibration_single — Step 3: Minimum throttle (motor 1)",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"topic\": \"org/{{org_id}}/device/{{device_id}}/command/edge\",\n    \"waitResponse\": true,\n    \"messageId\": \"{{$guid}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/esc_calibration_single\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"waitResponse\": true,\n        \"messageId\": \"{{$guid}}\",\n        \"deviceId\": \"{{robot_instance_id}}\",\n        \"command\": \"petal-user-journey-coordinator/esc_calibration_single\",\n        \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n        \"payload\": {\n            \"motor_idx\": 1,\n            \"is_calibration_started\": true,\n            \"safety_timeout_s\": 3.0,\n            \"throttle\": \"minimum\"\n        }\n    }\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{CALLBACK_URL}}/mqtt-callback/callback",
+											"host": [
+												"{{CALLBACK_URL}}"
+											],
+											"path": [
+												"mqtt-callback",
+												"callback"
+											],
+											"query": [
+												{
+													"key": "topic",
+													"value": "test_topic",
+													"disabled": true
+												}
+											]
+										},
+										"description": "Step 3: Switch to minimum throttle on motor 1.\n\nSets throttle='minimum'. The calibration loop will begin sending min throttle commands to the target motor.\n\nFire this within safety_timeout_s of Step 2.\n\nExpected response: calibration_state='minimum', is_active=true, target_motor=1"
+									},
+									"response": []
+								},
+								{
+									"name": "esc_calibration_single — Step 4: Safe stop (motor 1)",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"topic\": \"org/{{org_id}}/device/{{device_id}}/command/edge\",\n    \"waitResponse\": true,\n    \"messageId\": \"{{$guid}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/esc_calibration_single\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"waitResponse\": true,\n        \"messageId\": \"{{$guid}}\",\n        \"deviceId\": \"{{robot_instance_id}}\",\n        \"command\": \"petal-user-journey-coordinator/esc_calibration_single\",\n        \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n        \"payload\": {\n            \"motor_idx\": 1,\n            \"is_calibration_started\": false,\n            \"safety_timeout_s\": 3.0,\n            \"safe_stop_calibration\": true\n        }\n    }\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{CALLBACK_URL}}/mqtt-callback/callback",
+											"host": [
+												"{{CALLBACK_URL}}"
+											],
+											"path": [
+												"mqtt-callback",
+												"callback"
+											],
+											"query": [
+												{
+													"key": "topic",
+													"value": "test_topic",
+													"disabled": true
+												}
+											]
+										},
+										"description": "Step 4: Gracefully stop the single-motor ESC calibration.\n\nSets safe_stop_calibration=true to cleanly shut down the calibration loop.\n\nExpected response: calibration_state='stopped', is_active=false"
+									},
+									"response": []
+								},
+								{
+									"name": "esc_calibration_single — Emergency stop (motor 1)",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"topic\": \"org/{{org_id}}/device/{{device_id}}/command/edge\",\n    \"waitResponse\": true,\n    \"messageId\": \"{{$guid}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/esc_calibration_single\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"waitResponse\": true,\n        \"messageId\": \"{{$guid}}\",\n        \"deviceId\": \"{{robot_instance_id}}\",\n        \"command\": \"petal-user-journey-coordinator/esc_calibration_single\",\n        \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n        \"payload\": {\n            \"motor_idx\": 1,\n            \"is_calibration_started\": false,\n            \"safety_timeout_s\": 3.0,\n            \"force_cancel_calibration\": true\n        }\n    }\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{CALLBACK_URL}}/mqtt-callback/callback",
+											"host": [
+												"{{CALLBACK_URL}}"
+											],
+											"path": [
+												"mqtt-callback",
+												"callback"
+											],
+											"query": [
+												{
+													"key": "topic",
+													"value": "test_topic",
+													"disabled": true
+												}
+											]
+										},
+										"description": "Emergency stop: Immediately cancels single-motor ESC calibration.\n\nSets force_cancel_calibration=true to trigger an immediate motor shutdown regardless of current state. Use this if anything goes wrong.\n\nCan be sent at any time during the calibration workflow."
+									},
+									"response": []
 								}
 							]
 						},
