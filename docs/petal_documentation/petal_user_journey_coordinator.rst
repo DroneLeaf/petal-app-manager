@@ -894,10 +894,13 @@ reboot_px4
 
 **Command:** ``petal-user-journey-coordinator/reboot_autopilot``
 
-Reboots the PX4 flight controller. This command uses a two-phase response pattern:
+Reboots the PX4 flight controller with full heartbeat confirmation. The command sends
+``MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN``, then waits for the autopilot heartbeat to **drop**
+(confirming the reboot started) and **return** (confirming the autopilot is alive again).
+This uses a two-phase response pattern:
 
 1. **Immediate Response** (via ``send_command_response``): Acknowledges the command was received
-2. **Status Publish** (via ``publish_message``): Reports the actual reboot result after completion
+2. **Status Publish** (via ``publish_message``): Reports the **confirmed** reboot result after heartbeat returns
 
 **Understanding ``waitResponse``:**
 
@@ -907,7 +910,8 @@ When ``waitResponse: true`` is set in the request, the petal will call ``send_co
 - No blocking operations are in progress  
 - The reboot process has been initiated
 
-The client does **not** wait for the actual reboot to complete—that would block for several seconds.
+The client does **not** wait for the actual reboot to complete—that would block for up to
+~35 seconds (ACK timeout + heartbeat drop window + heartbeat return window).
 
 **Payload:** None required (empty object ``{}``)
 
@@ -922,7 +926,7 @@ Sent immediately via ``send_command_response`` when ``waitResponse: true``:
      "message": "PX4 reboot command initiated",
      "data": {
        "reboot_initiated": true,
-       "message": "Reboot in progress, status will be published to command/web"
+       "message": "Reboot in progress, confirmed status will be published to command/web"
      }
    }
 
@@ -996,7 +1000,7 @@ The front-end should:
        "reboot_initiated": true,
        "reboot_success": true,
        "status": "success",
-       "message": "PX4 reboot completed successfully",
+       "message": "Reboot confirmed: COMMAND_ACK accepted and heartbeat drop + return observed.",
        "error_code": null,
        "timestamp": "2026-01-07T12:00:05.000Z"
      }
@@ -1014,8 +1018,8 @@ The front-end should:
        "reboot_initiated": true,
        "reboot_success": false,
        "status": "failed",
-       "message": "PX4 reboot command failed or timed out",
-       "error_code": "REBOOT_FAILED",
+       "message": "Heartbeat drop observed but heartbeat did not return within 30.0s. Autopilot may still be rebooting.",
+       "error_code": "FAIL_REBOOT_NOT_CONFIRMED_HB_NO_RETURN",
        "timestamp": "2026-01-07T12:00:05.000Z"
      }
    }
@@ -1026,7 +1030,15 @@ The front-end should:
 - ``reboot_success`` (bool): ``true`` if reboot succeeded, ``false`` if it failed
 - ``status`` (str): ``"success"`` or ``"failed"``
 - ``message`` (str): Human-readable status message from the MAVLink response
-- ``error_code`` (str|null): Error code if failed (``"REBOOT_FAILED"``, ``"EXECUTION_ERROR"``)
+- ``error_code`` (str|null): Error code if failed, from ``RebootStatusCode``:
+
+  - ``FAIL_ACK_DENIED`` - Autopilot rejected the command
+  - ``FAIL_ACK_TEMPORARILY_REJECTED`` - Temporarily rejected
+  - ``FAIL_NO_HEARTBEAT_TRACKING`` - Heartbeat tracking unavailable
+  - ``FAIL_REBOOT_NOT_CONFIRMED_NO_HB_DROP`` - Heartbeat did not drop
+  - ``FAIL_REBOOT_NOT_CONFIRMED_HB_NO_RETURN`` - Heartbeat dropped but did not return
+  - ``EXECUTION_ERROR`` - Unexpected error during reboot
+
 - ``timestamp`` (str): ISO 8601 timestamp of when the reboot completed
 
 .. warning::
