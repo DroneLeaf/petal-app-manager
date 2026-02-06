@@ -1650,6 +1650,218 @@ class MavLinkExternalProxy(ExternalProxy):
             ack_result=None,
         )
 
+    async def reboot_autopilot_confirmed(
+        self,
+        reboot_onboard_computer: bool = False,
+        ack_timeout: float = 3.0,
+        hb_drop_window_s: float = 5.0,
+        hb_drop_gap_s: float = 1.5,
+        hb_return_window_s: float = 30.0,
+        hb_poll_interval_s: float = 0.05,
+        sitl_mode: bool = False,
+    ) -> RebootAutopilotResponse:
+        """
+        Send a reboot command and confirm success via heartbeat drop + return.
+
+        Unlike :meth:`reboot_autopilot`, heartbeat confirmation is the
+        **primary** verification method, not a fallback.  The flow is:
+
+        1. Send MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN and wait for COMMAND_ACK.
+           - If the ACK is a rejection, return immediately with failure.
+           - If the ACK is accepted *or* times out, proceed to step 2.
+        2. Wait for heartbeat to **drop** (gap ≥ ``hb_drop_gap_s`` within
+           ``hb_drop_window_s``).
+        3. Wait for heartbeat to **return** (new heartbeat after the drop
+           within ``hb_return_window_s``).
+        4. Return success only when heartbeat returns, confirming the
+           autopilot has rebooted and is alive again.
+
+        Parameters
+        ----------
+        reboot_onboard_computer : bool
+            If True, also reboot the onboard computer.
+        ack_timeout : float
+            Maximum time (s) to wait for COMMAND_ACK.
+        hb_drop_window_s : float
+            Time window (s) to detect heartbeat drop after command.
+        hb_drop_gap_s : float
+            Minimum gap (s) without a heartbeat to consider it dropped.
+        hb_return_window_s : float
+            Time window (s) to wait for heartbeat to return after drop.
+        hb_poll_interval_s : float
+            Polling interval (s) for heartbeat checks.
+        sitl_mode : bool
+            If True, treat a DENIED ACK as acceptable instead of failing
+            immediately.  This allows SITL testing where the user manually
+            kills and restarts the ``px4_sitl`` process to trigger the
+            heartbeat drop + return cycle.
+
+        Returns
+        -------
+        RebootAutopilotResponse
+        """
+        if not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        # ── Step 1: Send reboot command and attempt to get ACK ────────────
+        cmd = self.build_reboot_command(
+            reboot_autopilot=True,
+            reboot_onboard_computer=reboot_onboard_computer,
+        )
+
+        result = {"ack_received": False, "result": None}
+
+        def _collector(pkt) -> bool:
+            if pkt.get_type() != "COMMAND_ACK":
+                return False
+            if pkt.command == mavutil.mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN:
+                result["ack_received"] = True
+                result["result"] = pkt.result
+                return True
+            return False
+
+        COMMAND_ACK_ID = str(mavutil.mavlink.MAVLINK_MSG_ID_COMMAND_ACK)
+
+        _ACK_TO_STATUS = {
+            mavutil.mavlink.MAV_RESULT_DENIED: RebootStatusCode.FAIL_ACK_DENIED,
+            mavutil.mavlink.MAV_RESULT_TEMPORARILY_REJECTED: RebootStatusCode.FAIL_ACK_TEMPORARILY_REJECTED,
+            mavutil.mavlink.MAV_RESULT_UNSUPPORTED: RebootStatusCode.FAIL_ACK_UNSUPPORTED,
+            mavutil.mavlink.MAV_RESULT_FAILED: RebootStatusCode.FAIL_ACK_FAILED,
+            mavutil.mavlink.MAV_RESULT_IN_PROGRESS: RebootStatusCode.FAIL_ACK_IN_PROGRESS,
+            getattr(mavutil.mavlink, "MAV_RESULT_CANCELLED", -999): RebootStatusCode.FAIL_ACK_CANCELLED,
+        }
+
+        _ACK_NAME = {
+            mavutil.mavlink.MAV_RESULT_ACCEPTED: "ACCEPTED",
+            mavutil.mavlink.MAV_RESULT_TEMPORARILY_REJECTED: "TEMPORARILY_REJECTED",
+            mavutil.mavlink.MAV_RESULT_DENIED: "DENIED",
+            mavutil.mavlink.MAV_RESULT_UNSUPPORTED: "UNSUPPORTED",
+            mavutil.mavlink.MAV_RESULT_FAILED: "FAILED",
+            mavutil.mavlink.MAV_RESULT_IN_PROGRESS: "IN_PROGRESS",
+            getattr(mavutil.mavlink, "MAV_RESULT_CANCELLED", -999): "CANCELLED",
+        }
+
+        ack_received = False
+        ack_val = None
+
+        try:
+            await self.send_and_wait(
+                match_key=COMMAND_ACK_ID,
+                request_msg=cmd,
+                collector=_collector,
+                timeout=ack_timeout,
+            )
+        except TimeoutError:
+            self._log.warning(
+                "Reboot command sent but no ACK received; proceeding to heartbeat confirmation..."
+            )
+
+        if result["ack_received"]:
+            ack_received = True
+            ack_val = result["result"]
+            ack_name = _ACK_NAME.get(ack_val, f"UNKNOWN({ack_val})")
+
+            # If ACK is a rejection, fail immediately — no point waiting for heartbeat
+            # Exception: in SITL mode, DENIED is expected (simulator cannot reboot)
+            # so we skip the failure and proceed to heartbeat confirmation,
+            # allowing the user to manually kill/restart px4_sitl.
+            if ack_val != mavutil.mavlink.MAV_RESULT_ACCEPTED:
+                if sitl_mode and ack_val == mavutil.mavlink.MAV_RESULT_DENIED:
+                    self._log.warning(
+                        f"SITL_MODE: Reboot ACK was DENIED (expected for SITL). "
+                        f"Proceeding to heartbeat confirmation — manually kill and "
+                        f"restart px4_sitl within {hb_drop_window_s}s to trigger "
+                        f"heartbeat drop..."
+                    )
+                else:
+                    status = _ACK_TO_STATUS.get(ack_val, RebootStatusCode.FAIL_ACK_UNKNOWN)
+                    self._log.warning(f"Reboot command rejected with result: {ack_val} ({ack_name})")
+                    return RebootAutopilotResponse(
+                        success=False,
+                        status_code=status,
+                        reason=f"Autopilot rejected the reboot command: {ack_name}.",
+                        ack_result=ack_val,
+                    )
+            else:
+                self._log.info("Reboot command accepted by autopilot, proceeding to heartbeat confirmation...")
+
+        # ── Step 2: Heartbeat drop confirmation (primary check) ───────────
+        last_hb = getattr(self, "_last_heartbeat_time", None)
+        if last_hb is None:
+            self._log.warning("No heartbeat timestamp available; cannot confirm reboot via heartbeat.")
+            return RebootAutopilotResponse(
+                success=False,
+                status_code=RebootStatusCode.FAIL_NO_HEARTBEAT_TRACKING,
+                reason="Heartbeat tracking is unavailable (_last_heartbeat_time is None). Cannot confirm reboot.",
+                ack_result=ack_val,
+            )
+
+        async def _wait_for_heartbeat_drop() -> bool:
+            deadline = time.time() + hb_drop_window_s
+            while time.time() < deadline:
+                last = getattr(self, "_last_heartbeat_time", None)
+                if last is not None and (time.time() - last) >= hb_drop_gap_s:
+                    return True
+                await asyncio.sleep(hb_poll_interval_s)
+            return False
+
+        dropped = await _wait_for_heartbeat_drop()
+        if not dropped:
+            self._log.warning("Heartbeat did not drop within the expected window; reboot not confirmed.")
+            return RebootAutopilotResponse(
+                success=False,
+                status_code=RebootStatusCode.FAIL_REBOOT_NOT_CONFIRMED_NO_HB_DROP,
+                reason=(
+                    f"Heartbeat did not drop within {hb_drop_window_s}s window "
+                    f"(gap threshold: {hb_drop_gap_s}s). Reboot not confirmed."
+                ),
+                ack_result=ack_val,
+            )
+
+        drop_mark = getattr(self, "_last_heartbeat_time", last_hb) or last_hb
+        self._log.info("Heartbeat drop detected, waiting for heartbeat to return...")
+
+        # ── Step 3: Heartbeat return confirmation ─────────────────────────
+        async def _wait_for_heartbeat_return(since_ts: float) -> bool:
+            deadline = time.time() + hb_return_window_s
+            while time.time() < deadline:
+                last = getattr(self, "_last_heartbeat_time", None)
+                if last is not None and last > since_ts:
+                    return True
+                await asyncio.sleep(hb_poll_interval_s)
+            return False
+
+        returned = await _wait_for_heartbeat_return(since_ts=drop_mark)
+        if not returned:
+            self._log.warning("Heartbeat dropped but did not return; reboot not confirmed.")
+            return RebootAutopilotResponse(
+                success=False,
+                status_code=RebootStatusCode.FAIL_REBOOT_NOT_CONFIRMED_HB_NO_RETURN,
+                reason=(
+                    f"Heartbeat drop observed but heartbeat did not return within "
+                    f"{hb_return_window_s}s. Autopilot may still be rebooting."
+                ),
+                ack_result=ack_val,
+            )
+
+        # ── Step 4: Confirmed ─────────────────────────────────────────────
+        if ack_received:
+            self._log.info("Reboot confirmed: ACK accepted + heartbeat drop + return.")
+            return RebootAutopilotResponse(
+                success=True,
+                status_code=RebootStatusCode.OK_ACK_ACCEPTED_HB_CONFIRMED,
+                reason="Reboot confirmed: COMMAND_ACK accepted and heartbeat drop + return observed.",
+                ack_result=ack_val,
+            )
+        else:
+            self._log.info("Reboot confirmed via heartbeat drop + return (no ACK received).")
+            return RebootAutopilotResponse(
+                success=True,
+                status_code=RebootStatusCode.OK_HB_CONFIRMED_NO_ACK,
+                reason="Reboot confirmed via heartbeat drop + return (no COMMAND_ACK received).",
+                ack_result=None,
+            )
+
     async def get_param(self, name: str, timeout: float = 3.0) -> Dict[str, Any]:
         """
         Request a single PARAM_VALUE for `name` and return a dict:

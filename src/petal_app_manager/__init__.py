@@ -113,6 +113,22 @@ class Config:
         CLOUD_STARTUP_TIMEOUT = float(os.environ.get('PETAL_CLOUD_STARTUP_TIMEOUT', 5.0))
         MQTT_SUBSCRIBE_TIMEOUT = float(os.environ.get('PETAL_MQTT_SUBSCRIBE_TIMEOUT', 5.0))
 
+    # Reboot confirmation configuration
+    class RebootConfig:
+        # When True, treat DENIED ACK as acceptable so SITL users can
+        # manually kill/restart px4_sitl to trigger heartbeat drop+return.
+        SITL_MODE = os.environ.get('PETAL_REBOOT_SITL_MODE', 'false').lower() in ('true', '1', 'yes')
+        # Timeout for the MAVLink COMMAND_ACK response (seconds)
+        ACK_TIMEOUT = float(os.environ.get('PETAL_REBOOT_ACK_TIMEOUT', 3.0))
+        # Time window to wait for heartbeat to drop after reboot command (seconds)
+        HEARTBEAT_DROP_WINDOW_S = float(os.environ.get('PETAL_REBOOT_HB_DROP_WINDOW', 5.0))
+        # Minimum gap in heartbeat to consider it "dropped" (seconds)
+        HEARTBEAT_DROP_GAP_S = float(os.environ.get('PETAL_REBOOT_HB_DROP_GAP', 1.5))
+        # Time window to wait for heartbeat to return after drop (seconds)
+        HEARTBEAT_RETURN_WINDOW_S = float(os.environ.get('PETAL_REBOOT_HB_RETURN_WINDOW', 30.0))
+        # Polling interval for heartbeat checks (seconds)
+        HEARTBEAT_POLL_INTERVAL_S = float(os.environ.get('PETAL_REBOOT_HB_POLL_INTERVAL', 0.05))
+
     # ------- Backward-compatibility aliases (class attributes, not @property) -------
     # Accessing Config.MAVLINK_BAUD (etc.) now returns an int/str directly.
     MAVLINK_ENDPOINT = MavLinkConfig.ENDPOINT
@@ -149,3 +165,10 @@ class Config:
     MQTT_STARTUP_TIMEOUT = ProxyConfig.MQTT_STARTUP_TIMEOUT
     CLOUD_STARTUP_TIMEOUT = ProxyConfig.CLOUD_STARTUP_TIMEOUT
     MQTT_SUBSCRIBE_TIMEOUT = ProxyConfig.MQTT_SUBSCRIBE_TIMEOUT
+
+    REBOOT_SITL_MODE = RebootConfig.SITL_MODE
+    REBOOT_ACK_TIMEOUT = RebootConfig.ACK_TIMEOUT
+    REBOOT_HEARTBEAT_DROP_WINDOW_S = RebootConfig.HEARTBEAT_DROP_WINDOW_S
+    REBOOT_HEARTBEAT_DROP_GAP_S = RebootConfig.HEARTBEAT_DROP_GAP_S
+    REBOOT_HEARTBEAT_RETURN_WINDOW_S = RebootConfig.HEARTBEAT_RETURN_WINDOW_S
+    REBOOT_HEARTBEAT_POLL_INTERVAL_S = RebootConfig.HEARTBEAT_POLL_INTERVAL_S
