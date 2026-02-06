@@ -125,15 +125,16 @@ def main():
         description="Profile Petal App Manager using py-spy (all threads & async tasks)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Scenarios (labels for organizing profiles):
-  idle-no-leaffc      - Label for baseline idle state
-  idle-with-leaffc    - Label for idle with leafFC connected
-  esc-calibration     - Label for ESC calibration profiles
-  rc-stream           - Label for RC streaming profiles
-  mission-execution   - Label for mission execution profiles
+Example scenario labels for organizing profiles:
+  idle-no-leaffc      - Baseline idle state
+  idle-with-leaffc    - Idle with leafFC connected
+  esc-calibration     - ESC calibration operation
+  rc-stream           - RC streaming operation
+  mission-execution   - Mission execution operation
 
-Note: Scenario labels are for record keeping. The profiler captures
-      whatever PAM is actually doing during the profiling period.
+Note: Scenario labels are for record keeping only. Use any descriptive
+      label you want. The profiler captures whatever PAM is actually 
+      doing during the profiling period.
 
 Output Format:
   - Speedscope (JSON)          : Interactive visualization at speedscope.app
@@ -154,8 +155,8 @@ Examples:
     parser.add_argument(
         '--scenario',
         required=True,
-        choices=['idle-no-leaffc', 'idle-with-leaffc', 'esc-calibration', 'rc-stream', 'mission-execution'],
-        help='Operational scenario to profile'
+        type=str,
+        help='Scenario label for organizing profile files (e.g., idle-no-leaffc, mission-execution)'
     )
     
     parser.add_argument(

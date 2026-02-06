@@ -11,3 +11,4 @@ Learn how to contribute to Petal App Manager and develop custom petals.
    contribution_guidelines
    using_proxies
    advanced_debugging
+   profiling
