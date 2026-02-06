@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "600e2fa4-0a6e-4a29-b616-84460749ae7f",
+		"_postman_id": "81a24ffd-b5b9-4bed-9cf3-b93d6ced88e6",
 		"name": "PetalAppManager",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "44217196"
@@ -241,7 +241,7 @@
 										],
 										"body": {
 											"mode": "raw",
-											"raw": "{\n    \"topic\": \"org/{{org_id}}/device/{{device_id}}/command/edge\",\n    \"waitResponse\": true,\n    \"messageId\": \"{{$guid}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/reboot_px4\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"waitResponse\": true,\n        \"messageId\": \"{{$guid}}\",\n        \"deviceId\": \"{{robot_instance_id}}\",\n        \"command\": \"petal-user-journey-coordinator/reboot_px4\",\n        \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n        \"payload\": {}\n    }\n}",
+											"raw": "{\n    \"topic\": \"org/{{org_id}}/device/{{device_id}}/command/edge\",\n    \"waitResponse\": true,\n    \"messageId\": \"{{$guid}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/reboot_autopilot\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"waitResponse\": true,\n        \"messageId\": \"{{$guid}}\",\n        \"deviceId\": \"{{robot_instance_id}}\",\n        \"command\": \"petal-user-journey-coordinator/reboot_autopilot\",\n        \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n        \"payload\": {}\n    }\n}",
 											"options": {
 												"raw": {
 													"language": "json"
