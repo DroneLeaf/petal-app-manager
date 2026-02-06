@@ -1,0 +1,29 @@
+# Profiling and Visualization Tools for Petal App Manager
+# Install with: pip install -r tools/profiling/requirements-profiling.txt
+#
+# Note: graphviz Python package requires system graphviz binaries:
+#   Ubuntu/Debian: sudo apt-get install graphviz
+#   macOS: brew install graphviz
+#   Fedora: sudo dnf install graphviz
+
+# Interactive visualization of cProfile output
+snakeviz>=2.2.0
+
+# Generate flame graphs from profiling data
+flameprof>=0.4
+
+# Convert profiling data to dot graphs
+gprof2dot>=2022.7.29
+
+# Python interface to graphviz (requires system graphviz)
+graphviz>=0.20.1
+
+# Server runtime - Required to actually run PAM during profiling
+uvicorn>=0.27.0
+
+# Optional: Alternative profiling tool with lower overhead
+# Useful for longer profiling sessions
+py-spy>=0.3.14
+
+# Optional: Memory profiling
+memory-profiler>=0.61.0

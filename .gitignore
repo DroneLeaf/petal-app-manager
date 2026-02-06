@@ -171,3 +171,5 @@ mission_logs.json
 restrictions_db.json
 warehouse_db.json
 /tts_output
+
+tools/profiling/profiles/
