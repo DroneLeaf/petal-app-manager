@@ -86,7 +86,7 @@ python tools/profiling/profile_pam.py \
 ```
 
 This will:
-1. Start PAM via uvicorn on port 8001
+1. Start PAM via uvicorn on port 9000
 2. Profile for the specified duration
 3. Generate Speedscope JSON file
 4. Save to `tools/profiling/profiles/`
@@ -302,7 +302,7 @@ For profiling mission execution in SITL (Software-In-The-Loop), use this sample 
 2. While profiler is running, send mission via MQTT or HTTP:
    ```bash
    # Via HTTP (using curl)
-   curl -X POST http://localhost:8001/petal-leafsdk/mission/plan \
+   curl -X POST http://localhost:9000/petal-leafsdk/mission/plan \
      -H "Content-Type: application/json" \
      -d @tools/profiling/example_mission_sitl.json
    ```
@@ -584,11 +584,11 @@ echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 systemctl status redis
 systemctl status mosquitto
 
-# Check port 8001 is available
-lsof -i :8001  # Should be empty
+# Check port 9000 is available
+lsof -i :9000  # Should be empty
 
 # Check PAM can start normally
-python -m uvicorn petal_app_manager.main:app --port 8001
+python -m uvicorn petal_app_manager.main:app --port 9000
 # Then Ctrl+C and try profiler again
 ```
 

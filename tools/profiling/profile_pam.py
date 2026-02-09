@@ -65,12 +65,12 @@ class PySpyProfiler:
                 sys.executable, "-m", "uvicorn",
                 "petal_app_manager.main:app",
                 "--host", "127.0.0.1",
-                "--port", "8001",
+                "--port", "9000",
                 "--log-level", "info"
             ]
             
             print(f"[Profiler] Running py-spy for {self.duration} seconds...")
-            print(f"[Profiler] PAM will start on port 8001...")
+            print(f"[Profiler] PAM will start on port 9000...")
             print()
             
             result = subprocess.run(
