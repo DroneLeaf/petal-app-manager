@@ -133,6 +133,186 @@ Example scenario labels for organizing profile data:
 
 **Recommended duration:** 60-120s for most scenarios, 120-300s for longer operations.
 
+### Example SITL Mission for Profiling
+
+For profiling mission execution in SITL (Software-In-The-Loop), use this sample mission plan:
+
+**File:** `tools/profiling/example_mission_sitl.json`
+
+```json
+{
+  "config": {
+    "joystick_mode": "ENABLED_ON_PAUSE"
+  },
+  "edges": [
+    {
+      "from": "Takeoff",
+      "to": "Wait 1"
+    },
+    {
+      "from": "Wait 1",
+      "to": "GotoLocalWaypoint 1"
+    },
+    {
+      "from": "GotoLocalWaypoint 1",
+      "to": "GotoLocalWaypoint 2"
+    },
+    {
+      "from": "GotoLocalWaypoint 2",
+      "to": "GotoLocalWaypoint 3"
+    },
+    {
+      "from": "GotoLocalWaypoint 3",
+      "to": "Wait 2"
+    },
+    {
+      "from": "Wait 2",
+      "to": "Land"
+    }
+  ],
+  "id": "main",
+  "nodes": [
+    {
+      "name": "Takeoff",
+      "params": {
+        "alt": 1
+      },
+      "type": "Takeoff"
+    },
+    {
+      "name": "Wait 1",
+      "params": {
+        "duration": 2
+      },
+      "type": "Wait"
+    },
+    {
+      "name": "GotoLocalWaypoint 1",
+      "params": {
+        "speed": [
+          0.2
+        ],
+        "waypoints": [
+          [
+            0.5,
+            0,
+            1
+          ]
+        ],
+        "yaw_speed": [
+          30
+        ],
+        "yaws_deg": [
+          0
+        ]
+      },
+      "type": "GotoLocalPosition"
+    },
+    {
+      "name": "GotoLocalWaypoint 2",
+      "params": {
+        "speed": [
+          0.2,
+          0.2
+        ],
+        "waypoints": [
+          [
+            0.5,
+            0.5,
+            1
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "yaw_speed": [
+          30,
+          30
+        ],
+        "yaws_deg": [
+          0,
+          0
+        ]
+      },
+      "type": "GotoLocalPosition"
+    },
+    {
+      "name": "GotoLocalWaypoint 3",
+      "params": {
+        "speed": [
+          0.2,
+          0.3,
+          0.4
+        ],
+        "waypoints": [
+          [
+            0,
+            0.5,
+            1
+          ],
+          [
+            0.5,
+            0.5,
+            1
+          ],
+          [
+            0.5,
+            0,
+            1
+          ]
+        ],
+        "yaw_speed": [
+          10,
+          20,
+          20
+        ],
+        "yaws_deg": [
+          0,
+          10,
+          20
+        ]
+      },
+      "type": "GotoLocalPosition"
+    },
+    {
+      "name": "Wait 2",
+      "params": {
+        "duration": 2
+      },
+      "type": "Wait"
+    },
+    {
+      "name": "Land",
+      "params": {},
+      "type": "Land"
+    }
+  ]
+}
+```
+
+**How to profile with this mission:**
+
+1. Start profiling:
+   ```bash
+   python tools/profiling/profile_pam.py --scenario mission-execution --duration 120
+   ```
+
+2. While profiler is running, send mission via MQTT or HTTP:
+   ```bash
+   # Via HTTP (using curl)
+   curl -X POST http://localhost:8001/petal-leafsdk/mission/plan \
+     -H "Content-Type: application/json" \
+     -d @tools/profiling/example_mission_sitl.json
+   ```
+
+3. The profile will capture mission execution including:
+   - Mission loading and validation
+   - Mission runner loop execution
+   - MAVLink command generation
+   - Waypoint processing
+
 ---
 
 ## 📈 Output Formats & Visualizations
