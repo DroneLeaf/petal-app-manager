@@ -704,7 +704,8 @@ async def test_message_processing_concurrency(proxy: MQTTProxy):
     for i in range(5):
         proxy._handlers[command_topic].append({
             "callback": test_callback,
-            "subscription_id": f"test-sub-{i}"
+            "subscription_id": f"test-sub-{i}",
+            "cpu_heavy": False,
         })
     
     # Create and process message (will trigger all 5 handlers)
@@ -712,7 +713,7 @@ async def test_message_processing_concurrency(proxy: MQTTProxy):
     callback_futures = []
     original_invoke = proxy._invoke_callback_safely
     
-    def wrapped_invoke(callback, topic, payload):
+    def wrapped_invoke(callback, topic, payload, *, cpu_heavy=False):
         if asyncio.iscoroutinefunction(callback):
             future = asyncio.run_coroutine_threadsafe(callback(topic, payload), proxy._loop)
             callback_futures.append(future)
@@ -801,3 +802,48 @@ async def test_handler_registration(proxy: MQTTProxy):
     
     # Verify handler is removed
     assert result is True
+
+
+@pytest.mark.asyncio
+async def test_register_handler_cpu_heavy_flag(proxy: MQTTProxy):
+    """Test that cpu_heavy flag is stored correctly in handler dict entry."""
+    async def light_handler(topic: str, payload: dict):
+        pass
+
+    async def heavy_handler(topic: str, payload: dict):
+        pass
+
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
+    proxy.subscribed_topics.add(command_topic)
+
+    proxy.register_handler(light_handler)
+    proxy.register_handler(heavy_handler, cpu_heavy=True)
+
+    handlers = proxy._handlers[command_topic]
+    assert len(handlers) == 2
+
+    # First handler - default cpu_heavy=False
+    assert handlers[0]["cpu_heavy"] is False
+    # Second handler - explicit cpu_heavy=True
+    assert handlers[1]["cpu_heavy"] is True
+
+
+@pytest.mark.asyncio
+async def test_cpu_heavy_handler_invoked(proxy: MQTTProxy):
+    """Test that cpu_heavy handlers are dispatched via run_in_executor."""
+    call_log = []
+
+    async def heavy_handler(topic: str, payload: dict):
+        call_log.append(("heavy", topic, payload))
+
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
+    proxy.subscribed_topics.add(command_topic)
+    proxy.register_handler(heavy_handler, cpu_heavy=True)
+
+    proxy._process_incoming_message(command_topic, {"data": "heavy_test"})
+
+    # Give executor time to run
+    await asyncio.sleep(0.3)
+
+    assert len(call_log) == 1
+    assert call_log[0] == ("heavy", command_topic, {"data": "heavy_test"})

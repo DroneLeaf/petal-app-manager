@@ -231,7 +231,8 @@ class ExternalProxy(BaseProxy):
         key: str, 
         fn: Callable[[Any], Awaitable[None]], 
         duplicate_filter_interval: Optional[float] = None,
-        queue_length: Optional[int] = None
+        queue_length: Optional[int] = None,
+        cpu_heavy: bool = False,
     ) -> None:
         """
         Attach an async callback *fn* so it fires for **every** message appended to ``_recv[key]``.
@@ -251,6 +252,13 @@ class ExternalProxy(BaseProxy):
             If specified, sets the maximum length of the message buffer for *key*.
             New messages overwrite the oldest when the buffer is full.
             If None, the default maxlen from proxy initialization is used.
+        cpu_heavy : bool
+            If True, the handler's CPU-bound work will be offloaded to a
+            thread-pool executor managed by the proxy, preventing event-loop
+            starvation.  The handler must still be ``async def``, but it may
+            call ``await loop.run_in_executor(...)`` internally—or simply set
+            this flag and the proxy will wrap the entire handler invocation
+            in ``run_in_executor`` automatically.
             
         Raises
         ------
@@ -266,7 +274,8 @@ class ExternalProxy(BaseProxy):
         
         self._handlers[key].append(fn)
         self._handler_configs[key][fn] = {
-            'duplicate_filter_interval': duplicate_filter_interval
+            'duplicate_filter_interval': duplicate_filter_interval,
+            'cpu_heavy': cpu_heavy,
         }
 
     def unregister_handler(self, key: str, fn: Callable[[Any], Awaitable[None]]) -> None:
@@ -467,14 +476,24 @@ class ExternalProxy(BaseProxy):
                 self._process_message_with_handlers(key, msg)
             
     # ─────────────────────────────────────────── message processing ──
-    def _invoke_callback_safely(self, callback: Callable, key: str, msg: Any):
+    def _invoke_callback_safely(
+        self, callback: Callable, key: str, msg: Any, *, cpu_heavy: bool = False,
+    ):
         """Safely invoke an async callback by scheduling it on the main event loop.
 
         All callbacks are required to be async functions.
+        When *cpu_heavy* is ``True`` the coroutine is wrapped so that its body
+        executes inside ``loop.run_in_executor`` (thread pool), keeping the
+        event loop free for other work.
         """
         try:
             if self._loop and not self._loop.is_closed():
-                asyncio.run_coroutine_threadsafe(callback(msg), self._loop)
+                if cpu_heavy:
+                    async def _offloaded():
+                        await self._loop.run_in_executor(self._exe, lambda: asyncio.run(callback(msg)))
+                    asyncio.run_coroutine_threadsafe(_offloaded(), self._loop)
+                else:
+                    asyncio.run_coroutine_threadsafe(callback(msg), self._loop)
             else:
                 self._log.warning(
                     "[ExternalProxy] Cannot invoke async callback for key '%s': "
@@ -522,7 +541,8 @@ class ExternalProxy(BaseProxy):
                         self._last_message_times[handler_key] = (msg_str, current_time)
                 
                 if should_call_handler:
-                    self._invoke_callback_safely(cb, key, msg)
+                    is_cpu_heavy = handler_config.get('cpu_heavy', False)
+                    self._invoke_callback_safely(cb, key, msg, cpu_heavy=is_cpu_heavy)
                     self._log.debug(
                         "[ExternalProxy] handler %s called for key '%s': %s",
                         cb, key, msg

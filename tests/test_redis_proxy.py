@@ -539,3 +539,49 @@ async def test_concurrent_operations(proxy: RedisProxy):
     # Verify publish operations returned subscriber count
     assert all(result == 1 for result in publish_results)
     assert len(publish_results) == 5
+
+
+# ------ CPU Heavy Flag Tests ------ #
+
+@pytest.mark.asyncio
+async def test_subscribe_cpu_heavy_flag(proxy: RedisProxy):
+    """Test that cpu_heavy flag is stored when subscribing."""
+    proxy._mock_pubsub.subscribe.return_value = None
+
+    async def light_callback(channel: str, message: str):
+        pass
+
+    async def heavy_callback(channel: str, message: str):
+        pass
+
+    proxy.subscribe("light-channel", light_callback)
+    proxy.subscribe("heavy-channel", heavy_callback, cpu_heavy=True)
+
+    assert proxy._handler_cpu_heavy.get("light-channel") is False
+    assert proxy._handler_cpu_heavy.get("heavy-channel") is True
+
+
+@pytest.mark.asyncio
+async def test_unsubscribe_cleans_cpu_heavy_flag(proxy: RedisProxy):
+    """Test that cpu_heavy flag is removed on unsubscribe."""
+    proxy._mock_pubsub.subscribe.return_value = None
+    proxy._mock_pubsub.unsubscribe.return_value = None
+
+    async def callback(channel: str, message: str):
+        pass
+
+    proxy.subscribe("test-channel", callback, cpu_heavy=True)
+    assert "test-channel" in proxy._handler_cpu_heavy
+
+    proxy.unsubscribe("test-channel")
+    assert "test-channel" not in proxy._handler_cpu_heavy
+
+
+@pytest.mark.asyncio
+async def test_pattern_callback_cpu_heavy_flag(proxy: RedisProxy):
+    """Test that cpu_heavy flag is stored for pattern callbacks."""
+    async def heavy_pattern_cb(channel: str, data: str):
+        pass
+
+    proxy.register_pattern_channel_callback("/petal/heavy", heavy_pattern_cb, cpu_heavy=True)
+    assert proxy._pattern_cpu_heavy.get("/petal/heavy") is True

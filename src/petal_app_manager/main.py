@@ -484,13 +484,21 @@ def build_app() -> FastAPI:
                     petal._loop.create_task(_monitor_mqtt_connection(petal, mqtt_proxy))
                     return
             
-            # Setup MQTT topics for petal
+            # Setup MQTT topics for petal (legacy pattern with manual _setup_mqtt_topics)
             setup_mqtt_topics_method = getattr(petal, '_setup_mqtt_topics', None)
             if setup_mqtt_topics_method and asyncio.iscoroutinefunction(setup_mqtt_topics_method):
                 await setup_mqtt_topics_method()
                 logger.info(f"MQTT topics setup completed for petal: {petal.name}")
             else:
                 logger.debug(f"Petal {petal.name} has no _setup_mqtt_topics method")
+
+            # Auto-register @mqtt_action-decorated handlers (new pattern)
+            if petal.has_mqtt_actions():
+                subscription_id = await petal._setup_mqtt_actions()
+                if subscription_id:
+                    logger.info(f"MQTT actions registered for petal: {petal.name}")
+                else:
+                    logger.warning(f"Failed to register MQTT actions for petal: {petal.name}")
         else:
             # Organization ID not available yet - start monitoring
             logger.info(f"Organization ID not yet available for {petal.name}, starting monitoring task...")
@@ -585,6 +593,14 @@ def build_app() -> FastAPI:
                     logger.info(f"MQTT topics setup completed for petal: {petal.name}")
                 else:
                     logger.debug(f"Petal {petal.name} has no _setup_mqtt_topics method")
+
+                # Auto-register @mqtt_action-decorated handlers (new pattern)
+                if petal.has_mqtt_actions():
+                    subscription_id = await petal._setup_mqtt_actions()
+                    if subscription_id:
+                        logger.info(f"MQTT actions registered for petal: {petal.name}")
+                    else:
+                        logger.warning(f"Failed to register MQTT actions for petal: {petal.name}")
                 
                 # Success - exit monitoring loop
                 logger.info(f"MQTT connection monitoring completed for petal: {petal.name}")

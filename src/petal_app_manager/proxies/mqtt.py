@@ -307,8 +307,9 @@ class MQTTProxy(BaseProxy):
             if topic in self.subscribed_topics:
                 for handler in self._handlers[topic]:
                     callback = handler.get("callback")
+                    is_cpu_heavy = handler.get("cpu_heavy", False)
                     if callback:
-                        self._invoke_callback_safely(callback, topic, payload)
+                        self._invoke_callback_safely(callback, topic, payload, cpu_heavy=is_cpu_heavy)
                     else:
                         subscription_id = handler.get("subscription_id")
                         if subscription_id:
@@ -321,15 +322,31 @@ class MQTTProxy(BaseProxy):
         except Exception as e:
             self.log.error(f"Error processing incoming message: {e}")
             
-    def _invoke_callback_safely(self, callback: Callable, topic: str, payload: Dict[str, Any]):
+    def _invoke_callback_safely(
+        self,
+        callback: Callable,
+        topic: str,
+        payload: Dict[str, Any],
+        *,
+        cpu_heavy: bool = False,
+    ):
         """Safely invoke an async callback by scheduling it on the event loop.
         
         Since MQTT callbacks arrive via FastAPI HTTP handlers (already on the
         event loop), we use create_task() instead of run_coroutine_threadsafe().
+        When *cpu_heavy* is ``True`` the coroutine body is executed inside
+        ``loop.run_in_executor`` to avoid blocking the event loop.
         """
         try:
             if self._loop and not self._loop.is_closed():
-                self._loop.create_task(callback(topic, payload))
+                if cpu_heavy:
+                    async def _offloaded():
+                        await self._loop.run_in_executor(
+                            self._exe, lambda: asyncio.run(callback(topic, payload))
+                        )
+                    self._loop.create_task(_offloaded())
+                else:
+                    self._loop.create_task(callback(topic, payload))
             else:
                 self.log.warning(f"Cannot invoke async callback for {topic}: event loop not available")
         except Exception as e:
@@ -675,12 +692,18 @@ class MQTTProxy(BaseProxy):
         
         return await self._publish_message(response_topic, response_payload)
 
-    def register_handler(self, handler: Callable[[str, Dict[str, Any]], Awaitable[None]]) -> str:
+    def register_handler(
+        self,
+        handler: Callable[[str, Dict[str, Any]], Awaitable[None]],
+        cpu_heavy: bool = False,
+    ) -> str:
         """
         Register an async handler to the 'command/edge' topic.
         
         Args:
             handler: Async callback function to handle messages
+            cpu_heavy: If True, the handler's CPU-bound work will be offloaded
+                to a thread-pool executor managed by the proxy.
             
         Returns:
             Subscription ID string, or None if registration failed
@@ -706,7 +729,8 @@ class MQTTProxy(BaseProxy):
         subscription_id = str(uuid.uuid4())
         self._handlers[topic_subscribe].append({
             "callback": handler,
-            "subscription_id": subscription_id
+            "subscription_id": subscription_id,
+            "cpu_heavy": cpu_heavy,
         })
 
         self.log.debug(f"Registered handler for topic: {self.command_edge_topic} with subscription ID: {subscription_id}")

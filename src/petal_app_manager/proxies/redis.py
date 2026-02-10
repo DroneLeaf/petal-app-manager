@@ -62,6 +62,10 @@ class RedisProxy(BaseProxy):
         self._pattern_subscription_task = None
         self._current_pattern = None
         
+        # CPU-heavy offloading flags per handler
+        self._handler_cpu_heavy: Dict[str, bool] = {}  # channel -> cpu_heavy flag
+        self._pattern_cpu_heavy: Dict[str, bool] = {}  # channel -> cpu_heavy flag
+        
         # Shutdown flag to control infinite loops
         self._shutdown_flag = False
         
@@ -340,12 +344,19 @@ class RedisProxy(BaseProxy):
             self.log.error(f"Error publishing to channel {channel}: {e}")
             return 0
     
-    def subscribe(self, channel: str, callback: Callable[[str, str], Awaitable[None]]):
+    def subscribe(
+        self,
+        channel: str,
+        callback: Callable[[str, str], Awaitable[None]],
+        cpu_heavy: bool = False,
+    ):
         """Subscribe to a channel with an async callback function.
         
         Args:
             channel: The Redis channel to subscribe to
             callback: Async callback function that receives (channel, data)
+            cpu_heavy: If True, the callback's CPU-bound work will be offloaded
+                to a thread-pool executor managed by the proxy.
             
         Raises:
             TypeError: If callback is not an async function
@@ -361,9 +372,10 @@ class RedisProxy(BaseProxy):
             self.log.error("Redis pub/sub not initialized")
             return
         
-        # Store the callback in both tracking dictionaries
+        # Store the callback and its config in tracking dictionaries
         self._subscriptions[channel] = callback
         self._message_handlers[channel] = callback
+        self._handler_cpu_heavy[channel] = cpu_heavy
         
         # Subscribe to the channel
         try:
@@ -397,6 +409,8 @@ class RedisProxy(BaseProxy):
                 del self._message_handlers[channel]
             if channel in self._subscription_tasks:
                 del self._subscription_tasks[channel]
+            if channel in self._handler_cpu_heavy:
+                del self._handler_cpu_heavy[channel]
                 
             self.log.info(f"Unsubscribed from channel: {channel}")
         except Exception as e:
@@ -421,11 +435,22 @@ class RedisProxy(BaseProxy):
         except Exception as e:
             self.log.error(f"Error subscribing to pattern {pattern}: {e}")
 
-    def register_pattern_channel_callback(self, channel: str, callback: Callable[[str, str], Awaitable[None]]):
+    def register_pattern_channel_callback(
+        self,
+        channel: str,
+        callback: Callable[[str, str], Awaitable[None]],
+        cpu_heavy: bool = False,
+    ):
         """Register a callback for a specific channel for pattern subscriptions.
         
         The callback must be an async function (coroutine).
         Sync callbacks are not supported and will raise TypeError.
+        
+        Args:
+            channel: The channel to register the callback for
+            callback: Async callback function that receives (channel, data)
+            cpu_heavy: If True, the callback's CPU-bound work will be offloaded
+                to a thread-pool executor managed by the proxy.
         """
         if not asyncio.iscoroutinefunction(callback):
             raise TypeError(
@@ -433,6 +458,7 @@ class RedisProxy(BaseProxy):
                 f"Got {type(callback).__name__}. Use 'async def' to define your callback."
             )
         self._pattern_callbacks[channel] = callback
+        self._pattern_cpu_heavy[channel] = cpu_heavy
         self.log.info(f"Registered pattern callback for channel: {channel}")
 
     def unregister_pattern_channel_callback(self, channel: str):
@@ -479,7 +505,8 @@ class RedisProxy(BaseProxy):
                     # Dispatch directly to registered callback
                     callback = self._pattern_callbacks.get(channel)
                     if callback:
-                        self._invoke_callback_safely(callback, channel, data)
+                        is_cpu_heavy = self._pattern_cpu_heavy.get(channel, False)
+                        self._invoke_callback_safely(callback, channel, data, cpu_heavy=is_cpu_heavy)
                     
             except Exception as e:
                 if "timeout" not in str(e).lower() and not self._shutdown_flag:
@@ -508,7 +535,8 @@ class RedisProxy(BaseProxy):
                     # Dispatch directly to registered callback
                     callback = self._subscriptions.get(channel)
                     if callback:
-                        self._invoke_callback_safely(callback, channel, data)
+                        is_cpu_heavy = self._handler_cpu_heavy.get(channel, False)
+                        self._invoke_callback_safely(callback, channel, data, cpu_heavy=is_cpu_heavy)
 
             except redis.exceptions.ConnectionError as conn_err:
                 if not self._shutdown_flag:
@@ -532,14 +560,25 @@ class RedisProxy(BaseProxy):
                 if "timeout" not in msg:
                     self.log.error(f"Error listening for messages: {e!r}")
 
-    def _invoke_callback_safely(self, callback: Callable, channel: str, data: str):
+    def _invoke_callback_safely(
+        self, callback: Callable, channel: str, data: str, *, cpu_heavy: bool = False,
+    ):
         """Safely invoke an async callback by scheduling it on the main event loop.
         
         All callbacks are required to be async functions.
+        When *cpu_heavy* is ``True`` the coroutine body is executed inside
+        ``loop.run_in_executor`` to avoid blocking the event loop.
         """
         try:
             if self._loop and not self._loop.is_closed():
-                asyncio.run_coroutine_threadsafe(callback(channel, data), self._loop)
+                if cpu_heavy:
+                    async def _offloaded():
+                        await self._loop.run_in_executor(
+                            self._exe, lambda: asyncio.run(callback(channel, data))
+                        )
+                    asyncio.run_coroutine_threadsafe(_offloaded(), self._loop)
+                else:
+                    asyncio.run_coroutine_threadsafe(callback(channel, data), self._loop)
             else:
                 self.log.warning(f"Cannot invoke async callback for {channel}: event loop not available")
         except Exception as e:

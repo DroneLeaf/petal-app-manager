@@ -250,17 +250,17 @@ async def test_duplicate_filtering():
 
 
 def test_sync_callback_rejected():
-    \"\"\"Test that sync callbacks are rejected with TypeError.\"\"\"
+    """Test that sync callbacks are rejected with TypeError."""
     proxy = MockExternalProxy()
     
     def sync_handler(msg):
         pass  # This should not be allowed
     
     with pytest.raises(TypeError) as exc_info:
-        proxy.register_handler(\"test_key\", sync_handler)
+        proxy.register_handler("test_key", sync_handler)
     
-    assert \"async function\" in str(exc_info.value)
-    assert \"coroutine\" in str(exc_info.value)
+    assert "async function" in str(exc_info.value)
+    assert "coroutine" in str(exc_info.value)
 
 
 def test_handler_cleanup():
@@ -288,6 +288,54 @@ def test_handler_cleanup():
     # Verify configs are cleaned up
     assert "test_key" not in proxy._handlers or not proxy._handlers["test_key"]
     assert "filtered_key" not in proxy._handler_configs or not proxy._handler_configs["filtered_key"]
+
+
+def test_cpu_heavy_flag_stored():
+    """Test that the cpu_heavy flag is stored correctly in handler configs."""
+    proxy = MockExternalProxy()
+
+    async def light_handler(msg):
+        pass
+
+    async def heavy_handler(msg):
+        pass
+
+    proxy.register_handler("light_key", light_handler)
+    proxy.register_handler("heavy_key", heavy_handler, cpu_heavy=True)
+
+    # Default should be False
+    light_config = proxy._handler_configs["light_key"][light_handler]
+    assert light_config["cpu_heavy"] is False
+
+    # Explicit True should be stored
+    heavy_config = proxy._handler_configs["heavy_key"][heavy_handler]
+    assert heavy_config["cpu_heavy"] is True
+
+
+@pytest.mark.asyncio
+async def test_cpu_heavy_handler_dispatch():
+    """Test that cpu_heavy handlers are dispatched via run_in_executor."""
+    proxy = MockExternalProxy()
+    await proxy.start()
+
+    call_log = []
+
+    async def heavy_handler(msg):
+        call_log.append(("heavy", msg))
+
+    proxy.register_handler("test_key", heavy_handler, cpu_heavy=True)
+
+    # Process a message - the handler should be invoked (offloaded to executor)
+    proxy._process_message_with_handlers("test_key", "test_msg")
+
+    # Give the event loop a moment to process the future
+    await asyncio.sleep(0.2)
+
+    # The handler should have been called (via the executor offloading path)
+    assert len(call_log) == 1
+    assert call_log[0] == ("heavy", "test_msg")
+
+    await proxy.stop()
 
 
 @pytest.mark.asyncio
