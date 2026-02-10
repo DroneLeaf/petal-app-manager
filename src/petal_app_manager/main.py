@@ -106,7 +106,6 @@ def build_app() -> FastAPI:
                         mavlink_worker_sleep_ms=Config.MAVLINK_WORKER_SLEEP_MS,
                         mavlink_heartbeat_send_frequency=Config.MAVLINK_HEARTBEAT_SEND_FREQUENCY,
                         root_sd_path=Config.ROOT_SD_PATH,
-                        worker_threads=Config.MAVLINK_WORKER_THREADS
                     )
                 elif proxy_name == "redis":
                     proxies["redis"] = RedisProxy(
@@ -236,7 +235,7 @@ def build_app() -> FastAPI:
                 message_json = health_message.model_dump_json(indent=2)
                 
                 # Use the publish method from Redis proxy
-                result = redis_proxy.publish(channel, message_json)
+                result = await redis_proxy.publish(channel, message_json)
                 
                 if result > 0:
                     logger.debug(f"Published health status to {channel} ({result} subscribers)")

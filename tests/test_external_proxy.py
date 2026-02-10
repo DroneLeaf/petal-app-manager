@@ -29,7 +29,7 @@ async def _test_mavlink_proxy():
     heartbeats_received = []
     
     # Register handler for HEARTBEAT messages
-    def heartbeat_handler(msg):
+    async def heartbeat_handler(msg):
         print(f"Received HEARTBEAT: {msg}")
         heartbeats_received.append(msg)
     
@@ -188,20 +188,21 @@ async def test_burst_send_with_interval():
     await proxy.stop()
 
 
-def test_duplicate_filtering():
+@pytest.mark.asyncio
+async def test_duplicate_filtering():
     """Test duplicate message filtering (backwards compatible)."""
     proxy = MockExternalProxy()
     
     # Test backwards compatibility - handler without filtering
     normal_calls = []
-    def normal_handler(msg):
+    async def normal_handler(msg):
         normal_calls.append(msg)
     
     proxy.register_handler("normal_key", normal_handler)
     
     # Test handler with duplicate filtering
     filtered_calls = []
-    def filtered_handler(msg):
+    async def filtered_handler(msg):
         filtered_calls.append(msg)
     
     proxy.register_handler("filtered_key", filtered_handler, duplicate_filter_interval=0.5)
@@ -237,7 +238,7 @@ def test_duplicate_filtering():
                     proxy._last_message_times[handler_key] = (msg_str, current_time)
             
             if should_call_handler:
-                cb(msg)
+                await cb(msg)
     
     # Normal handler should receive both messages
     assert len(normal_calls) == 2
@@ -248,11 +249,25 @@ def test_duplicate_filtering():
     assert filtered_calls[0] == "filtered_message"
 
 
+def test_sync_callback_rejected():
+    \"\"\"Test that sync callbacks are rejected with TypeError.\"\"\"
+    proxy = MockExternalProxy()
+    
+    def sync_handler(msg):
+        pass  # This should not be allowed
+    
+    with pytest.raises(TypeError) as exc_info:
+        proxy.register_handler(\"test_key\", sync_handler)
+    
+    assert \"async function\" in str(exc_info.value)
+    assert \"coroutine\" in str(exc_info.value)
+
+
 def test_handler_cleanup():
     """Test that handler configs are cleaned up properly."""
     proxy = MockExternalProxy()
     
-    def test_handler(msg):
+    async def test_handler(msg):
         pass
     
     # Test backwards compatibility - register without filtering
@@ -315,7 +330,7 @@ async def test_backwards_compatibility():
     await proxy.start()
     
     received_messages = []
-    def simple_handler(msg):
+    async def simple_handler(msg):
         received_messages.append(msg)
     
     # Test original API usage
@@ -326,7 +341,7 @@ async def test_backwards_compatibility():
     proxy.simulate_receive("test_key", "received_message")
     for key, msg in proxy._io_read_once():
         for cb in proxy._handlers.get(key, []):
-            cb(msg)
+            await cb(msg)
     
     # Trigger send
     pending = defaultdict(list)

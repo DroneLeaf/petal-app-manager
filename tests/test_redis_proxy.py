@@ -251,7 +251,7 @@ async def test_publish(proxy: RedisProxy):
     proxy._mock_client.publish.return_value = 2  # 2 clients received
     
     # Call the method
-    result = proxy.publish("test-channel", "test-message")
+    result = await proxy.publish("test-channel", "test-message")
     
     # Assert results
     assert result == 2
@@ -267,7 +267,7 @@ async def test_subscribe(proxy: RedisProxy):
     # Define a test callback
     messages_received = []
     
-    def test_callback(channel: str, message: str):
+    async def test_callback(channel: str, message: str):
         messages_received.append((channel, message))
     
     # Subscribe to the channel
@@ -288,7 +288,7 @@ async def test_unsubscribe(proxy: RedisProxy):
     proxy._mock_pubsub.subscribe.return_value = None
     proxy._mock_pubsub.unsubscribe.return_value = None
     
-    def test_callback(channel: str, message: str):
+    async def test_callback(channel: str, message: str):
         pass
     
     # Subscribe first
@@ -331,7 +331,7 @@ async def test_message_listening():
         # Track received messages
         received_messages = []
         
-        def test_callback(channel: str, message: str):
+        async def test_callback(channel: str, message: str):
             received_messages.append((channel, message))
         
         try:
@@ -365,7 +365,7 @@ async def test_client_not_initialized():
     set_result = await proxy.set("key", "value")
     delete_result = await proxy.delete("key")
     exists_result = await proxy.exists("key")
-    publish_result = proxy.publish("channel", "message")
+    publish_result = await proxy.publish("channel", "message")
     
     # Assert results
     assert get_result is None
@@ -390,7 +390,7 @@ async def test_redis_operation_error_handling(proxy: RedisProxy):
     get_result = await proxy.get("key")
     delete_result = await proxy.delete("key")
     exists_result = await proxy.exists("key")
-    publish_result = proxy.publish("channel", "message")
+    publish_result = await proxy.publish("channel", "message")
     
     # Assert they handled the errors gracefully
     assert set_result is False
@@ -415,7 +415,7 @@ async def test_pubsub_not_initialized():
         proxy._pubsub_client = None
         proxy._pubsub = None
         
-        def test_callback(channel: str, message: str):
+        async def test_callback(channel: str, message: str):
             pass
         
         # Try to subscribe - should handle gracefully
@@ -453,7 +453,7 @@ async def test_basic_workflow(proxy: RedisProxy):
     proxy.subscribe("workflow:notifications", message_handler)
     
     # 4. Publish a message
-    publish_result = proxy.publish("workflow:notifications", "test message")
+    publish_result = await proxy.publish("workflow:notifications", "test message")
     assert publish_result == 1
     
     # Verify all operations worked
@@ -515,11 +515,12 @@ async def test_concurrent_operations(proxy: RedisProxy):
         proxy.get(f"concurrent:key{i}")
         for i in range(10)
     ])
-    # Publish operations are synchronous, so we can't run them concurrently in the same way
-    publish_results = [
+    # Publish operations are now async too
+    publish_tasks = [
         proxy.publish(f"concurrent:channel{i}", f"message{i}")
         for i in range(5)
     ]
+    publish_results = await asyncio.gather(*publish_tasks)
     
     # Execute async tasks concurrently
     results = await asyncio.gather(*tasks)

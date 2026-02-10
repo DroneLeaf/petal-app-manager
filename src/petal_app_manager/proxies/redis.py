@@ -7,25 +7,14 @@ Supports Unix socket connections.
 """
 
 from __future__ import annotations
-from typing import List, Optional, Callable, Awaitable, Deque, Dict, Any
-from collections import deque
+from typing import List, Optional, Callable, Awaitable, Dict, Any
 import asyncio
 import concurrent.futures
 import logging
-import threading
 
 import redis
-import time
 
 from .base import BaseProxy
-
-
-class RedisMessage:
-    """Internal message structure for worker processing."""
-    def __init__(self, channel: str, data: str, pattern: Optional[str] = None):
-        self.channel = channel
-        self.data = data
-        self.pattern = pattern  # Set if this came from a pattern subscription
 
 
 class RedisProxy(BaseProxy):
@@ -42,7 +31,6 @@ class RedisProxy(BaseProxy):
         password: Optional[str] = None,
         debug: bool = False,
         unix_socket_path: Optional[str] = None,
-        worker_threads: int = 4,
     ):
         self.host = host
         self.port = port
@@ -51,27 +39,14 @@ class RedisProxy(BaseProxy):
         self.debug = debug
         self.unix_socket_path = unix_socket_path
         
-        # Worker thread configuration
-        self.worker_threads = worker_threads
-        self.worker_sleep_ms = 10.0
-        self.max_message_buffer = 1000
-        
         self._client = None
         self._pubsub_client = None
         self._pubsub = None
         self._pubsub_pattern = None
         self._loop = None
-        # Use worker_threads + 2 for executor to handle Redis ops + listen loops without blocking
-        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=worker_threads + 2, thread_name_prefix="RedisProxy")
+        # Executor for blocking Redis I/O (listen loops + Redis commands)
+        self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="RedisProxy")
         self.log = logging.getLogger("RedisProxy")
-        
-        # Message buffer for worker dispatch (listen loop -> workers)
-        self._message_buffer: Deque[RedisMessage] = deque(maxlen=self.max_message_buffer)
-        self._buffer_lock = threading.Lock()
-        
-        # Worker thread state
-        self._worker_running = threading.Event()
-        self._worker_threads_list = []
         
         # Communication and health check attributes
         self.app_id = f"redis-proxy-{id(self)}"  # Unique app identifier
@@ -159,9 +134,6 @@ class RedisProxy(BaseProxy):
                 self._pubsub_pattern = self._pubsub_client.pubsub()
                 self._subscribe_pattern("/petal-*")  # Default pattern
                 
-                # Start worker threads for message processing
-                self._start_worker_threads()
-                
                 # Set listening state to True after successful connection and pub/sub setup
                 self._is_listening = True
                 self.log.info(f"RedisProxy {self.app_id} is now listening for messages")
@@ -178,9 +150,6 @@ class RedisProxy(BaseProxy):
         self._shutdown_flag = True
         # Stop listening state
         self._is_listening = False
-        
-        # Stop worker threads
-        self._stop_worker_threads()
         
         # Stop subscription tasks
         if self._subscription_task and not self._subscription_task.done():
@@ -285,14 +254,6 @@ class RedisProxy(BaseProxy):
         except Exception as e:
             self.log.error(f"Error deleting key {key}: {e}")
             return 0
-        try:
-            return await self._loop.run_in_executor(
-                self._exe, 
-                lambda: self._client.delete(key)
-            )
-        except Exception as e:
-            self.log.error(f"Error deleting key {key}: {e}")
-            return 0
     
     async def exists(self, key: str) -> bool:
         """Check if a key exists in Redis."""
@@ -363,21 +324,39 @@ class RedisProxy(BaseProxy):
     
     # ------ Pub/Sub Operations ------ #
     
-    def publish(self, channel: str, message: str) -> int:
-        """Publish a message to a channel."""
+    async def publish(self, channel: str, message: str) -> int:
+        """Publish a message to a channel (async, non-blocking)."""
         if not self._client:
             self.log.error("Redis client not initialized")
             return 0
             
         try:
-            result = self._client.publish(channel, message)
+            result = await self._loop.run_in_executor(
+                self._exe,
+                lambda: self._client.publish(channel, message)
+            )
             return result
         except Exception as e:
             self.log.error(f"Error publishing to channel {channel}: {e}")
             return 0
     
     def subscribe(self, channel: str, callback: Callable[[str, str], Awaitable[None]]):
-        """Subscribe to a channel with a callback function."""
+        """Subscribe to a channel with an async callback function.
+        
+        Args:
+            channel: The Redis channel to subscribe to
+            callback: Async callback function that receives (channel, data)
+            
+        Raises:
+            TypeError: If callback is not an async function
+        """
+        if not asyncio.iscoroutinefunction(callback):
+            raise TypeError(
+                f"Callback must be an async function (coroutine). "
+                f"Got {type(callback).__name__} instead. "
+                f"Define your callback with 'async def' instead of 'def'."
+            )
+        
         if not self._pubsub:
             self.log.error("Redis pub/sub not initialized")
             return
@@ -443,7 +422,16 @@ class RedisProxy(BaseProxy):
             self.log.error(f"Error subscribing to pattern {pattern}: {e}")
 
     def register_pattern_channel_callback(self, channel: str, callback: Callable[[str, str], Awaitable[None]]):
-        """Register a callback for a specific channel for pattern subscriptions."""
+        """Register a callback for a specific channel for pattern subscriptions.
+        
+        The callback must be an async function (coroutine).
+        Sync callbacks are not supported and will raise TypeError.
+        """
+        if not asyncio.iscoroutinefunction(callback):
+            raise TypeError(
+                f"Callback for channel '{channel}' must be an async function (coroutine). "
+                f"Got {type(callback).__name__}. Use 'async def' to define your callback."
+            )
         self._pattern_callbacks[channel] = callback
         self.log.info(f"Registered pattern callback for channel: {channel}")
 
@@ -476,7 +464,7 @@ class RedisProxy(BaseProxy):
             self.log.error(f"Error unsubscribing from pattern {pattern}: {e}")
     
     async def _listen_for_pattern_messages(self):
-        """Listen for messages from pattern subscriptions - lightweight enqueue only."""
+        """Listen for messages from pattern subscriptions and dispatch directly."""
         while not self._shutdown_flag:
             try:
                 message = await self._loop.run_in_executor(
@@ -485,13 +473,13 @@ class RedisProxy(BaseProxy):
                 )
                 if message and message['type'] == 'pmessage':
                     channel = message['channel']
-                    pattern = message['pattern']
                     data = message['data']
-                    self.log.debug(f"Received pattern message at channel: {channel} (pattern: {pattern})")
+                    self.log.debug(f"Received pattern message at channel: {channel}")
                     
-                    # Enqueue for worker processing (lightweight)
-                    redis_msg = RedisMessage(channel=channel, data=data, pattern=pattern)
-                    self._enqueue_message(redis_msg)
+                    # Dispatch directly to registered callback
+                    callback = self._pattern_callbacks.get(channel)
+                    if callback:
+                        self._invoke_callback_safely(callback, channel, data)
                     
             except Exception as e:
                 if "timeout" not in str(e).lower() and not self._shutdown_flag:
@@ -515,11 +503,12 @@ class RedisProxy(BaseProxy):
                     if isinstance(data, bytes):
                         data = data.decode('utf-8', 'ignore')
 
-                    self.log.debug(f"Received at channel: {channel}, enqueueing for worker processing")
+                    self.log.debug(f"Received at channel: {channel}")
 
-                    # Enqueue for worker processing (lightweight)
-                    redis_msg = RedisMessage(channel=channel, data=data)
-                    self._enqueue_message(redis_msg)
+                    # Dispatch directly to registered callback
+                    callback = self._subscriptions.get(channel)
+                    if callback:
+                        self._invoke_callback_safely(callback, channel, data)
 
             except redis.exceptions.ConnectionError as conn_err:
                 if not self._shutdown_flag:
@@ -543,101 +532,16 @@ class RedisProxy(BaseProxy):
                 if "timeout" not in msg:
                     self.log.error(f"Error listening for messages: {e!r}")
 
-    # ------ Worker Thread Methods ------ #
-    
-    def _enqueue_message(self, message: RedisMessage):
-        """Enqueue a message for worker processing (thread-safe)."""
-        with self._buffer_lock:
-            self._message_buffer.append(message)
-    
-    def _start_worker_threads(self):
-        """Start worker threads for message processing."""
-        self._shutdown_flag = False
-        self._worker_running.set()
-        
-        for i in range(self.worker_threads):
-            t = threading.Thread(
-                target=self._worker_loop,
-                name=f"RedisProxyWorker-{i}",
-                daemon=True
-            )
-            t.start()
-            self._worker_threads_list.append(t)
-        
-        self.log.info(f"Started {self.worker_threads} worker threads for message processing")
-    
-    def _stop_worker_threads(self):
-        """Stop all worker threads."""
-        self._worker_running.clear()
-        
-        # Wait for threads to finish (with timeout)
-        for t in self._worker_threads_list:
-            t.join(timeout=2.0)
-            if t.is_alive():
-                self.log.warning(f"Worker thread {t.name} did not stop gracefully")
-        
-        self._worker_threads_list.clear()
-        self.log.info("Worker threads stopped")
-    
-    def _worker_loop(self):
-        """Worker thread main loop - pop messages from buffer and process."""
-        while self._worker_running.is_set() and not self._shutdown_flag:
-            message = None
-            
-            # Try to get a message from the buffer
-            with self._buffer_lock:
-                if self._message_buffer:
-                    message = self._message_buffer.popleft()
-            
-            if message:
-                self._process_message_in_worker(message)
-            else:
-                # No message, sleep briefly
-                time.sleep(self.worker_sleep_ms / 1000.0)
-    
-    def _process_message_in_worker(self, message: RedisMessage):
-        """Process a single message in a worker thread."""
-        try:
-            channel = message.channel
-            data = message.data
-            
-            # Determine which callback to use
-            if message.pattern:
-                # Pattern subscription message
-                callback = self._pattern_callbacks.get(channel)
-                if callback:
-                    self.log.debug(f"Processing pattern message for channel: {channel}")
-                    self._invoke_callback_safely(callback, channel, data)
-                else:
-                    self.log.debug(f"No pattern callback registered for channel: {channel}")
-            else:
-                # Normal subscription message
-                callback = self._subscriptions.get(channel)
-                if callback:
-                    self.log.debug(f"Processing message for channel: {channel}")
-                    self._invoke_callback_safely(callback, channel, data)
-                else:
-                    self.log.debug(f"No callback registered for channel: {channel}")
-                    
-        except Exception as e:
-            self.log.error(f"Error processing message for channel {message.channel}: {e}")
-    
     def _invoke_callback_safely(self, callback: Callable, channel: str, data: str):
-        """Safely invoke a callback, handling both sync and async functions.
+        """Safely invoke an async callback by scheduling it on the main event loop.
         
-        Async callbacks are scheduled on the main event loop to ensure compatibility
-        with other proxies (LocalDB, Cloud, etc.) that are bound to the main loop.
+        All callbacks are required to be async functions.
         """
         try:
-            if asyncio.iscoroutinefunction(callback):
-                # Async callback - schedule on main event loop
-                if self._loop and not self._loop.is_closed():
-                    asyncio.run_coroutine_threadsafe(callback(channel, data), self._loop)
-                else:
-                    self.log.warning(f"Cannot invoke async callback for {channel}: event loop not available")
+            if self._loop and not self._loop.is_closed():
+                asyncio.run_coroutine_threadsafe(callback(channel, data), self._loop)
             else:
-                # Sync callback - call directly in worker thread
-                callback(channel, data)
+                self.log.warning(f"Cannot invoke async callback for {channel}: event loop not available")
         except Exception as e:
             self.log.error(f"Error in callback for channel {channel}: {e}")
 

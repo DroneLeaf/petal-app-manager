@@ -36,7 +36,7 @@ async def main():
         
         # Example 1: Register a filtered handler for ATTITUDE messages
         # This will filter out duplicate ATTITUDE messages within 0.5 seconds
-        def attitude_handler(msg):
+        async def attitude_handler(msg):
             logger.info(f"Received ATTITUDE: roll={msg.roll:.2f}, pitch={msg.pitch:.2f}, yaw={msg.yaw:.2f}")
         
         proxy.register_handler(
@@ -46,7 +46,7 @@ async def main():
         )
         
         # Example 2: Register a normal handler (no filtering) for comparison
-        def global_pos_handler(msg):
+        async def global_pos_handler(msg):
             logger.info(f"Received GLOBAL_POSITION_INT: lat={msg.lat}, lon={msg.lon}, alt={msg.alt}")
             
         proxy.register_handler("GLOBAL_POSITION_INT", global_pos_handler)
