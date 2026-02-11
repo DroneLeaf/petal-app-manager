@@ -12,6 +12,7 @@ Usage:
 
 import argparse
 import subprocess
+import psutil
 import sys
 import time
 import signal
@@ -44,17 +45,63 @@ class PySpyProfiler:
         # Output file for speedscope format
         self.speedscope_file = self.output_dir / f"{self.base_name}.speedscope.json"
 
-    def find_pam_process(self):
-        """Find running PAM process"""
+    def find_pam_process(self) -> int | None:
+        """Find running PAM uvicorn process PID (the real server/runtime PID)."""
         try:
+            # Get PID + full command line so we can disambiguate matches
             result = subprocess.run(
-                ['pgrep', '-f', 'uvicorn.*petal_app_manager'],
+                ["pgrep", "-af", r"uvicorn.*petal_app_manager"],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
-            pids = result.stdout.strip().split('\n')
-            return int(pids[0]) if pids and pids[0] else None
+            lines = [l.strip() for l in result.stdout.splitlines() if l.strip()]
+            if not lines:
+                return None
+
+            # Parse (pid, cmdline)
+            matches: list[tuple[int, str]] = []
+            for line in lines:
+                parts = line.split(maxsplit=1)
+                if not parts:
+                    continue
+                try:
+                    pid = int(parts[0])
+                except ValueError:
+                    continue
+                cmd = parts[1] if len(parts) > 1 else ""
+                matches.append((pid, cmd))
+
+            if not matches:
+                return None
+
+            # 1) Prefer the actual debugpy runtime process (not the launcher)
+            # launcher looks like: ".../debugpy/launcher ..."
+            # runtime looks like:  ".../debugpy --connect ..."
+            for pid, cmd in matches:
+                if "debugpy --connect" in cmd:
+                    return pid
+
+            # 2) Prefer the process that is actually LISTENing on :9000
+            # (works well for uvicorn workers / reload children too)
+            for pid, cmd in matches:
+                try:
+                    p = psutil.Process(pid)
+                    for c in p.net_connections(kind="inet"):
+                        if c.status == psutil.CONN_LISTEN and c.laddr and c.laddr.port == 9000:
+                            return pid
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+
+            # 3) Prefer non-launcher if both are present
+            non_launcher = [(pid, cmd) for pid, cmd in matches if "debugpy/launcher" not in cmd]
+            if non_launcher:
+                # If multiple, pick the one with longer cmdline (often the real runner)
+                return max(non_launcher, key=lambda x: len(x[1]))[0]
+
+            # 4) Last fallback: return the last PID (often the child)
+            return matches[-1][0]
+
         except (subprocess.CalledProcessError, ValueError):
             return None
 

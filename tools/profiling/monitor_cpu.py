@@ -54,34 +54,34 @@ class ProcessCPUMonitor:
         print("=" * 80)
     
     def _find_pam_pid(self):
-        """Find PAM uvicorn process PID with retry logic"""
+        """Find the PID that is actually LISTENing on port 9000."""
+        port = 9000
+
         for attempt in range(self.max_retries):
             try:
-                result = subprocess.run(
-                    ['pgrep', '-f', 'uvicorn.*petal_app_manager'],
-                    capture_output=True,
-                    text=True,
-                    check=True
-                )
-                pids = result.stdout.strip().split('\n')
-                pid = int(pids[0]) if pids and pids[0] else None
-                
-                if pid:
-                    # Verify process exists and is accessible
+                # List processes with an open INET listening socket on port 9000
+                for proc in psutil.process_iter(attrs=["pid", "name", "cmdline"]):
                     try:
-                        psutil.Process(pid)
-                        return pid
-                    except psutil.NoSuchProcess:
-                        pass
-                        
-            except (subprocess.CalledProcessError, ValueError):
+                        cmd = " ".join(proc.info.get("cmdline") or [])
+                        if "uvicorn" not in cmd or "petal_app_manager" not in cmd:
+                            continue
+
+                        conns = proc.net_connections(kind="inet")
+                        for c in conns:
+                            if c.status == psutil.CONN_LISTEN and c.laddr and c.laddr.port == port:
+                                return proc.info["pid"]
+                    except (psutil.AccessDenied, psutil.NoSuchProcess):
+                        continue
+
+            except Exception:
                 pass
-            
+
             if attempt < self.max_retries - 1:
-                print(f"Waiting for PAM to start... (attempt {attempt + 1}/{self.max_retries})")
+                print(f"Waiting for PAM to start... (attempt {attempt+1}/{self.max_retries})")
                 time.sleep(self.retry_delay)
-        
+
         return None
+
     
     def get_cpu_snapshot(self, interval: float = 1.0, elapsed_time: float = 0.0):
         """Get single CPU and memory measurement"""

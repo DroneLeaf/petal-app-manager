@@ -73,7 +73,7 @@ npm install -g speedscope
 
 ```bash
 # Terminal 1 - Start PAM first (required for profiling)
-uvicorn petal_app_manager.main:app --host 127.0.0.1 --port 9000
+uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 ```
 
 ### 4. Run Profiling and/or Monitoring
