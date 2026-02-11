@@ -423,7 +423,7 @@ Test your petal with Petal App Manager:
    # Start Petal App Manager in development mode
    cd ~/petal-app-manager-dev/petal-app-manager
    source .venv/bin/activate
-   uvicorn petal_app_manager.main:app --reload --port 9000
+   uvicorn petal_app_manager.main:app --reload --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
    
    # In another terminal, test your endpoints
    curl http://localhost:9000/petal-example/health

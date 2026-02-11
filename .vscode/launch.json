@@ -2,6 +2,31 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Profile CPU Performance",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/tools/profiling/monitor_cpu.py",
+      "console": "integratedTerminal",
+      "args": [
+        "--scenario", 
+        "idle-no-leaffc", 
+        "--interval", 
+        "1", 
+        "--plot"
+      ]
+    },
+    {
+      "name": "Profile run",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/tools/profiling/profile_pam.py",
+      "console": "integratedTerminal",
+      "args": [
+        "--scenario", 
+        "idle-no-leaffc"
+      ]
+    },
+    {
       "name": "PetalAppManager (debug)",
       "type": "debugpy",
       "request": "launch",
@@ -10,12 +35,16 @@
       // otherwise just "uvicorn" works on PATH.
       "args": [
         "petal_app_manager.main:app",
-        "--host", "0.0.0.0",
-        "--port", "9000",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "9000",
         "--reload",
-        "--log-level", "info",
+        "--log-level",
+        "info",
         "--no-access-log",
-        "--http", "h11"
+        "--http",
+        "h11"
       ],
       "jinja": true,
       "env": {
@@ -25,27 +54,54 @@
       "justMyCode": false
     },
     {
-        "name": "Angular: Chrome",
-        "type": "pwa-chrome",
-        "request": "launch",
-        "url": "http://localhost:9000/petals/petal-warehouse/ui",
-        "webRoot": "${workspaceFolder}"
+      "name": "PetalAppManager (debug - no reload)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/.venv/bin/uvicorn",
+      // If you use PDM’s isolated venv, point to its uvicorn;
+      // otherwise just "uvicorn" works on PATH.
+      "args": [
+        "petal_app_manager.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "9000",
+        "--log-level",
+        "info",
+        "--no-access-log",
+        "--http",
+        "h11"
+      ],
+      "jinja": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
     },
     {
-        "name": "build sphinx docs with autoreloader",
-        "type": "python",
-        "request": "launch",
-        "program": "${workspaceFolder}/.venv/bin/sphinx-autobuild",
-        "args": [
-            "./docs",
-            "docs/_build/html",
-            "--port", "8001"
-        ],
-        "env": {
-            "PYTHONPATH": "${workspaceFolder}"
-        },
-        "console": "integratedTerminal",
-        "justMyCode": false
+      "name": "Angular: Chrome",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://localhost:9000/petals/petal-warehouse/ui",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "build sphinx docs with autoreloader",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/.venv/bin/sphinx-autobuild",
+      "args": [
+        "./docs",
+        "docs/_build/html",
+        "--port",
+        "8001"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
     }
   ]
 }
