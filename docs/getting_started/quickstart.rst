@@ -391,7 +391,7 @@ Running the Application
    source .venv/bin/activate
    
    # Run with auto-reload for development
-   uvicorn petal_app_manager.main:app --reload --port 9000
+   uvicorn petal_app_manager.main:app --reload --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 
 **Development Mode with Debugging (VSCode)**
 
@@ -432,7 +432,7 @@ The application will start with the debugger attached, allowing you to:
    source .venv/bin/activate
    
    # Run in production mode
-   uvicorn petal_app_manager.main:app --port 9000
+   uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 
 **Background Service (Production)**
 
@@ -537,7 +537,7 @@ Once installed, here's the typical development workflow:
    source .venv/bin/activate
    
    # 3. Start application with auto-reload
-   uvicorn petal_app_manager.main:app --reload --port 9000
+   uvicorn petal_app_manager.main:app --reload --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
    
    # 4. In another terminal, start documentation auto-build
    cd docs

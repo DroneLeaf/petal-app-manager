@@ -246,7 +246,7 @@ pip install petal-app-manager
 You may run the server using:
 
 ```bash
-uvicorn petal_app_manager.main:app --port 9000
+uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 ```
 
 > [!WARNING]
@@ -362,7 +362,7 @@ If you prefer to set up the development environment manually:
     source .venv/bin/activate
     
     # Run the server with auto-reload for development
-    uvicorn petal_app_manager.main:app --reload --port 9000
+    uvicorn petal_app_manager.main:app --reload --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
     ```
 
 5. Test your endpoints:

@@ -130,7 +130,7 @@ The most common cause is that the petal is not registered in the ``proxies.yaml`
 
         # If running manually
         # Stop with Ctrl+C and restart
-        uvicorn petal_app_manager.main:app --reload --port 9000
+        uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11 --reload
         
         # If running as a service
         sudo systemctl restart petal-app-manager
@@ -552,7 +552,7 @@ On a fresh installation, the MQTT proxy requires organization provisioning to be
     .. code-block:: bash
 
         cd ~/petal-app-manager-dev/petal-app-manager
-        uvicorn petal_app_manager.main:app --reload --port 9000
+        uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 
 2. **Complete local provisioning steps:**
 
@@ -566,7 +566,7 @@ On a fresh installation, the MQTT proxy requires organization provisioning to be
     .. code-block:: bash
 
         # Stop with Ctrl+C and restart
-        uvicorn petal_app_manager.main:app --reload --port 9000
+        uvicorn petal_app_manager.main:app --reload --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 
 4. **Complete cloud provisioning:**
 

@@ -1,0 +1,150 @@
+{
+  "config": {
+    "joystick_mode": "ENABLED_ON_PAUSE"
+  },
+  "edges": [
+    {
+      "from": "Takeoff",
+      "to": "Wait 1"
+    },
+    {
+      "from": "Wait 1",
+      "to": "GotoLocalWaypoint 1"
+    },
+    {
+      "from": "GotoLocalWaypoint 1",
+      "to": "GotoLocalWaypoint 2"
+    },
+    {
+      "from": "GotoLocalWaypoint 2",
+      "to": "GotoLocalWaypoint 3"
+    },
+    {
+      "from": "GotoLocalWaypoint 3",
+      "to": "Wait 2"
+    },
+    {
+      "from": "Wait 2",
+      "to": "Land"
+    }
+  ],
+  "id": "main",
+  "nodes": [
+    {
+      "name": "Takeoff",
+      "params": {
+        "alt": 1
+      },
+      "type": "Takeoff"
+    },
+    {
+      "name": "Wait 1",
+      "params": {
+        "duration": 2
+      },
+      "type": "Wait"
+    },
+    {
+      "name": "GotoLocalWaypoint 1",
+      "params": {
+        "speed": [
+          0.2
+        ],
+        "waypoints": [
+          [
+            0.5,
+            0,
+            1
+          ]
+        ],
+        "yaw_speed": [
+          30
+        ],
+        "yaws_deg": [
+          0
+        ]
+      },
+      "type": "GotoLocalPosition"
+    },
+    {
+      "name": "GotoLocalWaypoint 2",
+      "params": {
+        "speed": [
+          0.2,
+          0.2
+        ],
+        "waypoints": [
+          [
+            0.5,
+            0.5,
+            1
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "yaw_speed": [
+          30,
+          30
+        ],
+        "yaws_deg": [
+          0,
+          0
+        ]
+      },
+      "type": "GotoLocalPosition"
+    },
+    {
+      "name": "GotoLocalWaypoint 3",
+      "params": {
+        "speed": [
+          0.2,
+          0.3,
+          0.4
+        ],
+        "waypoints": [
+          [
+            0,
+            0.5,
+            1
+          ],
+          [
+            0.5,
+            0.5,
+            1
+          ],
+          [
+            0.5,
+            0,
+            1
+          ]
+        ],
+        "yaw_speed": [
+          10,
+          20,
+          20
+        ],
+        "yaws_deg": [
+          0,
+          10,
+          20
+        ]
+      },
+      "type": "GotoLocalPosition"
+    },
+    {
+      "name": "Wait 2",
+      "params": {
+        "duration": 2
+      },
+      "type": "Wait"
+    },
+    {
+      "name": "Land",
+      "params": {},
+      "type": "Land"
+    }
+  ]
+}
