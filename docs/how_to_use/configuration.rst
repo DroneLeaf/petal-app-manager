@@ -249,7 +249,7 @@ Applying Configuration Changes
 .. code-block:: bash
 
    # If running manually, stop with Ctrl+C and restart
-   uvicorn petal_app_manager.main:app --reload --port 9000
+   uvicorn petal_app_manager.main:app --reload --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 
 **Production:**
 

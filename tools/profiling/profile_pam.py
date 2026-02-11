@@ -120,7 +120,7 @@ class PySpyProfiler:
         if pam_pid is None:
             print(f"[Profiler] ✗ Error: No running PAM process found")
             print(f"[Profiler] Please start PAM first, then run this profiler")
-            print(f"[Profiler] Example: uvicorn petal_app_manager.main:app --host 127.0.0.1 --port 9000")
+            print(f"[Profiler] Example: uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11")
             return
         
         print(f"[Profiler] ✓ Found PAM process (PID: {pam_pid})")
@@ -261,7 +261,7 @@ Output Format:
 
 Examples:
   # Start PAM first:
-  uvicorn petal_app_manager.main:app --host 127.0.0.1 --port 9000
+  uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 
   # Then profile idle behavior (Ctrl+C to stop)
   python profile_pam.py --scenario idle-no-leaffc

@@ -234,7 +234,7 @@ Example scenario labels for organizing profile data:
 1. **Start PAM:**
    ```bash
    # Terminal 1
-   uvicorn petal_app_manager.main:app --host 127.0.0.1 --port 9000
+   uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
    ```
 
 2. **Start monitoring (optional but recommended):**
@@ -395,7 +395,7 @@ For profiling mission execution in SITL (Software-In-The-Loop), use this sample 
    **Start PAM:**
    ```bash
    # Terminal 1
-   uvicorn petal_app_manager.main:app --host 127.0.0.1 --port 9000
+   uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
    ```
 
 2. **Start monitoring:**
@@ -686,7 +686,7 @@ systemctl status mosquitto
 lsof -i :9000  # Should be empty
 
 # Check PAM can start normally
-python -m uvicorn petal_app_manager.main:app --port 9000
+python -m uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 # Then Ctrl+C and try profiler again
 ```
 
@@ -751,7 +751,7 @@ In idle scenarios, sleep dominating is expected. The key is looking at the non-s
 **Q: Don't understand thread names**
 ```
 CoSTART PAM (Required first!)
-uvicorn petal_app_manager.main:app --host 127.0.0.1 --port 9000
+uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 
 # PROFILE (in separate terminal)
 python tools/profiling/profile_pam.py --scenario idle-no-leaffc

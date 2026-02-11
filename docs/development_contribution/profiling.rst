@@ -87,7 +87,7 @@ Ensure you have:
 .. code-block:: bash
 
    # Terminal 1 - Start PAM first (required for profiling)
-   uvicorn petal_app_manager.main:app --host 127.0.0.1 --port 9000
+   uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 
 4. Run Profiling and/or Monitoring
 ------------------------------------
@@ -260,7 +260,7 @@ Workflow for Profiling Different Scenarios
    .. code-block:: bash
 
       # Terminal 1
-      uvicorn petal_app_manager.main:app --host 127.0.0.1 --port 9000
+      uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 
 2. **Start monitoring (optional but recommended):**
 
@@ -455,7 +455,7 @@ For profiling mission execution in SITL (Software-In-The-Loop), use this sample 
    .. code-block:: bash
 
       # Terminal 1
-      uvicorn petal_app_manager.main:app --host 127.0.0.1 --port 9000
+      uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
 
 2. **Start monitoring:**
 
@@ -812,7 +812,7 @@ Profiler Issues
    lsof -i :9000  # Should be empty
 
    # Check PAM can start normally
-   python -m uvicorn petal_app_manager.main:app --port 9000
+   python -m uvicorn petal_app_manager.main:app --host 0.0.0.0 --port 9000 --log-level info --no-access-log --http h11
    # Then Ctrl+C and try profiler again
 
 **Q: Profiling terminates early**
