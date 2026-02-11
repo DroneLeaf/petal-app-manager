@@ -3,3 +3,9 @@
 
 # Sampling profiler - captures all threads and async tasks
 py-spy>=0.3.14
+
+# Process monitoring - CPU and memory tracking
+psutil>=5.9.0
+
+# Plotting library - for CPU/memory graphs
+matplotlib>=3.7.0
