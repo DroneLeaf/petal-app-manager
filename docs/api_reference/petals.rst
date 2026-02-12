@@ -9,16 +9,16 @@ petal-flight-log
 
 Flight log management and uploading functionality.
 
-- **Version**: 0.1.6
+- **Version**: 0.2.6
 - **Repository**: https://github.com/DroneLeaf/petal-flight-log
-- **Dependencies**: Redis, Cloud
+- **Dependencies**: MQTT, Redis, Cloud, Local DB, S3 Bucket, MAVFTP, External MAVLink
 
 petal-warehouse
 ~~~~~~~~~~~~~~~
 
 Data warehousing and analytics capabilities.
 
-- **Version**: 0.1.7
+- **Version**: 0.1.9
 - **Repository**: https://github.com/DroneLeaf/petal-warehouse
 - **Dependencies**: Redis, External MAVLink
 
@@ -27,16 +27,16 @@ petal-leafsdk
 
 LeafSDK integration for drone control.
 
-- **Version**: 0.1.12
+- **Version**: 0.2.10
 - **Repository**: https://github.com/DroneLeaf/petal-leafsdk
-- **Dependencies**: TBD
+- **Dependencies**: MQTT, External MAVLink, Redis
 
 petal-user-journey-coordinator
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 User journey and mission coordination.
 
-- **Version**: 0.1.2
+- **Version**: 0.1.11
 - **Repository**: https://github.com/DroneLeaf/petal-user-journey-coordinator
 - **Dependencies**: MQTT, External MAVLink
 
@@ -48,5 +48,6 @@ petal-qgc-mission-server
 
 QGroundControl mission server integration.
 
+- **Version**: 0.1.4
 - **Repository**: https://github.com/DroneLeaf/petal-qgc-mission-server
-- **Dependencies**: TBD
+- **Dependencies**: Redis, External MAVLink

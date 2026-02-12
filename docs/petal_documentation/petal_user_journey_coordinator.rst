@@ -2,7 +2,7 @@ Petal User Journey Coordinator
 ================================
 
 .. note::
-   This documentation is for **petal-user-journey-coordinator v0.1.10**
+   This documentation is for **petal-user-journey-coordinator v0.1.11**
 
 The **petal-user-journey-coordinator** is a critical petal that provides MQTT-based command handling for drone configuration, calibration, real-time telemetry streaming, and trajectory verification. It serves as the primary interface between web/mobile applications and the drone's flight controller.
 

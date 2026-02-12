@@ -2,7 +2,7 @@ Petal Flight Log
 ================
 
 .. note::
-   This documentation is for **petal-flight-log v0.2.5**
+   This documentation is for **petal-flight-log v0.2.6**
    This documentation covers the MQTT command interface for flight log management.
 
 The **petal-flight-log** is a petal that provides comprehensive flight record management capabilities including ULog file downloads from Pixhawk, S3 uploads, rosbag file handling, and flight record synchronization. It uses a job-based architecture for long-running operations with real-time progress streaming.
