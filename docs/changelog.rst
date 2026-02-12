@@ -1,6 +1,61 @@
 Changelog
 =========
 
+Version 0.2.1 (2026-02-12)
+---------------------------
+
+**Bulk Parameter Two-Phase Response Pattern:**
+
+- Refactored ``bulk_set_parameters`` and ``bulk_get_parameters`` MQTT handlers to use the same
+  two-phase response pattern as ``reboot_autopilot``:
+
+  - **Phase 1 (Immediate Acknowledgement)**: ``send_command_response`` is now called immediately
+    after message validation and active-operation checks, before executing the MAVLink bulk
+    operation. This prevents the front-end from timing out on long-running parameter operations.
+  - **Phase 2 (Status Publish)**: Results are published to ``command/web`` via ``publish_message``
+    with command ``/<petal_name>/bulk-parameter-set`` and ``/<petal_name>/bulk-parameter-get``
+    respectively, once the operation completes (successfully, partially, or with errors).
+
+- Added ``BulkParameterStatusPayload`` Pydantic model for structured bulk parameter status
+  payloads published via MQTT. Fields: ``success``, ``status``, ``message``, ``error_code``,
+  ``data`` (contains ``BulkParameterResponse``), and ``timestamp``.
+
+- All MQTT publish payloads now use ``BulkParameterStatusPayload.model_dump(mode="json")``
+  instead of hardcoded dictionaries, ensuring consistent serialization and validation.
+
+- Error handling in the execution phase (Phase 2) now publishes error status via MQTT
+  ``publish_message`` with ``EXECUTION_ERROR`` or ``NO_PARAMETERS_CONFIRMED`` error codes,
+  so the front-end is always notified of failures.
+
+**Documentation Updates:**
+
+- Updated petal-user-journey-coordinator documentation version from ``v0.1.11`` to ``v0.1.12``
+- Rewrote ``bulk_set_parameters`` and ``bulk_get_parameters`` command documentation with full
+  two-phase response pattern details:
+
+  - Phase 1 immediate response and error response examples
+  - Phase 2 status publish examples (success, partial failure, total failure)
+  - ``BulkParameterStatusPayload`` field reference
+  - Front-end handling instructions
+
+- Added new published topics to MQTT Topics Reference:
+
+  - ``/petal-user-journey-coordinator/bulk-parameter-set``
+  - ``/petal-user-journey-coordinator/bulk-parameter-get``
+
+**Dependency Updates:**
+
+- Updated ``petal-user-journey-coordinator`` from ``v0.1.11`` to ``v0.1.12``:
+
+  - **Refactor**: ``bulk_set_parameters`` and ``bulk_get_parameters`` handlers refactored with
+    two-phase response pattern: immediate ``send_command_response`` acknowledgement followed by
+    ``publish_message`` with results to ``command/web``
+  - **Feature**: Added ``BulkParameterStatusPayload`` Pydantic model for structured MQTT status payloads
+  - **Improvement**: All bulk parameter MQTT publish payloads now use validated Pydantic models
+    instead of hardcoded dictionaries
+  - **Improvement**: Execution errors in bulk parameter operations now always publish error
+    status to ``command/web``, ensuring the front-end is notified of failures
+
 Version 0.2.0 (2026-02-12)
 ---------------------------
 

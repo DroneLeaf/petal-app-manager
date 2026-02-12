@@ -2,7 +2,7 @@ Petal User Journey Coordinator
 ================================
 
 .. note::
-   This documentation is for **petal-user-journey-coordinator v0.1.11**
+   This documentation is for **petal-user-journey-coordinator v0.1.12**
 
 The **petal-user-journey-coordinator** is a critical petal that provides MQTT-based command handling for drone configuration, calibration, real-time telemetry streaming, and trajectory verification. It serves as the primary interface between web/mobile applications and the drone's flight controller.
 
@@ -475,7 +475,12 @@ Updates ESC PWM calibration limits.
 Bulk Parameter Operations
 -------------------------
 
-These commands leverage the efficient bulk parameter operations for setting/getting multiple PX4 parameters at once over potentially lossy connections.
+These commands leverage the efficient bulk parameter operations for setting/getting multiple
+PX4 parameters at once over potentially lossy connections. Both commands use a **two-phase
+response pattern** (identical to ``reboot_autopilot``):
+
+1. **Immediate Response** (via ``send_command_response``): Acknowledges the command was received and validated
+2. **Status Publish** (via ``publish_message``): Reports the final results after all parameters are processed
 
 bulk_set_parameters
 ^^^^^^^^^^^^^^^^^^^
@@ -483,6 +488,8 @@ bulk_set_parameters
 **Command:** ``petal-user-journey-coordinator/bulk_set_parameters``
 
 Sets multiple PX4 parameters in a single operation using the lossy-link optimized bulk setter.
+The command validates the payload, immediately acknowledges receipt, then executes the bulk
+set and publishes the results to ``command/web``.
 
 **Payload:**
 
@@ -510,43 +517,216 @@ Sets multiple PX4 parameters in a single operation using the lossy-link optimize
   - ``parameter_value`` (str|int|float): Value to set
   - ``parameter_type`` (str, optional): Parameter type - ``"UINT8"``, ``"INT8"``, ``"UINT16"``, ``"INT16"``, ``"UINT32"``, ``"INT32"``, ``"UINT64"``, ``"INT64"``, ``"REAL32"``, ``"REAL64"``
 
-**Response:**
+**Phase 1: Immediate Response (waitResponse)**
+
+Sent immediately via ``send_command_response`` when ``waitResponse: true``:
 
 .. code-block:: json
 
    {
-     "success": true,
-     "results": {
-       "CA_ROTOR_COUNT": {
-         "name": "CA_ROTOR_COUNT",
-         "value": 4,
-         "raw": 4.0,
-         "type": 6,
-         "count": 1053,
-         "index": 65535,
-         "error": null,
-         "success": true
-       },
-       "VTO_LOITER_ALT": {
-         "name": "VTO_LOITER_ALT",
-         "value": 80.0,
-         "raw": 80.0,
-         "type": 9,
-         "count": 1053,
-         "index": 1047,
-         "error": null,
-         "success": true
-       }
-     },
-     "timestamp": "2023-01-01T00:00:00Z"
+     "status": "success",
+     "message": "Bulk parameter set command initiated",
+     "data": {
+       "parameter_count": 2,
+       "message": "Bulk parameter set in progress, results will be published to command/web"
+     }
    }
+
+**Phase 1: Error Responses**
+
+Error responses are sent immediately via ``send_command_response`` when ``waitResponse: true``.
+
+*Operation Blocked:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "Bulk parameter configuration blocked - Active operation in progress",
+     "error_code": "OPERATION_ACTIVE"
+   }
+
+*Empty Parameters:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "No parameters provided for bulk set",
+     "error_code": "NO_PARAMETERS_PROVIDED"
+   }
+
+*Validation Error:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "Invalid bulk parameter payload: <validation details>",
+     "error_code": "VALIDATION_ERROR"
+   }
+
+*Handler Error:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "Bulk parameter handler error: <error details>",
+     "error_code": "HANDLER_ERROR"
+   }
+
+**Phase 2: Status Publish (publish_message)**
+
+After all parameters are set (or the operation fails), the petal publishes the result to the
+``command/web`` MQTT topic. The front-end must subscribe to this topic and filter messages by
+the ``command`` field.
+
+**Status Publish Command Name Pattern:**
+
+.. code-block:: text
+
+   /<petal_name>/bulk-parameter-set
+
+For this petal, the command will be:
+
+.. code-block:: text
+
+   /petal-user-journey-coordinator/bulk-parameter-set
+
+**Front-End Handling:**
+
+The front-end should:
+
+1. Subscribe to the ``command/web`` MQTT topic
+2. Filter incoming messages by checking if ``message.command`` equals ``/petal-user-journey-coordinator/bulk-parameter-set``
+3. Use the ``messageId`` field to correlate the status with the original request
+
+**Status Publish (Success):**
+
+.. code-block:: json
+
+   {
+     "messageId": "bulk-set-001",
+     "command": "/petal-user-journey-coordinator/bulk-parameter-set",
+     "timestamp": "2026-02-12T12:00:05.000Z",
+     "payload": {
+       "success": true,
+       "status": "success",
+       "message": "Bulk parameter set completed - 2 parameters processed",
+       "error_code": null,
+       "data": {
+         "success": true,
+         "results": {
+           "CA_ROTOR_COUNT": {
+             "name": "CA_ROTOR_COUNT",
+             "value": 4,
+             "raw": 4.0,
+             "type": 6,
+             "count": 1053,
+             "index": 65535,
+             "error": null,
+             "success": true
+           },
+           "VTO_LOITER_ALT": {
+             "name": "VTO_LOITER_ALT",
+             "value": 80.0,
+             "raw": 80.0,
+             "type": 9,
+             "count": 1053,
+             "index": 1047,
+             "error": null,
+             "success": true
+           }
+         },
+         "timestamp": "2026-02-12T12:00:05.000Z"
+       },
+       "timestamp": "2026-02-12T12:00:05.000Z"
+     }
+   }
+
+**Status Publish (Partial Failure):**
+
+.. code-block:: json
+
+   {
+     "messageId": "bulk-set-001",
+     "command": "/petal-user-journey-coordinator/bulk-parameter-set",
+     "timestamp": "2026-02-12T12:00:05.000Z",
+     "payload": {
+       "success": false,
+       "status": "error",
+       "message": "Bulk parameter set completed - some parameters failed",
+       "error_code": null,
+       "data": {
+         "success": false,
+         "results": {
+           "CA_ROTOR_COUNT": {
+             "name": "CA_ROTOR_COUNT",
+             "value": 4,
+             "success": true
+           },
+           "INVALID_PARAM": {
+             "name": "INVALID_PARAM",
+             "error": "Parameter value could not be retrieved after set",
+             "success": false
+           }
+         },
+         "timestamp": "2026-02-12T12:00:05.000Z"
+       },
+       "timestamp": "2026-02-12T12:00:05.000Z"
+     }
+   }
+
+**Status Publish (Error - No Parameters Confirmed):**
+
+.. code-block:: json
+
+   {
+     "messageId": "bulk-set-001",
+     "command": "/petal-user-journey-coordinator/bulk-parameter-set",
+     "timestamp": "2026-02-12T12:00:05.000Z",
+     "payload": {
+       "success": false,
+       "status": "error",
+       "message": "No parameters were confirmed after bulk set",
+       "error_code": "NO_PARAMETERS_CONFIRMED",
+       "data": null,
+       "timestamp": "2026-02-12T12:00:05.000Z"
+     }
+   }
+
+**Status Payload Fields (BulkParameterStatusPayload):**
+
+- ``success`` (bool): ``true`` if all parameters were set successfully, ``false`` otherwise
+- ``status`` (str): ``"success"`` or ``"error"``
+- ``message`` (str): Human-readable status message
+- ``error_code`` (str|null): Error code if the operation failed entirely:
+
+  - ``NO_PARAMETERS_CONFIRMED`` - No parameters were confirmed after the bulk set
+  - ``EXECUTION_ERROR`` - Unexpected error during execution
+
+- ``data`` (object|null): ``BulkParameterResponse`` containing per-parameter results, or ``null`` on total failure
+- ``timestamp`` (str): ISO 8601 timestamp of when the operation completed
+
+.. note::
+   The ``messageId`` in both the immediate response and the status publish matches the
+   original request's ``messageId``, allowing the front-end to correlate responses with
+   their originating requests.
+
+.. warning::
+   The bulk set command will be rejected if any ESC calibration, motor testing, or other
+   active operations are in progress. Ensure all operations are complete or cancelled
+   before attempting to set parameters.
 
 bulk_get_parameters
 ^^^^^^^^^^^^^^^^^^^
 
 **Command:** ``petal-user-journey-coordinator/bulk_get_parameters``
 
-Retrieves multiple PX4 parameters in a single operation.
+Retrieves multiple PX4 parameters in a single operation. The command validates the payload,
+immediately acknowledges receipt, then executes the bulk get and publishes the results to
+``command/web``.
 
 **Payload:**
 
@@ -563,36 +743,206 @@ Retrieves multiple PX4 parameters in a single operation.
 
 - ``parameter_names`` (list): List of parameter name strings to retrieve
 
-**Response:**
+**Phase 1: Immediate Response (waitResponse)**
+
+Sent immediately via ``send_command_response`` when ``waitResponse: true``:
 
 .. code-block:: json
 
    {
-     "success": true,
-     "results": {
-       "CA_ROTOR_COUNT": {
-         "name": "CA_ROTOR_COUNT",
-         "value": 4,
-         "raw": 4.0,
-         "type": 6,
-         "count": 1053,
-         "index": 65535,
-         "error": null,
-         "success": true
-       },
-       "VTO_LOITER_ALT": {
-         "name": "VTO_LOITER_ALT",
-         "value": 80.0,
-         "raw": 80.0,
-         "type": 9,
-         "count": 1053,
-         "index": 1047,
-         "error": null,
-         "success": true
-       }
-     },
-     "timestamp": "2023-01-01T00:00:00Z"
+     "status": "success",
+     "message": "Bulk parameter get command initiated",
+     "data": {
+       "parameter_count": 2,
+       "message": "Bulk parameter get in progress, results will be published to command/web"
+     }
    }
+
+**Phase 1: Error Responses**
+
+Error responses are sent immediately via ``send_command_response`` when ``waitResponse: true``.
+
+*Operation Blocked:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "Bulk parameter retrieval blocked - Active operation in progress",
+     "error_code": "OPERATION_ACTIVE"
+   }
+
+*Empty Parameter Names:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "No parameter names provided for bulk get",
+     "error_code": "NO_PARAMETER_NAMES_PROVIDED"
+   }
+
+*Validation Error:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "Invalid bulk parameter get payload: <validation details>",
+     "error_code": "VALIDATION_ERROR"
+   }
+
+*Handler Error:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "Bulk parameter get handler error: <error details>",
+     "error_code": "HANDLER_ERROR"
+   }
+
+**Phase 2: Status Publish (publish_message)**
+
+After all parameters are retrieved (or the operation fails), the petal publishes the result to
+the ``command/web`` MQTT topic.
+
+**Status Publish Command Name Pattern:**
+
+.. code-block:: text
+
+   /<petal_name>/bulk-parameter-get
+
+For this petal, the command will be:
+
+.. code-block:: text
+
+   /petal-user-journey-coordinator/bulk-parameter-get
+
+**Front-End Handling:**
+
+The front-end should:
+
+1. Subscribe to the ``command/web`` MQTT topic
+2. Filter incoming messages by checking if ``message.command`` equals ``/petal-user-journey-coordinator/bulk-parameter-get``
+3. Use the ``messageId`` field to correlate the status with the original request
+
+**Status Publish (Success):**
+
+.. code-block:: json
+
+   {
+     "messageId": "bulk-get-001",
+     "command": "/petal-user-journey-coordinator/bulk-parameter-get",
+     "timestamp": "2026-02-12T12:00:05.000Z",
+     "payload": {
+       "success": true,
+       "status": "success",
+       "message": "Bulk parameter get completed - 2 parameters processed",
+       "error_code": null,
+       "data": {
+         "success": true,
+         "results": {
+           "CA_ROTOR_COUNT": {
+             "name": "CA_ROTOR_COUNT",
+             "value": 4,
+             "raw": 4.0,
+             "type": 6,
+             "count": 1053,
+             "index": 65535,
+             "error": null,
+             "success": true
+           },
+           "VTO_LOITER_ALT": {
+             "name": "VTO_LOITER_ALT",
+             "value": 80.0,
+             "raw": 80.0,
+             "type": 9,
+             "count": 1053,
+             "index": 1047,
+             "error": null,
+             "success": true
+           }
+         },
+         "timestamp": "2026-02-12T12:00:05.000Z"
+       },
+       "timestamp": "2026-02-12T12:00:05.000Z"
+     }
+   }
+
+**Status Publish (Partial Failure):**
+
+.. code-block:: json
+
+   {
+     "messageId": "bulk-get-001",
+     "command": "/petal-user-journey-coordinator/bulk-parameter-get",
+     "timestamp": "2026-02-12T12:00:05.000Z",
+     "payload": {
+       "success": false,
+       "status": "error",
+       "message": "Bulk parameter get completed - some parameters failed",
+       "error_code": null,
+       "data": {
+         "success": false,
+         "results": {
+           "CA_ROTOR_COUNT": {
+             "name": "CA_ROTOR_COUNT",
+             "value": 4,
+             "success": true
+           },
+           "INVALID_PARAM": {
+             "name": "INVALID_PARAM",
+             "error": "Parameter value could not be retrieved",
+             "success": false
+           }
+         },
+         "timestamp": "2026-02-12T12:00:05.000Z"
+       },
+       "timestamp": "2026-02-12T12:00:05.000Z"
+     }
+   }
+
+**Status Publish (Error - No Parameters Confirmed):**
+
+.. code-block:: json
+
+   {
+     "messageId": "bulk-get-001",
+     "command": "/petal-user-journey-coordinator/bulk-parameter-get",
+     "timestamp": "2026-02-12T12:00:05.000Z",
+     "payload": {
+       "success": false,
+       "status": "error",
+       "message": "No parameters were confirmed after bulk get",
+       "error_code": "NO_PARAMETERS_CONFIRMED",
+       "data": null,
+       "timestamp": "2026-02-12T12:00:05.000Z"
+     }
+   }
+
+**Status Payload Fields (BulkParameterStatusPayload):**
+
+- ``success`` (bool): ``true`` if all parameters were retrieved successfully, ``false`` otherwise
+- ``status`` (str): ``"success"`` or ``"error"``
+- ``message`` (str): Human-readable status message
+- ``error_code`` (str|null): Error code if the operation failed entirely:
+
+  - ``NO_PARAMETERS_CONFIRMED`` - No parameters were confirmed after the bulk get
+  - ``EXECUTION_ERROR`` - Unexpected error during execution
+
+- ``data`` (object|null): ``BulkParameterResponse`` containing per-parameter results, or ``null`` on total failure
+- ``timestamp`` (str): ISO 8601 timestamp of when the operation completed
+
+.. note::
+   The ``messageId`` in both the immediate response and the status publish matches the
+   original request's ``messageId``, allowing the front-end to correlate responses with
+   their originating requests.
+
+.. warning::
+   The bulk get command will be rejected if any ESC calibration, motor testing, or other
+   active operations are in progress. Ensure all operations are complete or cancelled
+   before attempting to retrieve parameters.
 
 Real-Time Telemetry Streams
 ---------------------------
@@ -1211,6 +1561,11 @@ The petal publishes status updates and async results to ``command/web`` with the
 **System Status:**
 
 - ``/petal-user-journey-coordinator/reboot_px4_status`` - Reboot operation status (success/failure)
+
+**Bulk Parameter Results:**
+
+- ``/petal-user-journey-coordinator/bulk-parameter-set`` - Bulk parameter set results (success/partial failure/error)
+- ``/petal-user-journey-coordinator/bulk-parameter-get`` - Bulk parameter get results (success/partial failure/error)
 
 **Telemetry Streams:**
 
