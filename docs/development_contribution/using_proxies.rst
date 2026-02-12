@@ -634,59 +634,132 @@ S3BucketProxy
 MQTTProxy
 ---------
 
-**Purpose:** IoT messaging, device communication, and event streaming using MQTT protocol
+**Purpose:** IoT messaging, device communication, and MQTT command handling for web/mobile
+client communication.
 
 **Common Use Cases:**
 
-- Device-to-device communication
-- Real-time event streaming
-- IoT sensor data collection
-- Command distribution
-- Status broadcasting
+- Receiving commands from web/mobile clients (via ``@mqtt_action``)
+- Sending command responses back to clients
+- Publishing status updates and telemetry to the ``command/web`` topic
+- Real-time event streaming between edge device and cloud
 
-**Basic Usage:**
+**Receiving Commands — the ``@mqtt_action`` Decorator**
+
+The recommended way to handle incoming MQTT commands is the ``@mqtt_action``
+decorator.  You do **not** need to call ``register_handler()`` manually — the
+framework does it automatically at startup.
+
+See :ref:`mqtt-action-decorator` in the *Adding a New Petal* guide for full
+details on ``@mqtt_action`` and the ``cpu_heavy`` parameter.
 
 .. code-block:: python
 
-   from petal_app_manager.proxies.mqtt import MQTTProxy
+   from petal_app_manager.plugins.base import Petal
+   from petal_app_manager.plugins.decorators import http_action, mqtt_action
 
    class YourPetal(Petal):
+       name = "petal-example"
+
        def get_required_proxies(self) -> List[str]:
            return ["mqtt"]
-       
-       async def publish_status(self, status: dict):
-           mqtt_proxy: MQTTProxy = self.get_proxy("mqtt")
-           
-           # TODO: Add MQTTProxy methods and examples
-           # - Publishing messages
-           # - Subscribing to topics
-           # - Topic management
-           # - QoS handling
-           # - Retained messages
-           # - Connection management
 
-**Methods:**
+       @mqtt_action(command="do_something")
+       async def _do_something(self, topic: str, message: dict):
+           """Handles ``petal-example/do_something`` on ``command/edge``."""
+           msg_id = message.get("messageId", "unknown")
+           payload = message.get("payload", {})
+
+           # ... business logic ...
+
+           mqtt_proxy = self._proxies.get("mqtt")
+           await mqtt_proxy.send_command_response(
+               message_id=msg_id,
+               response_data={"status": "success"},
+           )
+
+       @mqtt_action(command="heavy_compute", cpu_heavy=True)
+       async def _heavy_compute(self, topic: str, message: dict):
+           """CPU-intensive handler — offloaded to a thread-pool executor."""
+           result = expensive_calculation(message.get("payload", {}))
+           mqtt_proxy = self._proxies.get("mqtt")
+           await mqtt_proxy.send_command_response(
+               message_id=message.get("messageId", "unknown"),
+               response_data={"status": "success", "result": result},
+           )
+
+**Publishing Messages — Public API Methods:**
 
 .. code-block:: python
 
-   # TODO: Document MQTTProxy methods:
-   # await mqtt_proxy.publish(topic, message, qos=0, retain=False)
-   # await mqtt_proxy.subscribe(topic, callback, qos=0)
-   # await mqtt_proxy.unsubscribe(topic)
-   # await mqtt_proxy.get_subscriptions()
-   # await mqtt_proxy.is_connected()
-   # await mqtt_proxy.disconnect()
+   mqtt_proxy = self._proxies.get("mqtt")
 
-**Example Patterns:**
+   # Publish to the ``command/web`` topic (for web/mobile clients)
+   await mqtt_proxy.publish_message(
+       payload={"key": "value", "status": "update"},
+       qos=1,  # QoS 0, 1, or 2
+   )
+
+   # Send a direct response to a specific command (correlates via messageId)
+   await mqtt_proxy.send_command_response(
+       message_id="original-msg-id",
+       response_data={"status": "success", "data": {...}},
+   )
+
+**Method Reference:**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Method
+     - Description
+   * - ``publish_message(payload, qos=1)``
+     - Publish a message to the ``command/web`` topic for web/mobile clients.
+   * - ``send_command_response(message_id, response_data)``
+     - Send a correlated response to an incoming command (published to the
+       response topic with the original ``messageId``).
+   * - ``register_handler(handler, cpu_heavy=False)``
+     - Register an async handler on the ``command/edge`` topic.
+       **Prefer ``@mqtt_action`` instead** — manual registration is only
+       needed for advanced cases.
+   * - ``unregister_handler(subscription_id)``
+     - Unregister a previously registered handler by subscription ID.
+   * - ``health_check()``
+     - Return proxy health status including connection state.
+
+**The ``cpu_heavy`` Flag:**
+
+Both ``@mqtt_action(cpu_heavy=True)`` and ``register_handler(handler, cpu_heavy=True)``
+cause the handler's execution to be offloaded to a thread-pool executor.
+This prevents CPU-intensive work (e.g. NumPy, image processing, large JSON
+serialization) from blocking the asyncio event loop that services all other
+MQTT, HTTP, and WebSocket traffic.
+
+The default is ``cpu_heavy=False`` — use it for typical I/O-bound handlers
+that ``await`` proxy calls, database queries, or network requests.
+
+**Example — Status Broadcasting:**
 
 .. code-block:: python
 
-   # TODO: Add practical MQTT usage examples:
-   # - Status broadcasting
-   # - Command distribution
-   # - Sensor data collection
-   # - Event notifications
-   # - Device coordination
+   class TelemetryPetal(Petal):
+       name = "petal-telemetry"
+
+       def get_required_proxies(self) -> List[str]:
+           return ["mqtt", "ext_mavlink"]
+
+       async def broadcast_position(self, lat: float, lon: float, alt: float):
+           """Publish a position update to connected web clients."""
+           mqtt_proxy = self._proxies.get("mqtt")
+           await mqtt_proxy.publish_message(
+               payload={
+                   "type": "position_update",
+                   "latitude": lat,
+                   "longitude": lon,
+                   "altitude": alt,
+               }
+           )
 
 Error Handling and Best Practices
 ----------------------------------
@@ -747,7 +820,7 @@ Next Steps
 - Use the Admin Dashboard to monitor proxy health and status
 
 .. note::
-   **Documentation Status**: The MavlinkExternalProxy, S3BucketProxy, and RedisProxy sections 
-   include comprehensive examples for bulk parameter operations, file management, and key scanning.
-   CloudDBProxy, LocalDBProxy, and MQTTProxy sections contain placeholders that will be 
+   **Documentation Status**: The MavlinkExternalProxy, S3BucketProxy, RedisProxy, and MQTTProxy
+   sections include comprehensive examples.
+   CloudDBProxy and LocalDBProxy sections contain placeholders that will be 
    populated with detailed examples in future updates.

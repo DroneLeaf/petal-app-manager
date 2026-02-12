@@ -1,6 +1,66 @@
 Changelog
 =========
 
+Version 0.2.0 (2026-02-12)
+---------------------------
+
+**``@mqtt_action`` Decorator & MQTT Command Handler Refactor:**
+
+- Introduced the ``@mqtt_action`` decorator in ``petal_app_manager.plugins.decorators`` for
+  declarative MQTT command handler registration:
+
+  - ``command`` parameter: specifies the command suffix (framework auto-prefixes the petal name)
+  - ``cpu_heavy`` parameter (default ``False``): when ``True``, offloads handler execution to a
+    thread-pool executor to prevent event-loop starvation from CPU-bound work (e.g. NumPy, image
+    processing, large serialization)
+
+- Added base-class infrastructure in ``Petal`` (``plugins/base.py``):
+
+  - ``_collect_mqtt_actions()``: scans all instance methods/attributes for ``__mqtt_action__``
+    metadata and builds the dispatch table
+  - ``_mqtt_master_command_handler()``: single registered MQTT handler that dispatches incoming
+    commands to the correct ``@mqtt_action`` handler, with automatic error responses for unknown
+    commands and organization-ID guard logic
+  - ``_setup_mqtt_actions()``: called at startup to wire everything up and register the master
+    handler with the MQTT proxy
+  - ``has_mqtt_actions()``: quick check for whether a petal has any decorated handlers
+
+- Refactored **all MQTT-enabled petals** to the new pattern:
+
+  - **petal-flight-log** (10 handlers): ``fetch_flight_records``, ``subscribe_fetch_flight_records``,
+    ``unsubscribe_fetch_flight_records``, ``cancel_fetch_flight_records``,
+    ``fetch_existing_flight_records``, ``start_sync_flight_record``,
+    ``subscribe_sync_job_value_stream``, ``unsubscribe_sync_job_value_stream``,
+    ``cancel_sync_job``, ``delete_flight_record``
+  - **petal-leafsdk** (3 handlers): ``mission_plan``, ``rtl``, ``goto``
+  - **petal-user-journey-coordinator** (12+ static handlers via ``@mqtt_action``, 18 dynamic
+    factory handlers with ``__mqtt_action__`` metadata attached in ``__init__``)
+
+- Removed legacy boilerplate from all refactored petals:
+
+  - ``_setup_command_handlers()`` methods (manual dict of command → handler)
+  - ``_master_command_handler()`` methods (manual if/elif dispatch)
+  - Manual ``register_handler()`` calls in ``_setup_mqtt_topics()``
+
+- Fixed ``msg_id`` ``NameError`` bug in petal-leafsdk's legacy master handler (caught during refactor)
+
+**Documentation Updates:**
+
+- Added :ref:`mqtt-action-decorator` section to *Adding a New Petal* guide covering:
+
+  - Basic usage, handler signature, ``cpu_heavy`` parameter
+  - Under-the-hood dispatch mechanism
+  - Dynamic/factory handler pattern
+  - Migration guide from the legacy manual dispatch pattern
+
+- Replaced MQTTProxy placeholder in *Using Proxies* guide with full documentation:
+
+  - ``@mqtt_action``-based command handling (recommended)
+  - ``publish_message()`` and ``send_command_response()`` public API
+  - Method reference table
+  - ``cpu_heavy`` flag explanation
+  - Status broadcasting example
+
 Version 0.1.62 (2026-02-06)
 ---------------------------
 

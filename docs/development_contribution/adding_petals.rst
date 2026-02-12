@@ -142,7 +142,7 @@ This is the main petal implementation:
 
    from . import logger
    from petal_app_manager.plugins.base import Petal
-   from petal_app_manager.plugins.decorators import http_action, websocket_action
+   from petal_app_manager.plugins.decorators import http_action, websocket_action, mqtt_action
    from petal_app_manager.proxies.redis import RedisProxy
    from petal_app_manager.proxies.localdb import LocalDBProxy
    from petal_app_manager.proxies.external import MavLinkExternalProxy
@@ -260,6 +260,146 @@ Use decorators to expose endpoints:
 
 - ``@http_action`` - HTTP endpoint (GET, POST, PUT, DELETE, etc.)
 - ``@websocket_action`` - WebSocket endpoint
+- ``@mqtt_action`` - MQTT command handler (see :ref:`mqtt-action-decorator`)
+
+.. _mqtt-action-decorator:
+
+MQTT Command Handlers (``@mqtt_action``)
+-----------------------------------------
+
+Petals that need to receive MQTT commands from web/mobile clients use the
+``@mqtt_action`` decorator.  The framework automatically discovers decorated
+methods at startup, builds a dispatch table, and registers a single master
+handler with the MQTT proxy — no manual ``register_handler`` calls required.
+
+Basic Usage
+~~~~~~~~~~~
+
+.. code-block:: python
+
+   from petal_app_manager.plugins.decorators import mqtt_action
+
+   class MyPetal(Petal):
+       name = "petal-example"
+
+       @mqtt_action(command="do_something")
+       async def _do_something_handler(self, topic: str, message: dict):
+           """Handles the ``petal-example/do_something`` MQTT command."""
+           payload = message.get("payload", {})
+           msg_id = message.get("messageId", "unknown")
+           # ... business logic ...
+           await self._mqtt_proxy.send_command_response(
+               message_id=msg_id,
+               response_data={"status": "success"},
+           )
+
+The ``command`` parameter is the **suffix** only.  At runtime the framework
+prepends the petal's ``name`` attribute, producing the fully-qualified command
+string ``"petal-example/do_something"``.
+
+Handler Signature
+~~~~~~~~~~~~~~~~~
+
+Every ``@mqtt_action`` handler **must** be an ``async def`` method with the
+signature:
+
+.. code-block:: python
+
+   async def handler(self, topic: str, message: Dict[str, Any]):
+       ...
+
+Where:
+
+- ``topic`` — the MQTT topic the message arrived on (e.g. ``command/edge``).
+- ``message`` — the full JSON payload dictionary, including standard fields
+  such as ``command``, ``messageId``, ``waitResponse``, and ``payload``.
+
+The ``cpu_heavy`` Parameter
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default ``cpu_heavy=False``, meaning the handler runs directly on the
+asyncio event loop.  If a handler performs significant CPU-bound work
+(e.g. NumPy computation, image processing, large data serialization) it
+should set ``cpu_heavy=True`` so the framework offloads execution to a
+thread-pool executor, preventing event-loop starvation:
+
+.. code-block:: python
+
+   @mqtt_action(command="process_pointcloud", cpu_heavy=True)
+   async def _process_pointcloud_handler(self, topic: str, message: dict):
+       """CPU-intensive handler — runs in a thread-pool executor."""
+       data = message.get("payload", {})
+       result = heavy_numpy_calculation(data)  # won't block the event loop
+       await self._mqtt_proxy.send_command_response(
+           message_id=message.get("messageId", "unknown"),
+           response_data={"status": "success", "result": result},
+       )
+
+.. tip::
+   When in doubt, leave ``cpu_heavy=False`` (the default).  Only enable it
+   for handlers that demonstrably block the loop — you can identify them
+   using the profiling tools described in :doc:`profiling`.
+
+How It Works Under the Hood
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1. During petal startup, ``Petal._setup_mqtt_actions()`` calls
+   ``_collect_mqtt_actions()`` which scans all methods for the
+   ``__mqtt_action__`` attribute set by the decorator.
+2. A dispatch table mapping ``"{petal_name}/{command}"`` → handler is built.
+3. A single **master handler** (``Petal._mqtt_master_command_handler``) is
+   registered with the MQTT proxy via ``register_handler()``.
+4. When a message arrives, the master handler reads the ``command`` field and
+   dispatches to the matching ``@mqtt_action`` handler.
+5. If the handler is marked ``cpu_heavy=True``, execution is offloaded to
+   the event loop's default executor.
+6. Unknown commands receive an automatic error response (if
+   ``waitResponse=True`` in the message) listing available commands.
+
+Dynamic / Factory Handlers
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For handlers generated at runtime (e.g. via factory functions in ``__init__``),
+you can attach the metadata manually instead of using the decorator:
+
+.. code-block:: python
+
+   def __init__(self):
+       super().__init__()
+       handler = self._make_handler("some_param")
+       handler.__mqtt_action__ = {"command": "some_param", "cpu_heavy": False}
+       self._dynamic_handler = handler  # must be an instance attribute
+
+The ``_collect_mqtt_actions()`` scanner discovers any attribute on ``self``
+that has an ``__mqtt_action__`` dict, so both decorated methods and manually
+tagged bound methods are found.
+
+Migration from Legacy Pattern
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Older petals used a manual dispatch pattern:
+
+.. code-block:: python
+
+   # ❌ OLD pattern — do NOT use in new code
+   def _setup_command_handlers(self):
+       return {
+           f"{self.name}/do_something": self._do_something_handler,
+       }
+
+   async def _master_command_handler(self, topic, message):
+       command = message.get("command", "")
+       handler = self._command_handlers.get(command)
+       if handler:
+           await handler(topic, message)
+
+This has been replaced by the ``@mqtt_action`` decorator.  If you are
+migrating an existing petal:
+
+1. Import ``mqtt_action`` from ``petal_app_manager.plugins.decorators``.
+2. Add ``@mqtt_action(command="...")`` to each handler method.
+3. Delete ``_setup_command_handlers()`` and ``_master_command_handler()``.
+4. Remove the manual ``register_handler()`` call from ``_setup_mqtt_topics()``.
 
 Registering the Petal
 ---------------------
