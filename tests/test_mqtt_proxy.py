@@ -3,7 +3,6 @@ import pytest_asyncio
 import asyncio
 import logging
 from unittest.mock import patch, MagicMock, AsyncMock, call
-import threading
 import json
 from typing import Generator, AsyncGenerator
 
@@ -40,17 +39,8 @@ async def proxy() -> AsyncGenerator[MQTTProxy, None]:
         proxy._loop = asyncio.get_running_loop()
         proxy.is_connected = True
         
-        # Initialize worker thread state for testing
-        proxy._worker_running = threading.Event()
-        proxy._worker_running.set()
-        proxy._worker_threads = []
-        
         # Setup mock callback router
         proxy.callback_router = MagicMock()
-        
-        # Initialize seen message IDs deque for duplicate filtering
-        from collections import deque
-        proxy._seen_message_ids = deque(maxlen=proxy.max_message_buffer)
         
         # Setup mock responses for health checks
         mock_health_response = MagicMock()
@@ -73,7 +63,6 @@ async def proxy() -> AsyncGenerator[MQTTProxy, None]:
         finally:
             # Cleanup
             proxy.is_connected = False
-            proxy._worker_running.clear()
 
 
 @pytest_asyncio.fixture
@@ -451,13 +440,7 @@ async def test_process_received_message_topic_match(proxy: MQTTProxy):
     })
     
     # Create and process message
-    from petal_app_manager.proxies.mqtt import MQTTMessage
-    message = MQTTMessage(
-        topic=command_topic,
-        payload={"message": "hello world"}
-    )
-    
-    proxy._process_message_in_worker(message)
+    proxy._process_incoming_message(command_topic, {"message": "hello world"})
     
     # Give async callback time to execute
     await asyncio.sleep(0.1)
@@ -474,16 +457,8 @@ async def test_process_received_message_topic_match(proxy: MQTTProxy):
 @pytest.mark.asyncio
 async def test_process_received_message_no_handler(proxy: MQTTProxy):
     """Test processing received message without matching handler."""
-    from petal_app_manager.proxies.mqtt import MQTTMessage
-    
-    # Create message for topic with no handlers
-    message = MQTTMessage(
-        topic="org/test-org/device/test-device/unknown",
-        payload={"message": "no handler"}
-    )
-    
-    # Should not raise exception
-    proxy._process_message_in_worker(message)
+    # Process message for topic with no handlers - should not raise exception
+    proxy._process_incoming_message("org/test-org/device/test-device/unknown", {"message": "no handler"})
 
 
 
@@ -563,46 +538,27 @@ async def test_callback_error_handling(proxy: MQTTProxy):
         "subscription_id": "test-failing"
     })
     
-    from petal_app_manager.proxies.mqtt import MQTTMessage
-    message = MQTTMessage(
-        topic=command_topic,
-        payload={"message": "test"}
-    )
-    
     # Should not raise exception, should handle gracefully
-    proxy._process_message_in_worker(message)
+    proxy._process_incoming_message(command_topic, {"message": "test"})
 
 
 @pytest.mark.asyncio
-async def test_synchronous_callback_handling(proxy: MQTTProxy):
-    """Test handling of synchronous (non-async) callbacks."""
-    messages_received = []
+async def test_sync_callback_rejected(proxy: MQTTProxy):
+    """Test that synchronous (non-async) callbacks are rejected."""
     
     def sync_callback(topic: str, payload: dict):
-        messages_received.append((topic, payload))
+        pass  # This should not be allowed
     
-    # Setup sync handler
-    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
+    # Setup command topic
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
     proxy.subscribed_topics.add(command_topic)
-    proxy._handlers[command_topic].append({
-        "callback": sync_callback,
-        "subscription_id": "test-sync"
-    })
     
-    from petal_app_manager.proxies.mqtt import MQTTMessage
-    message = MQTTMessage(
-        topic=command_topic,
-        payload={"message": "sync test"}
-    )
+    # Attempting to register a sync callback should raise TypeError
+    with pytest.raises(TypeError) as exc_info:
+        proxy.register_handler(sync_callback)
     
-    proxy._process_message_in_worker(message)
-    
-    # Give sync callback time to process
-    await asyncio.sleep(0.1)
-    
-    # Verify callback was called
-    assert len(messages_received) == 1
-    assert messages_received[0] == (command_topic, {"message": "sync test"})
+    assert "async function" in str(exc_info.value)
+    assert "coroutine" in str(exc_info.value)
 
 
 # ------ Integration Tests ------ #
@@ -637,12 +593,7 @@ async def test_basic_workflow(proxy: MQTTProxy):
         assert publish_result is True
         
         # 4. Simulate receiving a message on command topic
-        from petal_app_manager.proxies.mqtt import MQTTMessage
-        message = MQTTMessage(
-            topic=command_topic,
-            payload={"message": "workflow test"}
-        )
-        proxy._process_message_in_worker(message)
+        proxy._process_incoming_message(command_topic, {"message": "workflow test"})
         
         # Give async callback time to execute
         await asyncio.sleep(0.1)
@@ -753,21 +704,16 @@ async def test_message_processing_concurrency(proxy: MQTTProxy):
     for i in range(5):
         proxy._handlers[command_topic].append({
             "callback": test_callback,
-            "subscription_id": f"test-sub-{i}"
+            "subscription_id": f"test-sub-{i}",
+            "cpu_heavy": False,
         })
     
     # Create and process message (will trigger all 5 handlers)
-    from petal_app_manager.proxies.mqtt import MQTTMessage
-    message = MQTTMessage(
-        topic=command_topic,
-        payload={"message": "concurrent_test"}
-    )
-    
     # Store futures from callback invocations
     callback_futures = []
     original_invoke = proxy._invoke_callback_safely
     
-    def wrapped_invoke(callback, topic, payload):
+    def wrapped_invoke(callback, topic, payload, *, cpu_heavy=False):
         if asyncio.iscoroutinefunction(callback):
             future = asyncio.run_coroutine_threadsafe(callback(topic, payload), proxy._loop)
             callback_futures.append(future)
@@ -776,8 +722,8 @@ async def test_message_processing_concurrency(proxy: MQTTProxy):
     
     proxy._invoke_callback_safely = wrapped_invoke
     
-    # Process message in worker context
-    proxy._process_message_in_worker(message)
+    # Process message directly
+    proxy._process_incoming_message(command_topic, {"message": "concurrent_test"})
     
     # Wait for all callback futures to complete
     for future in callback_futures:
@@ -790,52 +736,15 @@ async def test_message_processing_concurrency(proxy: MQTTProxy):
         assert received_payload == {"message": "concurrent_test"}
 
 
-# ------ Deque Buffer Tests ------ #
-
-@pytest.mark.asyncio
-async def test_message_enqueue_dequeue(proxy: MQTTProxy):
-    """Test message enqueue and dequeue functionality."""
-    from petal_app_manager.proxies.mqtt import MQTTMessage
-    
-    # Create test messages
-    message1 = MQTTMessage(topic="test/topic1", payload={"data": "message1"})
-    message2 = MQTTMessage(topic="test/topic2", payload={"data": "message2"})
-    
-    # Enqueue messages
-    proxy._enqueue_message(message1)
-    proxy._enqueue_message(message2)
-    
-    # Verify buffer size
-    with proxy._buffer_lock:
-        assert len(proxy._message_buffer) == 2
-    
-    # Dequeue messages
-    retrieved1 = proxy._get_next_message()
-    retrieved2 = proxy._get_next_message()
-    
-    # Verify FIFO order
-    assert retrieved1.topic == "test/topic1"
-    assert retrieved1.payload == {"data": "message1"}
-    assert retrieved2.topic == "test/topic2"
-    assert retrieved2.payload == {"data": "message2"}
-    
-    # Verify buffer is empty
-    assert proxy._get_next_message() is None
-
+# ------ Duplicate Filtering Tests ------ #
 
 @pytest.mark.asyncio
 async def test_duplicate_message_filtering(proxy: MQTTProxy):
-    """Test duplicate message filtering by messageId at processing time."""
-    from petal_app_manager.proxies.mqtt import MQTTMessage
-    from collections import deque
-    
-    # Ensure seen_message_ids is initialized
-    proxy._seen_message_ids = deque(maxlen=proxy.max_message_buffer)
-    
+    """Test duplicate message filtering by messageId."""
     # Setup a handler to track processed messages
     processed_messages = []
     
-    def tracking_handler(topic: str, payload: dict):
+    async def tracking_handler(topic: str, payload: dict):
         processed_messages.append(payload)
     
     # Setup topic and handler
@@ -846,46 +755,16 @@ async def test_duplicate_message_filtering(proxy: MQTTProxy):
         "subscription_id": "test-sub"
     })
     
-    # Create duplicate messages with same messageId
-    message1 = MQTTMessage(
-        topic=test_topic, 
-        payload={"messageId": "msg-123", "data": "first"}
-    )
-    message2 = MQTTMessage(
-        topic=test_topic, 
-        payload={"messageId": "msg-123", "data": "duplicate"}
-    )
+    # Process duplicate messages with same messageId
+    proxy._process_incoming_message(test_topic, {"messageId": "msg-123", "data": "first"})
+    proxy._process_incoming_message(test_topic, {"messageId": "msg-123", "data": "duplicate"})  # Should be filtered
     
-    # Process both messages (duplicate filtering happens at processing time)
-    proxy._process_message_in_worker(message1)
-    proxy._process_message_in_worker(message2)  # Should be filtered out
+    # Give async callbacks time to execute
+    await asyncio.sleep(0.1)
     
     # Verify only one message was processed
     assert len(processed_messages) == 1
     assert processed_messages[0]["data"] == "first"
-
-
-@pytest.mark.asyncio
-async def test_buffer_overflow_protection(proxy: MQTTProxy):
-    """Test buffer overflow protection with maxlen."""
-    from petal_app_manager.proxies.mqtt import MQTTMessage
-    
-    # Fill buffer beyond capacity
-    for i in range(proxy.max_message_buffer + 10):
-        message = MQTTMessage(
-            topic=f"test/topic{i}", 
-            payload={"data": f"message{i}"}
-        )
-        proxy._enqueue_message(message)
-    
-    # Verify buffer doesn't exceed max size
-    with proxy._buffer_lock:
-        assert len(proxy._message_buffer) == proxy.max_message_buffer
-    
-    # Verify oldest messages were dropped (newest should be kept)
-    last_message = proxy._get_next_message()
-    # Due to deque maxlen behavior, we should have messages from the end
-    assert "message" in last_message.payload["data"]
 
 
 @pytest.mark.asyncio
@@ -909,9 +788,7 @@ async def test_handler_registration(proxy: MQTTProxy):
     assert len(proxy._handlers[command_topic]) > 0
     
     # Process message to test handler
-    from petal_app_manager.proxies.mqtt import MQTTMessage
-    message = MQTTMessage(topic=command_topic, payload={"data": "test"})
-    proxy._process_message_in_worker(message)
+    proxy._process_incoming_message(command_topic, {"data": "test"})
     
     # Give handler time to execute
     await asyncio.sleep(0.1)
@@ -925,3 +802,48 @@ async def test_handler_registration(proxy: MQTTProxy):
     
     # Verify handler is removed
     assert result is True
+
+
+@pytest.mark.asyncio
+async def test_register_handler_cpu_heavy_flag(proxy: MQTTProxy):
+    """Test that cpu_heavy flag is stored correctly in handler dict entry."""
+    async def light_handler(topic: str, payload: dict):
+        pass
+
+    async def heavy_handler(topic: str, payload: dict):
+        pass
+
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
+    proxy.subscribed_topics.add(command_topic)
+
+    proxy.register_handler(light_handler)
+    proxy.register_handler(heavy_handler, cpu_heavy=True)
+
+    handlers = proxy._handlers[command_topic]
+    assert len(handlers) == 2
+
+    # First handler - default cpu_heavy=False
+    assert handlers[0]["cpu_heavy"] is False
+    # Second handler - explicit cpu_heavy=True
+    assert handlers[1]["cpu_heavy"] is True
+
+
+@pytest.mark.asyncio
+async def test_cpu_heavy_handler_invoked(proxy: MQTTProxy):
+    """Test that cpu_heavy handlers are dispatched via run_in_executor."""
+    call_log = []
+
+    async def heavy_handler(topic: str, payload: dict):
+        call_log.append(("heavy", topic, payload))
+
+    command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/{proxy.command_edge_topic}"
+    proxy.subscribed_topics.add(command_topic)
+    proxy.register_handler(heavy_handler, cpu_heavy=True)
+
+    proxy._process_incoming_message(command_topic, {"data": "heavy_test"})
+
+    # Give executor time to run
+    await asyncio.sleep(0.3)
+
+    assert len(call_log) == 1
+    assert call_log[0] == ("heavy", command_topic, {"data": "heavy_test"})

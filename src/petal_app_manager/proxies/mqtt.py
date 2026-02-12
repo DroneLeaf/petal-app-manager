@@ -4,7 +4,7 @@ MQTTProxy
 
 • Provides access to AWS IoT MQTT broker through TypeScript client API calls
 • Handles callback server for receiving continuous message streams
-• Uses deque-based message buffering with multi-threaded processing
+• Uses async callback dispatch for message processing
 • Abstracts MQTT communication details away from petals
 • Provides async pub/sub operations with callback-style message handling
 
@@ -13,15 +13,13 @@ the underlying connection management and HTTP communication details.
 """
 
 from __future__ import annotations
-from typing import List, Dict, Any, Optional, Callable, Awaitable, Deque
+from typing import List, Dict, Any, Optional, Callable, Awaitable
 from collections import deque, defaultdict
 import asyncio
 import concurrent.futures
 import json
 import logging
-import time
 import os
-import threading
 from datetime import datetime
 import functools
 import uuid
@@ -33,14 +31,6 @@ from pydantic import BaseModel
 from .base import BaseProxy
 from ..organization_manager import get_organization_manager
 
-class MQTTMessage:
-    """Internal message structure for deque processing."""
-    def __init__(self, topic: str, payload: Dict[str, Any], timestamp: Optional[str] = None, qos: Optional[int] = None):
-        self.topic = topic
-        self.payload = payload
-        self.timestamp = timestamp or datetime.now().isoformat()
-        self.qos = qos
-
 class MessageCallback(BaseModel):
     """Model for incoming MQTT messages via callback"""
     topic: str
@@ -51,7 +41,7 @@ class MessageCallback(BaseModel):
 class MQTTProxy(BaseProxy):
     """
     Proxy for communicating with AWS IoT MQTT through TypeScript client API calls.
-    Uses deque-based message buffering with multi-threaded callback processing.
+    Uses async callback dispatch for message processing.
     
     The callback endpoint is exposed as a FastAPI router that should be registered
     with the main application. The callback_port should be set to the main app's port
@@ -71,9 +61,7 @@ class MQTTProxy(BaseProxy):
         enable_callbacks: bool = True,
         debug: bool = False,
         request_timeout: int = 30,
-        max_message_buffer: int = 1000,
-        worker_threads: int = 4,
-        worker_sleep_ms: float = 10.0,
+        max_seen_message_ids: int = 1000,
         command_edge_topic: str = "command/edge",
         response_topic: str = "response",
         test_topic: str = "command",
@@ -88,11 +76,6 @@ class MQTTProxy(BaseProxy):
         self.debug = debug
         self.request_timeout = request_timeout
         
-        # Message buffer configuration
-        self.max_message_buffer = max_message_buffer
-        self.worker_threads = worker_threads
-        self.worker_sleep_ms = worker_sleep_ms
-        
         # For HTTP callback router (registered with main FastAPI app)
         self.callback_router: Optional[APIRouter] = None  # Router to be registered with main app
         
@@ -102,10 +85,8 @@ class MQTTProxy(BaseProxy):
         # The callback_port should be the main FastAPI app port
         self.callback_url = f"http://{self.callback_host}:{self.callback_port}/mqtt-callback/callback" if self.enable_callbacks else None
         
-        # Message buffer (HTTP handler -> worker threads)
-        self._message_buffer: Deque[MQTTMessage] = deque(maxlen=self.max_message_buffer)
-        self._buffer_lock = threading.Lock()
-        self._seen_message_ids: Deque[str] = deque(maxlen=self.max_message_buffer)  # Track seen IDs for duplicate filtering
+        # Duplicate message filtering
+        self._seen_message_ids = deque(maxlen=max_seen_message_ids)
         
         # Subscription management
         self.command_edge_topic = command_edge_topic
@@ -116,11 +97,9 @@ class MQTTProxy(BaseProxy):
 
         self.subscribed_topics = set()
 
-        # Connection and worker thread state
+        # Connection state
         self.is_connected = False
         self._shutdown_flag = False
-        self._worker_running = threading.Event()
-        self._worker_threads = []
         
         self._device_topics = {}
         
@@ -138,7 +117,7 @@ class MQTTProxy(BaseProxy):
             self._setup_callback_router()
 
     async def start(self):
-        """Initialize the MQTT proxy and start callback server and worker threads."""
+        """Initialize the MQTT proxy and start callback processing."""
         
         # Get robot instance ID for basic setup
         self.robot_instance_id = self._get_machine_id()
@@ -154,9 +133,6 @@ class MQTTProxy(BaseProxy):
             return
         
         try:
-            # Start worker threads for message processing
-            self._start_worker_threads()
-            
             # Note: callback_router is already set up in __init__ for early registration
             # with the main app before start() is called
             
@@ -219,11 +195,7 @@ class MQTTProxy(BaseProxy):
 
         # Set shutdown flag
         self._shutdown_flag = True
-        self._worker_running.clear()
         self.is_connected = False
-        
-        # Stop worker threads
-        await self._stop_worker_threads()
         
         # Shutdown executor
         if self._exe:
@@ -313,125 +285,70 @@ class MQTTProxy(BaseProxy):
         """
         return self._get_organization_id()
     
-    # ------ Worker Thread Management ------ #
+    # ------ Message Processing ------ #
 
-    def _start_worker_threads(self):
-        """Start worker threads for processing message buffer."""
-        self._worker_running.set()
-        
-        for i in range(self.worker_threads):
-            worker_thread = threading.Thread(
-                target=self._worker_thread_main,
-                name=f"MQTTProxy-Worker-{i}",
-                daemon=True
-            )
-            worker_thread.start()
-            self._worker_threads.append(worker_thread)
-            
-        self.log.info(f"Started {self.worker_threads} worker threads for message processing")
-
-    async def _stop_worker_threads(self):
-        """Stop all worker threads gracefully."""
-        self._worker_running.clear()
-        
-        # Wait for threads to finish
-        for thread in self._worker_threads:
-            if thread.is_alive():
-                thread.join(timeout=2.0)
-                
-        self._worker_threads.clear()
-        self.log.info("Stopped all worker threads")
-
-    def _worker_thread_main(self):
-        """Main loop for worker threads - processes messages from buffer."""
-        sleep_time = self.worker_sleep_ms / 1000.0
-        
-        while self._worker_running.is_set():
-            try:
-                # Get message from buffer
-                message = self._get_next_message()
-                
-                if message:
-                    self._process_message_in_worker(message)
-                else:
-                    # No messages, sleep briefly
-                    time.sleep(sleep_time)
-                    
-            except Exception as e:
-                self.log.error(f"Error in worker thread: {e}")
-                time.sleep(sleep_time)
-
-    def _get_next_message(self) -> Optional[MQTTMessage]:
-        """Thread-safe method to get next message from buffer."""
-        with self._buffer_lock:
-            if self._message_buffer:
-                return self._message_buffer.popleft()
-        return None
-
-    def _enqueue_message(self, message: MQTTMessage):
-        """Thread-safe method to add message to buffer."""
-        with self._buffer_lock:
-            self._message_buffer.append(message)
-
-    def _process_message_in_worker(self, message: MQTTMessage):
+    def _process_incoming_message(self, topic: str, payload: Dict[str, Any]):
         """
-        Process a single MQTT message in the worker thread.
-        Args:
-            message: MQTTMessage object to process
+        Process an incoming MQTT message - dedup and dispatch to handlers.
+        Called directly from the HTTP callback handler.
         """
         try:
-            topic_absolute = message.topic
-            payload = message.payload
-            
-            # Duplicate check at processing time (more efficient than at enqueue)
+            # Duplicate check by messageId
             msg_id = payload.get("messageId")
             if msg_id:
-                with self._buffer_lock:
-                    if msg_id in self._seen_message_ids:
-                        self.log.debug(f"Duplicate message detected, skipping: {msg_id}")
-                        return
-                    self._seen_message_ids.append(msg_id)
+                if msg_id in self._seen_message_ids:
+                    self.log.debug(f"Duplicate message detected, skipping: {msg_id}")
+                    return
+                self._seen_message_ids.append(msg_id)
 
-            self.log.debug(f"Processing MQTT message on topic: {topic_absolute}")
+            self.log.debug(f"Processing MQTT message on topic: {topic}")
 
-            # Process topic subscriptions
-            if topic_absolute in self.subscribed_topics:
-                for handler in self._handlers[topic_absolute]:
+            # Dispatch to registered handlers
+            if topic in self.subscribed_topics:
+                for handler in self._handlers[topic]:
                     callback = handler.get("callback")
+                    is_cpu_heavy = handler.get("cpu_heavy", False)
                     if callback:
-                        self._invoke_callback_safely(callback, topic_absolute, payload)
+                        self._invoke_callback_safely(callback, topic, payload, cpu_heavy=is_cpu_heavy)
                     else:
                         subscription_id = handler.get("subscription_id")
                         if subscription_id:
-                            self.log.debug(f"No callback for topic: {topic_absolute} with subscription ID {subscription_id}")
+                            self.log.debug(f"No callback for topic: {topic} with subscription ID {subscription_id}")
                         else:
-                            self.log.debug(f"No callback for topic: {topic_absolute} with no subscription ID")
+                            self.log.debug(f"No callback for topic: {topic} with no subscription ID")
             else:
-                self.log.debug(f"Received message for unsubscribed topic: {topic_absolute}")
-                time.sleep(self.worker_sleep_ms / 1000.0)
+                self.log.debug(f"Received message for unsubscribed topic: {topic}")
 
         except Exception as e:
-            self.log.error(f"Error processing message in worker: {e}")
-            time.sleep(self.worker_sleep_ms / 1000.0)
+            self.log.error(f"Error processing incoming message: {e}")
             
-    def _invoke_callback_safely(self, callback: Callable, topic: str, payload: Dict[str, Any]):
-        """Safely invoke a callback, handling both sync and async functions."""
+    def _invoke_callback_safely(
+        self,
+        callback: Callable,
+        topic: str,
+        payload: Dict[str, Any],
+        *,
+        cpu_heavy: bool = False,
+    ):
+        """Safely invoke an async callback by scheduling it on the event loop.
+        
+        Since MQTT callbacks arrive via FastAPI HTTP handlers (already on the
+        event loop), we use create_task() instead of run_coroutine_threadsafe().
+        When *cpu_heavy* is ``True`` the coroutine body is executed inside
+        ``loop.run_in_executor`` to avoid blocking the event loop.
+        """
         try:
-            if asyncio.iscoroutinefunction(callback):
-                # Async callback - schedule it on the event loop
-                if self._loop and not self._loop.is_closed():
-                    # Always use run_coroutine_threadsafe for thread-safe scheduling
-                    # This works whether we're in the same thread or different thread
-                    asyncio.run_coroutine_threadsafe(
-                        callback(topic, payload), 
-                        self._loop
-                    )
+            if self._loop and not self._loop.is_closed():
+                if cpu_heavy:
+                    async def _offloaded():
+                        await self._loop.run_in_executor(
+                            self._exe, lambda: asyncio.run(callback(topic, payload))
+                        )
+                    self._loop.create_task(_offloaded())
                 else:
-                    self.log.warning(f"Cannot invoke async callback for {topic}: event loop not available")
+                    self._loop.create_task(callback(topic, payload))
             else:
-                # Sync callback - call directly in worker thread
-                callback(topic, payload)
-                
+                self.log.warning(f"Cannot invoke async callback for {topic}: event loop not available")
         except Exception as e:
             self.log.error(f"Error in callback for topic {topic}: {e}")
 
@@ -512,9 +429,8 @@ class MQTTProxy(BaseProxy):
         try:
             url = f"{self.ts_base_url}{endpoint}"
             
-            loop = asyncio.get_running_loop()
-            response = await loop.run_in_executor(
-                None,
+            response = await self._loop.run_in_executor(
+                self._exe,
                 functools.partial(
                     requests.request,
                     method=method,
@@ -555,46 +471,29 @@ class MQTTProxy(BaseProxy):
 
         @self.callback_router.post('/callback')
         async def message_callback(message: MessageCallback):
-            """Handle incoming MQTT messages - lightweight append to buffer."""
+            """Handle incoming MQTT messages - dedup and dispatch directly."""
             try:
-                # Create internal message object
-                mqtt_message = MQTTMessage(
-                    topic=message.topic,
-                    payload=message.payload,
-                    timestamp=message.timestamp,
-                    qos=message.qos
-                )
-                
-                # Append to message buffer (thread-safe, workers will process)
-                proxy._enqueue_message(mqtt_message)
-                
-                return {"status": "success", "queued": True}
+                proxy._process_incoming_message(message.topic, message.payload)
+                return {"status": "success"}
             except Exception as e:
-                proxy.log.error(f"Error enqueuing callback message: {e}")
+                proxy.log.error(f"Error processing callback message: {e}")
                 return {"status": "error", "message": str(e)}
 
         @self.callback_router.get('/health')
         async def callback_health():
             """Health check for MQTT callback endpoint."""
-            buffer_size = len(proxy._message_buffer) if hasattr(proxy, '_message_buffer') else 0
             return {
                 "status": "healthy", 
                 "timestamp": datetime.now().isoformat(),
-                "buffer_size": buffer_size,
-                "worker_threads": len(proxy._worker_threads),
-                "worker_running": proxy._worker_running.is_set() if hasattr(proxy, '_worker_running') else False
+                "subscriptions": len(proxy.subscribed_topics),
             }
 
         @self.callback_router.get('/stats')
         async def callback_stats():
             """Statistics for MQTT callback and message processing."""
             return {
-                "buffer_size": len(proxy._message_buffer) if hasattr(proxy, '_message_buffer') else 0,
-                "max_buffer_size": proxy.max_message_buffer,
-                "worker_threads": len(proxy._worker_threads),
                 "subscriptions": len(proxy.subscribed_topics),
                 "handlers": sum(len(handlers) for handlers in proxy._handlers.values()),
-                "worker_running": proxy._worker_running.is_set() if hasattr(proxy, '_worker_running') else False
             }
         
         self.log.info("MQTT callback router configured (register with main app using include_router)")
@@ -793,12 +692,32 @@ class MQTTProxy(BaseProxy):
         
         return await self._publish_message(response_topic, response_payload)
 
-    def register_handler(self, handler: Callable[[str, Dict[str, Any]], Awaitable[None]]) -> str:
+    def register_handler(
+        self,
+        handler: Callable[[str, Dict[str, Any]], Awaitable[None]],
+        cpu_heavy: bool = False,
+    ) -> str:
         """
-        Register a handler to the 'command/edge' topic.
+        Register an async handler to the 'command/edge' topic.
+        
         Args:
             handler: Async callback function to handle messages
+            cpu_heavy: If True, the handler's CPU-bound work will be offloaded
+                to a thread-pool executor managed by the proxy.
+            
+        Returns:
+            Subscription ID string, or None if registration failed
+            
+        Raises:
+            TypeError: If handler is not an async function
         """
+        if not asyncio.iscoroutinefunction(handler):
+            raise TypeError(
+                f"Handler must be an async function (coroutine). "
+                f"Got {type(handler).__name__} instead. "
+                f"Define your handler with 'async def' instead of 'def'."
+            )
+        
         topic_subscribe = f"{self._get_base_topic()}/{self.command_edge_topic}"
 
         # ensure topic is subscribed
@@ -810,7 +729,8 @@ class MQTTProxy(BaseProxy):
         subscription_id = str(uuid.uuid4())
         self._handlers[topic_subscribe].append({
             "callback": handler,
-            "subscription_id": subscription_id
+            "subscription_id": subscription_id,
+            "cpu_heavy": cpu_heavy,
         })
 
         self.log.debug(f"Registered handler for topic: {self.command_edge_topic} with subscription ID: {subscription_id}")
@@ -838,11 +758,7 @@ class MQTTProxy(BaseProxy):
     # ------ Health Check Methods ------ #
     
     async def health_check(self) -> Dict[str, Any]:
-        """Check MQTT proxy health status with buffer statistics."""
-        buffer_size = 0
-        with self._buffer_lock:
-            buffer_size = len(self._message_buffer)
-        
+        """Check MQTT proxy health status."""
         health_status = {
             "status": "healthy" if self.is_connected else "unhealthy",
             "connection": {
@@ -856,15 +772,6 @@ class MQTTProxy(BaseProxy):
                 "callback_host": self.callback_host,
                 "callback_port": self.callback_port,
                 "enable_callbacks": self.enable_callbacks,
-                "max_message_buffer": self.max_message_buffer,
-                "worker_threads": self.worker_threads,
-                "worker_sleep_ms": self.worker_sleep_ms
-            },
-            "message_processing": {
-                "buffer_size": buffer_size,
-                "buffer_utilization": buffer_size / self.max_message_buffer if self.max_message_buffer > 0 else 0,
-                "worker_threads_active": len(self._worker_threads),
-                "worker_running": self._worker_running.is_set()
             },
             "subscriptions": {
                 "topics": list(self.subscribed_topics),

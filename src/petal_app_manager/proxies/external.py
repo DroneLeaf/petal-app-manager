@@ -189,25 +189,20 @@ class ExternalProxy(BaseProxy):
     * **Handlers** - ``self._handlers[key]``
       Callbacks registered via :py:meth:`register_handler` are stored here.
       When new messages arrive via :py:meth:`_io_read_once`, they are
-      enqueued to a message buffer for processing by worker threads.
-
-      * **Worker threads** - process the message buffer in parallel,
-        calling all registered handlers for each message.
+      processed directly in the I/O recv thread, which schedules
+      async handlers on the event loop.
     """
 
     # ──────────────────────────────────────────────────────── public helpers ──
-    def __init__(self, maxlen: int, worker_threads: int = 4, sleep_time_ms: float = 1.0) -> None:
+    def __init__(self, maxlen: int, sleep_time_ms: float = 1.0) -> None:
         """
         Parameters
         ----------
         maxlen :
             Maximum number of messages kept *per key* in both send/recv maps.
             A value of 0 or ``None`` means *unbounded* (not recommended).
-        worker_threads :
-            Number of worker threads for parallel handler processing.
         """
         self._maxlen = maxlen
-        self._worker_thread_count = worker_threads
 
         if sleep_time_ms < 0:
             sleep_time_ms = 0
@@ -222,42 +217,34 @@ class ExternalProxy(BaseProxy):
             defaultdict(dict)
         )
         self._last_message_times: Dict[str, Dict[str, float]] = defaultdict(dict)
-        
-        # Message buffer for parallel processing (similar to MQTT proxy)
-        self._message_buffer: Dict[str, Deque[Any]] = defaultdict(lambda: deque(maxlen=maxlen))
-        self._message_buffer_configs: Dict[str, Dict[str, Any]] = defaultdict(dict)
-        self._message_buffer_locks: Dict[str, threading.Lock] = defaultdict(threading.Lock)
-        self._message_buffer_last_message_index: Dict[str, int] = defaultdict(int)
-        self._message_buffer_key_lock = threading.Lock()
 
-        # Thread management
+        # Thread management (I/O threads only)
         self._send_running = threading.Event()
         self._recv_running = threading.Event()
-        self._worker_running = threading.Event()
         self._io_thread_send: threading.Thread | None = None
         self._io_thread_recv: threading.Thread | None = None
-        self._worker_threads: List[threading.Thread] = []
         
         self._loop: asyncio.AbstractEventLoop | None = None
         self._log = logging.getLogger(self.__class__.__name__)
 
     def register_handler(self, 
         key: str, 
-        fn: Callable[[Any], None], 
+        fn: Callable[[Any], Awaitable[None]], 
         duplicate_filter_interval: Optional[float] = None,
-        queue_length: Optional[int] = None
+        queue_length: Optional[int] = None,
+        cpu_heavy: bool = False,
     ) -> None:
         """
-        Attach *fn* so it fires for **every** message appended to ``_recv[key]``.
+        Attach an async callback *fn* so it fires for **every** message appended to ``_recv[key]``.
 
-        The callback executes in the proxy thread; never block for long.
+        The callback is scheduled on the main event loop for thread-safe execution.
         
         Parameters
         ----------
         key : str
             The key to register the handler for.
-        fn : Callable[[Any], None]
-            The handler function to call for each message.
+        fn : Callable[[Any], Awaitable[None]]
+            The async handler function to call for each message.
         duplicate_filter_interval : Optional[float]
             If specified, duplicate messages received within this interval (in seconds)
             will be filtered out and the handler will not be called. None disables filtering.
@@ -265,19 +252,33 @@ class ExternalProxy(BaseProxy):
             If specified, sets the maximum length of the message buffer for *key*.
             New messages overwrite the oldest when the buffer is full.
             If None, the default maxlen from proxy initialization is used.
+        cpu_heavy : bool
+            If True, the handler's CPU-bound work will be offloaded to a
+            thread-pool executor managed by the proxy, preventing event-loop
+            starvation.  The handler must still be ``async def``, but it may
+            call ``await loop.run_in_executor(...)`` internally—or simply set
+            this flag and the proxy will wrap the entire handler invocation
+            in ``run_in_executor`` automatically.
+            
+        Raises
+        ------
+        TypeError
+            If *fn* is not an async function (coroutine).
         """
+        if not asyncio.iscoroutinefunction(fn):
+            raise TypeError(
+                f"Handler must be an async function (coroutine). "
+                f"Got {type(fn).__name__} instead. "
+                f"Define your handler with 'async def' instead of 'def'."
+            )
+        
         self._handlers[key].append(fn)
         self._handler_configs[key][fn] = {
-            'duplicate_filter_interval': duplicate_filter_interval
+            'duplicate_filter_interval': duplicate_filter_interval,
+            'cpu_heavy': cpu_heavy,
         }
-        if queue_length is not None:
-            self._message_buffer_configs[key]['maxlen'] = queue_length
-            if queue_length == 0:
-                queue_length = None  # unbounded
-            with self._message_buffer_locks[key]:
-                self._message_buffer[key] = deque(maxlen=queue_length)
 
-    def unregister_handler(self, key: str, fn: Callable[[Any], None]) -> None:
+    def unregister_handler(self, key: str, fn: Callable[[Any], Awaitable[None]]) -> None:
         """
         Remove the callback *fn* from the broadcast list attached to *key*.
 
@@ -307,12 +308,6 @@ class ExternalProxy(BaseProxy):
             del self._handlers[key]
             if key in self._handler_configs:
                 del self._handler_configs[key]
-
-            with self._message_buffer_key_lock:
-                self._message_buffer.pop(key, None)
-                self._message_buffer_locks.pop(key, None)
-                self._message_buffer_last_message_index.pop(key, None)
-                self._message_buffer_configs.pop(key, None)
 
     def send(self, key: str, msg: Any, burst_count: Optional[int] = None, 
              burst_interval: Optional[float] = None) -> None:
@@ -404,27 +399,23 @@ class ExternalProxy(BaseProxy):
 
     # ───────────────────────────────────────────── FastAPI life-cycle hooks ──
     async def start(self) -> None:
-        """Create the I/O thread and worker threads and begin polling/writing."""
+        """Create the I/O threads and begin polling/writing."""
         self._loop = asyncio.get_running_loop()
         self._burst_tasks = set()  # Initialize burst tasks tracking
         self._send_running.set()
         self._recv_running.set()
-        self._worker_running.set()
 
-        # Start I/O threads for send/recv and worker threads for processing
+        # Start I/O threads for send/recv
         self._io_thread_recv = threading.Thread(target=self._recv_body, daemon=True, name=f"{self.__class__.__name__}-Recv")
         self._io_thread_send = threading.Thread(target=self._send_body, daemon=True, name=f"{self.__class__.__name__}-Send")
-        self._create_worker_threads()
 
         self._io_thread_recv.start()
         self._io_thread_send.start()
-        self._start_worker_threads()
 
     async def stop(self) -> None:
-        """Ask the worker to exit and join it (best-effort, 5 s timeout)."""
+        """Ask the I/O threads to exit and join them (best-effort, 5 s timeout)."""
         self._send_running.clear()
         self._recv_running.clear()
-        self._worker_running.clear()
         
         # Cancel any pending burst tasks
         if hasattr(self, '_burst_tasks'):
@@ -435,9 +426,6 @@ class ExternalProxy(BaseProxy):
             if self._burst_tasks:
                 await asyncio.gather(*self._burst_tasks, return_exceptions=True)
                 self._burst_tasks.clear()
-        
-        # Stop worker threads
-        await self._stop_worker_threads()
         
         # Stop I/O send thread
         if self._io_thread_send and self._io_thread_send.is_alive():
@@ -481,95 +469,48 @@ class ExternalProxy(BaseProxy):
                 time.sleep(self._sleep_time_ms / 1000.0)
 
     def _recv_body(self) -> None:
-        """I/O thread body - drains send queues, polls recv, enqueues messages for processing."""
+        """I/O thread body - polls recv and processes messages with handlers directly."""
         while self._recv_running.is_set():
             for key, msg in self._io_read_once(timeout=self._sleep_time_reader_ms/1000.0):                
-                # Enqueue to message buffer for worker thread processing
-                self._enqueue_message_to_buffer(key, msg)
+                # Process directly in recv thread (handlers are async, dispatched to event loop)
+                self._process_message_with_handlers(key, msg)
             
-    def _create_worker_threads(self):
-        """Start worker threads for processing message buffer."""
-        for i in range(self._worker_thread_count):
-            worker_thread = threading.Thread(
-                target=self._worker_thread_main,
-                name=f"{self.__class__.__name__}-Worker-{i}",
-                daemon=True
+    # ─────────────────────────────────────────── message processing ──
+    def _invoke_callback_safely(
+        self, callback: Callable, key: str, msg: Any, *, cpu_heavy: bool = False,
+    ):
+        """Safely invoke an async callback by scheduling it on the main event loop.
+
+        All callbacks are required to be async functions.
+        When *cpu_heavy* is ``True`` the coroutine is wrapped so that its body
+        executes inside ``loop.run_in_executor`` (thread pool), keeping the
+        event loop free for other work.
+        """
+        try:
+            if self._loop and not self._loop.is_closed():
+                if cpu_heavy:
+                    async def _offloaded():
+                        await self._loop.run_in_executor(self._exe, lambda: asyncio.run(callback(msg)))
+                    asyncio.run_coroutine_threadsafe(_offloaded(), self._loop)
+                else:
+                    asyncio.run_coroutine_threadsafe(callback(msg), self._loop)
+            else:
+                self._log.warning(
+                    "[ExternalProxy] Cannot invoke async callback for key '%s': "
+                    "event loop not available",
+                    key,
+                )
+        except Exception as exc:
+            self._log.error(
+                "[ExternalProxy] Error invoking callback for key '%s': %s",
+                key, exc,
             )
-            self._worker_threads.append(worker_thread)
-            
-        self._log.info(f"Created {self._worker_thread_count} worker threads for handler processing")
-
-    def _start_worker_threads(self):
-        """Start worker threads for processing message buffer."""
-        for worker_thread in self._worker_threads:
-            worker_thread.start()
-            
-        self._log.info(f"Started {self._worker_thread_count} worker threads for handler processing")
-
-    async def _stop_worker_threads(self):
-        """Stop all worker threads gracefully."""
-        self._worker_running.clear()
-        
-        # Wait for threads to finish
-        for thread in self._worker_threads:
-            if thread.is_alive():
-                thread.join(timeout=2)
-                
-        self._worker_threads.clear()
-        self._log.info("Stopped all worker threads")
-
-    def _worker_thread_main(self):
-        """Main loop for worker threads - processes messages from buffer."""        
-        while self._worker_running.is_set():
-            try:
-                keys = list(self._message_buffer.keys())
-                
-                if not keys:
-                    # No keys to process, sleep to avoid busy-waiting
-                    time.sleep(self._sleep_time_ms / 1000.0)
-                    continue
-                
-                processed_any = False
-                for key in keys:
-                    msg = self._get_next_message_from_buffer(key)
-                    if msg is not None:
-                        self._process_message_with_handlers(key, msg)
-                        processed_any = True
-                
-                # If we didn't process any messages, sleep to avoid busy-waiting
-                if not processed_any:
-                    time.sleep(self._sleep_time_ms / 1000.0)
-                        
-            except Exception as e:
-                self._log.error(f"Error in worker thread: {e}")
-                time.sleep(self._sleep_time_ms / 1000.0)
-
-    def _enqueue_message_to_buffer(self, key: str, msg: Any):
-        """Thread-safe method to add message to buffer."""
-        maxlen = self._message_buffer_configs.get(key, {}).get('maxlen', self._maxlen)
-        if maxlen == 0:
-            maxlen = None  # unbounded
-
-        with self._message_buffer_locks[key]:
-            dq = self._message_buffer.setdefault(key, deque(maxlen=maxlen))
-            dq.append(msg)
-
-    def _get_next_message_from_buffer(self, key: str) -> Tuple[Optional[str], Optional[Any]]:
-        """Thread-safe method to get next message from buffer."""
-        dq = self._message_buffer.get(key)
-        lock = self._message_buffer_locks.get(key)
-        if lock is not None:
-            with lock:
-                if dq:
-                    msg = dq.popleft()
-                    return msg
-                
-        return None
 
     def _process_message_with_handlers(self, key: str, msg: Any):
         """
         Process a single message by invoking all registered handlers for the key.
-        This runs in a worker thread and handles duplicate filtering.
+        This runs in the I/O recv thread and handles duplicate filtering.
+        Handlers are async and scheduled on the event loop.
         """
         current_time = time.time()
         for cb in self._handlers.get(key, []):
@@ -600,7 +541,8 @@ class ExternalProxy(BaseProxy):
                         self._last_message_times[handler_key] = (msg_str, current_time)
                 
                 if should_call_handler:
-                    cb(msg)
+                    is_cpu_heavy = handler_config.get('cpu_heavy', False)
+                    self._invoke_callback_safely(cb, key, msg, cpu_heavy=is_cpu_heavy)
                     self._log.debug(
                         "[ExternalProxy] handler %s called for key '%s': %s",
                         cb, key, msg
@@ -634,9 +576,8 @@ class MavLinkExternalProxy(ExternalProxy):
         mavlink_worker_sleep_ms: float = 1.0,
         mavlink_heartbeat_send_frequency: float = 5.0,
         root_sd_path: str = 'fs/microsd/log',
-        worker_threads: int = 4
     ):
-        super().__init__(maxlen=maxlen, worker_threads=worker_threads, sleep_time_ms=mavlink_worker_sleep_ms)
+        super().__init__(maxlen=maxlen, sleep_time_ms=mavlink_worker_sleep_ms)
         self.endpoint = endpoint
         self.baud = baud
         self.source_system_id = source_system_id
@@ -949,14 +890,14 @@ class MavLinkExternalProxy(ExternalProxy):
             return self.master.wait_heartbeat(timeout=5)
         return False
 
-    def _on_heartbeat_received(self, msg):
+    async def _on_heartbeat_received(self, msg):
         """Handler for incoming heartbeat messages to track connection health."""
         self._last_heartbeat_time = time.time()
         if not self.connected:
             self.connected = True
             self._log.info("MAVLink connection re-established")
 
-    def _on_leaf_fc_heartbeat_received(self, msg):
+    async def _on_leaf_fc_heartbeat_received(self, msg):
         """Handler for incoming heartbeat messages to track connection health."""
         self._last_leaf_fc_heartbeat_time = time.time()
         if not self.leaf_fc_connected:
@@ -2047,7 +1988,7 @@ class MavLinkExternalProxy(ExternalProxy):
         loop = asyncio.get_running_loop()
         done = asyncio.Event()
         
-        def _handler(pkt):
+        async def _handler(pkt):
             try:
                 if collector(pkt):
                     loop.call_soon_threadsafe(done.set)
@@ -2725,7 +2666,7 @@ class MavLinkExternalProxy(ExternalProxy):
 
                 await asyncio.sleep(0.05)
 
-        def _handler(pkt):
+        async def _handler(pkt):
             try:
                 if pkt.get_type() != "PARAM_VALUE":
                     return
@@ -2864,7 +2805,7 @@ class MavLinkExternalProxy(ExternalProxy):
 
                 await asyncio.sleep(0.05)
 
-        def _handler(pkt):
+        async def _handler(pkt):
             try:
                 if pkt.get_type() != "PARAM_VALUE":
                     return

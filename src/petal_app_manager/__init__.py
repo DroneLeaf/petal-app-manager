@@ -64,7 +64,6 @@ class Config:
         PASSWORD = os.environ.get('PETAL_REDIS_PASSWORD', None)
         UNIX_SOCKET_PATH = os.environ.get('PETAL_REDIS_UNIX_SOCKET_PATH', None)
         HEALTH_MESSAGE_RATE = float(os.environ.get('PETAL_REDIS_HEALTH_MESSAGE_RATE', 3.0))
-        WORKER_THREADS = int(os.environ.get('PETAL_REDIS_WORKER_THREADS', 4))
 
     # URLs for data operations
     GET_DATA_URL    = os.environ.get('PETAL_GET_DATA_URL', '/drone/onBoard/config/getData')
@@ -95,7 +94,6 @@ class Config:
         SOURCE_COMPONENT_ID = int(os.environ.get("PETAL_MAVLINK_SOURCE_COMPONENT_ID", 140)) # MAV_COMP_ID_USER1–USER4 140–143
         MAXLEN = int(os.environ.get("PETAL_MAVLINK_MAXLEN", 200))
         WORKER_SLEEP_MS = float(os.environ.get('PETAL_MAVLINK_WORKER_SLEEP_MS', 1))
-        WORKER_THREADS = int(os.environ.get('PETAL_MAVLINK_WORKER_THREADS', 4))
         HEARTBEAT_SEND_FREQUENCY = float(os.environ.get('PETAL_MAVLINK_HEARTBEAT_SEND_FREQUENCY', 5.0))
         ROOT_SD_PATH = os.environ.get('PETAL_ROOT_SD_PATH', 'fs/microsd/log')
     class LoggingConfig:
@@ -137,7 +135,6 @@ class Config:
     MAVLINK_SOURCE_COMPONENT_ID = MavLinkConfig.SOURCE_COMPONENT_ID # MAV_COMP_ID_USER1–USER4 140–143
     MAVLINK_MAXLEN = MavLinkConfig.MAXLEN
     MAVLINK_WORKER_SLEEP_MS = MavLinkConfig.WORKER_SLEEP_MS
-    MAVLINK_WORKER_THREADS = MavLinkConfig.WORKER_THREADS
     MAVLINK_HEARTBEAT_SEND_FREQUENCY = MavLinkConfig.HEARTBEAT_SEND_FREQUENCY
     ROOT_SD_PATH = MavLinkConfig.ROOT_SD_PATH
 
@@ -147,7 +144,6 @@ class Config:
     REDIS_PASSWORD = RedisConfig.PASSWORD
     REDIS_UNIX_SOCKET_PATH = RedisConfig.UNIX_SOCKET_PATH
     REDIS_HEALTH_MESSAGE_RATE = RedisConfig.HEALTH_MESSAGE_RATE
-    REDIS_WORKER_THREADS = RedisConfig.WORKER_THREADS
 
     TS_CLIENT_HOST = MQTTConfig.TS_CLIENT_HOST
     TS_CLIENT_PORT = MQTTConfig.TS_CLIENT_PORT

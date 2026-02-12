@@ -1,6 +1,122 @@
 Changelog
 =========
 
+Version 0.2.0 (2026-02-12)
+---------------------------
+
+**``@mqtt_action`` Decorator & MQTT Command Handler Refactor:**
+
+- Introduced the ``@mqtt_action`` decorator in ``petal_app_manager.plugins.decorators`` for
+  declarative MQTT command handler registration:
+
+  - ``command`` parameter: specifies the command suffix (framework auto-prefixes the petal name)
+  - ``cpu_heavy`` parameter (default ``False``): when ``True``, offloads handler execution to a
+    thread-pool executor to prevent event-loop starvation from CPU-bound work (e.g. NumPy, image
+    processing, large serialization)
+
+- Added base-class infrastructure in ``Petal`` (``plugins/base.py``):
+
+  - ``_collect_mqtt_actions()``: scans all instance methods/attributes for ``__mqtt_action__``
+    metadata and builds the dispatch table
+  - ``_mqtt_master_command_handler()``: single registered MQTT handler that dispatches incoming
+    commands to the correct ``@mqtt_action`` handler, with automatic error responses for unknown
+    commands and organization-ID guard logic
+  - ``_setup_mqtt_actions()``: called at startup to wire everything up and register the master
+    handler with the MQTT proxy
+  - ``has_mqtt_actions()``: quick check for whether a petal has any decorated handlers
+
+- Removed legacy boilerplate from all refactored petals:
+
+  - ``_setup_command_handlers()`` methods (manual dict of command → handler)
+  - ``_master_command_handler()`` methods (manual if/elif dispatch)
+  - Manual ``register_handler()`` calls in ``_setup_mqtt_topics()``
+
+**Documentation Updates:**
+
+- Added :ref:`mqtt-action-decorator` section to *Adding a New Petal* guide covering:
+
+  - Basic usage, handler signature, ``cpu_heavy`` parameter
+  - Under-the-hood dispatch mechanism
+  - Dynamic/factory handler pattern
+  - Migration guide from the legacy manual dispatch pattern
+
+- Replaced MQTTProxy placeholder in *Using Proxies* guide with full documentation:
+
+  - ``@mqtt_action``-based command handling (recommended)
+  - ``publish_message()`` and ``send_command_response()`` public API
+  - Method reference table
+  - ``cpu_heavy`` flag explanation
+  - Status broadcasting example
+
+**Dependency Updates:**
+
+- Updated ``petal-flight-log`` from ``v0.2.5`` to ``v0.2.6``:
+
+  - **Refactor**: All 10 MQTT command handlers now registered via ``@mqtt_action`` decorator,
+    eliminating the manual command handler registry and master dispatch method:
+    ``fetch_flight_records``, ``subscribe_fetch_flight_records``,
+    ``unsubscribe_fetch_flight_records``, ``cancel_fetch_flight_records``,
+    ``fetch_existing_flight_records``, ``start_sync_flight_record``,
+    ``subscribe_sync_job_value_stream``, ``unsubscribe_sync_job_value_stream``,
+    ``cancel_sync_job``, ``delete_flight_record``
+  - **Improvement**: Redis command acknowledgment and message handling methods are now fully
+    asynchronous (``async def`` / ``await``), ensuring non-blocking behavior
+  - **Improvement**: Fire-and-forget scheduling of long-running Redis command handlers now uses
+    ``asyncio.create_task`` instead of ``asyncio.run_coroutine_threadsafe``
+  - **Fix**: ``sync_px4_time`` serial handler converted to ``async def``, aligning with the
+    rest of the async codebase
+
+- Updated ``petal-user-journey-coordinator`` from ``v0.1.10`` to ``v0.1.11``:
+
+  - **Refactor**: Replaced manual ``_command_handlers`` registry and ``_master_command_handler``
+    with automatic handler discovery and dispatch via ``@mqtt_action`` decorator and the base
+    class ``Petal._mqtt_master_command_handler``
+  - **Refactor**: All static handlers decorated with ``@mqtt_action``; dynamically created
+    parameter and pub/sub handlers now attach ``__mqtt_action__`` metadata for automatic
+    discovery and registration
+  - **Improvement**: Converted internal handler functions (``_handler``, ``_position_handler``,
+    ``_attitude_handler``, ``_statustext_handler``) to ``async def`` for asynchronous message
+    processing
+  - **Fix**: Fixed missing ``await`` on ``asyncio.sleep(0.1)`` in a test handler
+  - **Cleanup**: Removed unused ``RedisProxy`` import
+
+- Updated ``petal-leafsdk`` from ``v0.2.9`` to ``v0.2.10``:
+
+  - **Refactor**: 3 MQTT command handlers (``mission_plan``, ``rtl``, ``goto``) now registered
+    via ``@mqtt_action`` decorator, removing legacy ``_mqtt_subscribe_to_mission_plan`` and
+    ``_mqtt_command_handler_master``
+  - **Improvement**: All MAVLink message handler methods in ``fc_status_provider.py`` converted
+    to ``async def`` for non-blocking message processing
+  - **Improvement**: All Redis and MAVLink publishing functions in ``mission.py``,
+    ``mission_step.py``, and ``heartbeat.py`` converted to ``async def``
+  - **Improvement**: Updated type annotations for MAVLink subscription setup and teardown
+    functions to require async callbacks
+  - **Fix**: Fixed ``msg_id`` ``NameError`` bug in legacy master handler (caught during refactor)
+
+- Updated ``petal-warehouse`` from ``v0.1.8`` to ``v0.1.9``:
+
+  - **Improvement**: Captured main event loop (``self._loop``) from ``MavLinkExternalProxy``
+    during initialization for safe coroutine scheduling from background threads
+  - **Improvement**: ``send_position`` and ``send_target_traj`` WebSocket methods now use
+    ``asyncio.run_coroutine_threadsafe`` to execute in the correct event loop, preventing
+    threading issues
+  - **Improvement**: MAVLink message handler functions (``handler_pos``, ``handler_att``,
+    ``handler_target_trajectory``) converted to ``async def``
+
+- Updated ``petal-qgc-mission-server`` from ``v0.1.3`` to ``v0.1.4``:
+
+  - **Refactor**: Message router refactored to support async handlers; ``route()`` method is now
+    ``async`` and awaits handler results if they are coroutines
+  - **Refactor**: MAVLink server main loop and message draining/handling methods converted to
+    ``async`` for non-blocking message processing and routing
+  - **Refactor**: Mission upload and download protocol handlers (``upload.py``, ``download.py``)
+    converted to ``async``, including ``request_waypoint``, ``_finalize_upload``, and all
+    mission item/count/request handlers
+  - **Refactor**: Mission translation and Redis publishing logic (``translation.py``) converted
+    to ``async``; all Redis interactions are now properly awaited
+  - **Improvement**: All internal handler methods in bridge and connection modules converted to
+    ``async`` to ensure the entire message handling pipeline is non-blocking
+
 Version 0.1.62 (2026-02-06)
 ---------------------------
 
