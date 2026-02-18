@@ -417,6 +417,350 @@ Deletes a flight record and its associated files from local storage and S3.
    This operation permanently deletes the flight record from both local and cloud databases, 
    and moves associated S3 files to a ``deleted/`` folder. Local files are permanently removed.
 
+Bulk Delete Flight Records Commands
+------------------------------------
+
+These commands handle bulk deletion of multiple flight records using the job-based architecture with
+real-time progress streaming.
+
+bulk_delete_flight_records
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Command:** ``petal-flight-log/bulk_delete_flight_records``
+
+Initiates a long-running job to delete multiple flight records simultaneously. Each record's ULog,
+Rosbag, S3 files, and database entries are removed. Any existing bulk delete job is automatically
+cancelled before starting a new one.
+
+**Payload:**
+
+.. code-block:: json
+
+   {
+       "flight_record_ids": [
+           "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+           "a1b2c3d4-e5f6-7890-abcd-1234567890ab"
+       ]
+   }
+
+**Parameters:**
+
+- ``flight_record_ids`` (list[str]): List of flight record IDs to delete (1-100, must be unique)
+
+**Response:**
+
+.. code-block:: json
+
+   {
+       "status": "success",
+       "message": "Bulk delete job started for 2 flight records. Subscribe to progress updates using subscribe_bulk_delete_flight_records.",
+       "total_requested": 2,
+       "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+   }
+
+**Example - Complete Bulk Delete Workflow:**
+
+.. code-block:: python
+
+   # Step 1: Start the bulk delete job
+   bulk_delete_command = {
+       "waitResponse": True,
+       "messageId": "bulk-del-001",
+       "deviceId": "drone-001",
+       "command": "petal-flight-log/bulk_delete_flight_records",
+       "timestamp": "2026-02-18T14:30:00Z",
+       "payload": {
+           "flight_record_ids": [
+               "record-001",
+               "record-002",
+               "record-003"
+           ]
+       }
+   }
+   # Publish to MQTT and receive job_id in response
+
+   # Step 2: Subscribe to progress updates
+   subscribe_command = {
+       "waitResponse": True,
+       "messageId": "subscribe-bulk-del-001",
+       "deviceId": "drone-001",
+       "command": "petal-flight-log/subscribe_bulk_delete_flight_records",
+       "timestamp": "2026-02-18T14:30:01Z",
+       "payload": {
+           "subscribed_stream_id": "bulk-delete-progress-001",
+           "data_rate_hz": 2.0
+       }
+   }
+   # Progress updates published to petal-flight-log/publish_bulk_delete_job_value_stream
+
+subscribe_bulk_delete_flight_records
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Command:** ``petal-flight-log/subscribe_bulk_delete_flight_records``
+
+Subscribes to progress updates for an active bulk delete flight records job via MQTT streaming.
+The ``subscribed_stream_id`` is provided by the front-end for future use but is not used to find
+the job — this handler subscribes to the single active ``BulkDeleteFlightRecordsJob``.
+
+**Payload:**
+
+.. code-block:: json
+
+   {
+       "subscribed_stream_id": "bulk-delete-progress-001",
+       "data_rate_hz": 2.0
+   }
+
+**Parameters:**
+
+- ``subscribed_stream_id`` (str): Unique identifier for this subscription
+- ``data_rate_hz`` (float): Data publishing rate in Hz (0.1-10.0, default: 2.0)
+
+**Progress Stream Data Format:**
+
+.. code-block:: json
+
+   {
+       "type": "progress",
+       "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+       "machine_id": "drone-001",
+       "status": "in_progress",
+       "progress": 50.0,
+       "completed": false,
+       "message": "Deleted 1 of 2 flight records...",
+       "total_requested": 2,
+       "total_deleted": 1,
+       "total_failed": 0
+   }
+
+**Response:**
+
+.. code-block:: json
+
+   {
+       "status": "success",
+       "message": "Subscribed to bulk delete job progress updates",
+       "subscribed_stream_id": "bulk-delete-progress-001",
+       "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+       "data_rate_hz": 2.0,
+       "mqtt_topic": "petal-flight-log/publish_bulk_delete_job_value_stream"
+   }
+
+unsubscribe_bulk_delete_flight_records
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Command:** ``petal-flight-log/unsubscribe_bulk_delete_flight_records``
+
+Unsubscribes from bulk delete flight records progress updates.
+
+**Payload:**
+
+.. code-block:: json
+
+   {
+       "unsubscribed_stream_id": "bulk-delete-progress-001"
+   }
+
+**Response:**
+
+.. code-block:: json
+
+   {
+       "status": "success",
+       "message": "Unsubscribed from bulk delete job progress updates",
+       "unsubscribed_stream_id": "bulk-delete-progress-001",
+       "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+   }
+
+cancel_bulk_delete_flight_records
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Command:** ``petal-flight-log/cancel_bulk_delete_flight_records``
+
+Cancels all active bulk delete flight records jobs.
+
+**Payload:** None required
+
+**Response:**
+
+.. code-block:: json
+
+   {
+       "status": "success",
+       "message": "Cancelled 1 bulk delete jobs",
+       "cancelled_jobs": ["f47ac10b-58cc-4372-a567-0e02b2c3d479"]
+   }
+
+Clear All ULogs Commands
+------------------------
+
+These commands handle clearing all ULog files from the Pixhawk SD card using the job-based
+architecture with real-time progress streaming.
+
+clear_all_ulogs
+^^^^^^^^^^^^^^^
+
+**Command:** ``petal-flight-log/clear_all_ulogs``
+
+Initiates a long-running job to delete all ULog files from the Pixhawk SD card via MAVFTP.
+Any existing clear all ULogs job is automatically cancelled before starting a new one.
+
+**Payload:**
+
+.. code-block:: json
+
+   {
+       "base": "fs/microsd/log"
+   }
+
+**Parameters:**
+
+- ``base`` (str): Base directory on Pixhawk SD card to clear ULogs from (default: ``"fs/microsd/log"``)
+
+**Response:**
+
+.. code-block:: json
+
+   {
+       "status": "success",
+       "message": "Clear all ULogs job started for fs/microsd/log. Subscribe to progress updates using subscribe_clear_all_ulogs.",
+       "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+   }
+
+**Example - Complete Clear All ULogs Workflow:**
+
+.. code-block:: python
+
+   # Step 1: Start the clear all ULogs job
+   clear_command = {
+       "waitResponse": True,
+       "messageId": "clear-ulogs-001",
+       "deviceId": "drone-001",
+       "command": "petal-flight-log/clear_all_ulogs",
+       "timestamp": "2026-02-18T14:30:00Z",
+       "payload": {
+           "base": "fs/microsd/log"
+       }
+   }
+   # Publish to MQTT and receive job_id in response
+
+   # Step 2: Subscribe to progress updates
+   subscribe_command = {
+       "waitResponse": True,
+       "messageId": "subscribe-clear-001",
+       "deviceId": "drone-001",
+       "command": "petal-flight-log/subscribe_clear_all_ulogs",
+       "timestamp": "2026-02-18T14:30:01Z",
+       "payload": {
+           "subscribed_stream_id": "clear-ulogs-progress-001",
+           "data_rate_hz": 2.0
+       }
+   }
+   # Progress updates published to petal-flight-log/publish_clear_all_ulogs_job_value_stream
+
+subscribe_clear_all_ulogs
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Command:** ``petal-flight-log/subscribe_clear_all_ulogs``
+
+Subscribes to progress updates for an active clear all ULogs job via MQTT streaming.
+The ``subscribed_stream_id`` is provided by the front-end for future use but is not used to find
+the job — this handler subscribes to the single active ``ClearAllUlogsJob``.
+
+**Payload:**
+
+.. code-block:: json
+
+   {
+       "subscribed_stream_id": "clear-ulogs-progress-001",
+       "data_rate_hz": 2.0
+   }
+
+**Parameters:**
+
+- ``subscribed_stream_id`` (str): Unique identifier for this subscription
+- ``data_rate_hz`` (float): Data publishing rate in Hz (0.1-10.0, default: 2.0)
+
+**Progress Stream Data Format:**
+
+.. code-block:: json
+
+   {
+       "type": "progress",
+       "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+       "machine_id": "drone-001",
+       "status": "in_progress",
+       "progress": 50.0,
+       "completed": false,
+       "message": "Deleting ULog files...",
+       "base": "fs/microsd/log",
+       "total_files": 10,
+       "deleted": 5,
+       "failed": 0
+   }
+
+**Response:**
+
+.. code-block:: json
+
+   {
+       "status": "success",
+       "message": "Subscribed to clear all ULogs job progress updates",
+       "subscribed_stream_id": "clear-ulogs-progress-001",
+       "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+       "data_rate_hz": 2.0,
+       "mqtt_topic": "petal-flight-log/publish_clear_all_ulogs_job_value_stream"
+   }
+
+unsubscribe_clear_all_ulogs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Command:** ``petal-flight-log/unsubscribe_clear_all_ulogs``
+
+Unsubscribes from clear all ULogs progress updates.
+
+**Payload:**
+
+.. code-block:: json
+
+   {
+       "unsubscribed_stream_id": "clear-ulogs-progress-001"
+   }
+
+**Response:**
+
+.. code-block:: json
+
+   {
+       "status": "success",
+       "message": "Unsubscribed from clear all ULogs job progress updates",
+       "unsubscribed_stream_id": "clear-ulogs-progress-001",
+       "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+   }
+
+cancel_clear_all_ulogs
+^^^^^^^^^^^^^^^^^^^^^^
+
+**Command:** ``petal-flight-log/cancel_clear_all_ulogs``
+
+Cancels all active clear all ULogs jobs.
+
+**Payload:** None required
+
+**Response:**
+
+.. code-block:: json
+
+   {
+       "status": "success",
+       "message": "Cancelled 1 clear all ULogs jobs",
+       "cancelled_jobs": ["f47ac10b-58cc-4372-a567-0e02b2c3d479"]
+   }
+
+.. warning::
+   The ``clear_all_ulogs`` command permanently deletes **all** ULog files from the Pixhawk SD card.
+   This operation cannot be undone. Ensure important logs have been synced to S3 before clearing.
+
 Job Status Values
 -----------------
 
@@ -439,6 +783,8 @@ MQTT Topics Reference
 
 - ``petal-flight-log/publish_fetch_flight_records_job_value_stream`` - Fetch job progress
 - ``petal-flight-log/publish_sync_job_value_stream`` - Sync job progress
+- ``petal-flight-log/publish_bulk_delete_job_value_stream`` - Bulk delete job progress
+- ``petal-flight-log/publish_clear_all_ulogs_job_value_stream`` - Clear all ULogs job progress
 - ``petal-flight-log/log_download/progress`` - ULog download progress
 - ``petal-flight-log/s3_upload/progress`` - S3 upload progress
 
@@ -529,6 +875,17 @@ Commands are received on the ``command/edge`` topic with the following format:
 **Flight Record Management:**
 
 - ``petal-flight-log/delete_flight_record`` - Delete a flight record and associated files
+- ``petal-flight-log/bulk_delete_flight_records`` - Bulk delete multiple flight records
+- ``petal-flight-log/subscribe_bulk_delete_flight_records`` - Subscribe to bulk delete progress
+- ``petal-flight-log/unsubscribe_bulk_delete_flight_records`` - Unsubscribe from bulk delete progress
+- ``petal-flight-log/cancel_bulk_delete_flight_records`` - Cancel active bulk delete job
+
+**ULog Management:**
+
+- ``petal-flight-log/clear_all_ulogs`` - Clear all ULog files from Pixhawk SD card
+- ``petal-flight-log/subscribe_clear_all_ulogs`` - Subscribe to clear all ULogs progress
+- ``petal-flight-log/unsubscribe_clear_all_ulogs`` - Unsubscribe from clear all ULogs progress
+- ``petal-flight-log/cancel_clear_all_ulogs`` - Cancel active clear all ULogs job
 
 **Sync Job Management:**
 
@@ -557,6 +914,8 @@ The petal publishes status updates and progress to ``command/web`` with the foll
 
 - ``/petal-flight-log/publish_sync_job_value_stream`` - Sync job status and progress
 - ``/petal-flight-log/publish_fetch_flight_records_job_value_stream`` - Fetch job status and progress
+- ``/petal-flight-log/publish_bulk_delete_job_value_stream`` - Bulk delete job status and progress
+- ``/petal-flight-log/publish_clear_all_ulogs_job_value_stream`` - Clear all ULogs job status and progress
 
 **Job Results:**
 

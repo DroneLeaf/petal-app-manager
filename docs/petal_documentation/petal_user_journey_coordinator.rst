@@ -1401,6 +1401,330 @@ The front-end should:
    original request's ``messageId``, allowing the front-end to correlate responses with 
    their originating requests.
 
+format_sd_card
+^^^^^^^^^^^^^^
+
+**Command:** ``petal-user-journey-coordinator/format_sd_card``
+
+Formats the Pixhawk SD card. This uses a two-phase response pattern:
+
+1. **Immediate Response** (via ``send_command_response``): Acknowledges the command was received
+2. **Status Publish** (via ``publish_message``): Reports the format result after completion
+
+**Payload:**
+
+.. code-block:: json
+
+   {
+       "storage_id": 0
+   }
+
+**Parameters:**
+
+- ``storage_id`` (int): Storage device ID to format (0-3, default: 0 = primary SD card)
+
+**Phase 1: Immediate Response (waitResponse)**
+
+Sent immediately via ``send_command_response`` when ``waitResponse: true``:
+
+.. code-block:: json
+
+   {
+     "status": "success",
+     "message": "Format SD card command initiated",
+     "data": {
+       "format_initiated": true,
+       "storage_id": 0,
+       "message": "Format in progress, status will be published to command/web"
+     }
+   }
+
+**Phase 1: Error Responses**
+
+Error responses are sent immediately via ``send_command_response`` when ``waitResponse: true``.
+
+*Operation Blocked:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "SD card format blocked - Active operation in progress",
+     "error_code": "OPERATION_ACTIVE"
+   }
+
+*Validation Error:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "Invalid format SD card message: <validation details>",
+     "error_code": "VALIDATION_ERROR"
+   }
+
+*Handler Error:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "Format SD card message handler error: <error details>",
+     "error_code": "HANDLER_ERROR"
+   }
+
+**Phase 2: Status Publish (publish_message)**
+
+After the format completes (or fails), the petal publishes the result to the ``command/web`` MQTT topic.
+
+**Status Publish Command Name Pattern:**
+
+.. code-block:: text
+
+   /<petal_name>/format_sd_card_status
+
+For this petal, the command will be:
+
+.. code-block:: text
+
+   /petal-user-journey-coordinator/format_sd_card_status
+
+**Front-End Handling:**
+
+The front-end should:
+
+1. Subscribe to the ``command/web`` MQTT topic
+2. Filter incoming messages by checking if ``message.command`` equals ``/petal-user-journey-coordinator/format_sd_card_status``
+3. Use the ``messageId`` field to correlate the status with the original request
+
+**Status Publish (Success):**
+
+.. code-block:: json
+
+   {
+     "messageId": "format-001",
+     "command": "/petal-user-journey-coordinator/format_sd_card_status",
+     "timestamp": "2026-02-18T12:00:05.000Z",
+     "payload": {
+       "format_initiated": true,
+       "format_success": true,
+       "status": "success",
+       "message": "SD card format completed successfully",
+       "error_code": null,
+       "storage_id": 0,
+       "timestamp": "2026-02-18T12:00:05.000Z"
+     }
+   }
+
+**Status Publish (Failed):**
+
+.. code-block:: json
+
+   {
+     "messageId": "format-001",
+     "command": "/petal-user-journey-coordinator/format_sd_card_status",
+     "timestamp": "2026-02-18T12:00:05.000Z",
+     "payload": {
+       "format_initiated": true,
+       "format_success": false,
+       "status": "failed",
+       "message": "Format storage command timed out",
+       "error_code": "TIMEOUT",
+       "storage_id": 0,
+       "timestamp": "2026-02-18T12:00:05.000Z"
+     }
+   }
+
+**Status Payload Fields (FormatSDCardStatusPayload):**
+
+- ``format_initiated`` (bool): Always ``true`` if status is published (format was attempted)
+- ``format_success`` (bool): ``true`` if format succeeded, ``false`` if it failed
+- ``status`` (str): ``"success"`` or ``"failed"``
+- ``message`` (str): Human-readable status message
+- ``error_code`` (str|null): Error code if failed:
+
+  - ``TIMEOUT`` - Format command timed out
+  - ``DENIED`` - Command denied by autopilot
+  - ``UNSUPPORTED`` - Command not supported
+  - ``EXECUTION_ERROR`` - Unexpected error during format
+  - ``PAYLOAD_VALIDATION_ERROR`` - Status payload validation failed
+
+- ``storage_id`` (int): Storage device ID that was formatted
+- ``timestamp`` (str): ISO 8601 timestamp of when the format completed
+
+.. warning::
+   Formatting the SD card permanently erases **all** data on the Pixhawk's SD card, including
+   all ULog files. Ensure important logs have been synced before formatting.
+
+get_log_entries
+^^^^^^^^^^^^^^^
+
+**Command:** ``petal-user-journey-coordinator/get_log_entries``
+
+Retrieves log entry metadata from the flight controller by sending a ``LOG_REQUEST_LIST``
+MAVLink message and collecting ``LOG_ENTRY`` responses. This is a diagnostic/test endpoint
+for inspecting available logs on the vehicle. This uses a two-phase response pattern:
+
+1. **Immediate Response** (via ``send_command_response``): Acknowledges the command was received
+2. **Status Publish** (via ``publish_message``): Reports the retrieval result with log entries
+
+**Payload:**
+
+.. code-block:: json
+
+   {
+       "timeout": 5.0
+   }
+
+**Parameters:**
+
+- ``timeout`` (float): Timeout in seconds for log entry retrieval (1.0-30.0, default: 5.0)
+
+**Phase 1: Immediate Response (waitResponse)**
+
+Sent immediately via ``send_command_response`` when ``waitResponse: true``:
+
+.. code-block:: json
+
+   {
+     "status": "success",
+     "message": "Log retrieval command initiated",
+     "data": {
+       "retrieval_initiated": true,
+       "timeout": 5.0,
+       "message": "Retrieving log entries, status will be published to command/web"
+     }
+   }
+
+**Phase 1: Error Responses**
+
+Error responses are sent immediately via ``send_command_response`` when ``waitResponse: true``.
+
+*Operation Blocked:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "Log retrieval blocked - Active operation in progress",
+     "error_code": "OPERATION_ACTIVE"
+   }
+
+*Validation Error:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "Invalid get log entries message: <validation details>",
+     "error_code": "VALIDATION_ERROR"
+   }
+
+*Handler Error:*
+
+.. code-block:: json
+
+   {
+     "status": "error",
+     "message": "Get log entries message handler error: <error details>",
+     "error_code": "HANDLER_ERROR"
+   }
+
+**Phase 2: Status Publish (publish_message)**
+
+After log retrieval completes (or fails), the petal publishes the result to the ``command/web`` MQTT topic.
+
+**Status Publish Command Name Pattern:**
+
+.. code-block:: text
+
+   /<petal_name>/get_log_entries_status
+
+For this petal, the command will be:
+
+.. code-block:: text
+
+   /petal-user-journey-coordinator/get_log_entries_status
+
+**Front-End Handling:**
+
+The front-end should:
+
+1. Subscribe to the ``command/web`` MQTT topic
+2. Filter incoming messages by checking if ``message.command`` equals ``/petal-user-journey-coordinator/get_log_entries_status``
+3. Use the ``messageId`` field to correlate the status with the original request
+
+**Status Publish (Success):**
+
+.. code-block:: json
+
+   {
+     "messageId": "log-001",
+     "command": "/petal-user-journey-coordinator/get_log_entries_status",
+     "timestamp": "2026-02-18T12:00:05.000Z",
+     "payload": {
+       "retrieval_initiated": true,
+       "retrieval_success": true,
+       "status": "success",
+       "message": "Retrieved 5 log entries from vehicle",
+       "error_code": null,
+       "total_logs": 5,
+       "log_entries": {
+         "0": {"size": 1048576, "utc": 1705323022},
+         "1": {"size": 524288, "utc": 1705323100},
+         "2": {"size": 262144, "utc": 1705323200},
+         "3": {"size": 131072, "utc": 1705323300},
+         "4": {"size": 65536, "utc": 1705323400}
+       },
+       "timestamp": "2026-02-18T12:00:05.000Z"
+     }
+   }
+
+**Status Publish (Failed - Timeout):**
+
+.. code-block:: json
+
+   {
+     "messageId": "log-001",
+     "command": "/petal-user-journey-coordinator/get_log_entries_status",
+     "timestamp": "2026-02-18T12:00:05.000Z",
+     "payload": {
+       "retrieval_initiated": true,
+       "retrieval_success": false,
+       "status": "failed",
+       "message": "Log retrieval failed: Timed out waiting for LOG_ENTRY packets",
+       "error_code": "RETRIEVAL_TIMEOUT",
+       "total_logs": 0,
+       "log_entries": null,
+       "timestamp": "2026-02-18T12:00:05.000Z"
+     }
+   }
+
+**Status Payload Fields (LogRetrievalStatusPayload):**
+
+- ``retrieval_initiated`` (bool): Always ``true`` if status is published
+- ``retrieval_success`` (bool): ``true`` if retrieval succeeded, ``false`` if it failed
+- ``status`` (str): ``"success"`` or ``"failed"``
+- ``message`` (str): Human-readable status message
+- ``error_code`` (str|null): Error code if failed:
+
+  - ``RETRIEVAL_TIMEOUT`` - Timed out waiting for LOG_ENTRY packets
+  - ``RUNTIME_ERROR`` - MAVLink runtime error during retrieval
+  - ``EXECUTION_ERROR`` - Unexpected error during retrieval
+  - ``PAYLOAD_VALIDATION_ERROR`` - Status payload validation failed
+
+- ``total_logs`` (int): Number of log entries retrieved (0 on failure)
+- ``log_entries`` (object|null): Dict keyed by log ID (as string) with values containing:
+
+  - ``size`` (int): Log file size in bytes
+  - ``utc`` (int): UTC timestamp of the log entry (Unix epoch seconds)
+
+- ``timestamp`` (str): ISO 8601 timestamp of when the retrieval completed
+
+.. note::
+   The ``log_entries`` field keys are log IDs as strings. Each entry contains ``size`` (bytes)
+   and ``utc`` (Unix timestamp) metadata from the flight controller's LOG_ENTRY MAVLink message.
+
 Complete Usage Example
 ----------------------
 
@@ -1552,6 +1876,8 @@ Commands are received on the ``command/edge`` topic with the following format:
 **System Commands:**
 
 - ``petal-user-journey-coordinator/reboot_autopilot`` - Reboot the PX4 autopilot
+- ``petal-user-journey-coordinator/format_sd_card`` - Format the Pixhawk SD card
+- ``petal-user-journey-coordinator/get_log_entries`` - Retrieve log entries from the flight controller
 
 Published Topics (Sent to ``command/web``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1561,6 +1887,8 @@ The petal publishes status updates and async results to ``command/web`` with the
 **System Status:**
 
 - ``/petal-user-journey-coordinator/reboot_px4_status`` - Reboot operation status (success/failure)
+- ``/petal-user-journey-coordinator/format_sd_card_status`` - SD card format status (success/failure)
+- ``/petal-user-journey-coordinator/get_log_entries_status`` - Log retrieval status (success/failure)
 
 **Bulk Parameter Results:**
 
