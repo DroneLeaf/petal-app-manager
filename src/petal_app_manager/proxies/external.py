@@ -2179,25 +2179,116 @@ class MavLinkExternalProxy(ExternalProxy):
         msg_id: str,
         request_msg: mavutil.mavlink.MAVLink_message,
         timeout: float = 8.0,
+        stale_timeout: float = 2.0,
     ) -> Dict[int, Dict[str, int]]:
         """
         Send LOG_REQUEST_LIST and gather all LOG_ENTRY packets.
+
+        Handles two edge cases that PX4 firmware exhibits:
+
+        1. **No logs on the vehicle** — PX4 responds with a single
+           ``LOG_ENTRY`` where ``num_logs == 0``.  The MAVLink spec
+           requires this sentinel packet; we detect it and return an
+           empty dict immediately instead of waiting for the timeout.
+
+        2. **Corrupted / missing log entries** — PX4 may advertise
+           ``num_logs = N`` but only deliver fewer than *N*
+           ``LOG_ENTRY`` packets (corrupted slots are silently
+           skipped).  A staleness timer (``stale_timeout``) detects
+           when no new entry has arrived for a while and returns
+           whatever was collected so far.
+
+        Parameters
+        ----------
+        msg_id : str
+            The MAVLink message ID string for LOG_ENTRY (e.g. ``"118"``).
+        request_msg : mavutil.mavlink.MAVLink_message
+            The encoded LOG_REQUEST_LIST message to send.
+        timeout : float
+            Hard upper-bound on how long to wait (seconds).
+        stale_timeout : float
+            If no new LOG_ENTRY arrives within this many seconds
+            *after* the first one, collection stops early and whatever
+            entries were gathered are returned.  Only applies when
+            ``num_logs > 0`` and fewer than ``num_logs`` entries have
+            been received.  Default 2.0 s.
+
+        Returns
+        -------
+        Dict[int, Dict[str, int]]
+            ``{log_id: {"size": int, "utc": int}, …}``
         """
         entries: Dict[int, Dict[str, int]] = {}
-        expected_total = {"val": None}
+        expected_total: Dict[str, Optional[int]] = {"val": None}
+        last_entry_time: Dict[str, float] = {"t": time.time()}
 
         def _collector(pkt) -> bool:
             if expected_total["val"] is None:
                 expected_total["val"] = pkt.num_logs
-            entries[pkt.id] = {"size": pkt.size, "utc": pkt.time_utc}
-            return len(entries) == expected_total["val"]
 
-        await self.send_and_wait(
-            match_key=msg_id,
-            request_msg=request_msg,
-            collector=_collector,
-            timeout=timeout,
-        )
+            # ── No logs on the vehicle ────────────────────────────────
+            # PX4 sends LOG_ENTRY(id=0, num_logs=0) as a sentinel.
+            if expected_total["val"] == 0:
+                self._log.info("Vehicle reports num_logs=0 — no logs on SD card.")
+                return True  # signal done immediately
+
+            entries[pkt.id] = {"size": pkt.size, "utc": pkt.time_utc}
+            last_entry_time["t"] = time.time()
+
+            return len(entries) >= expected_total["val"]
+
+        # ── Staleness monitor ─────────────────────────────────────────
+        # If PX4 stops sending LOG_ENTRY packets before we reach the
+        # advertised num_logs (e.g. corrupted logs), the collector will
+        # never return True and we'd wait the full timeout.  This task
+        # detects the stall and signals completion early via cancel_event.
+        cancel_evt = threading.Event()
+
+        async def _stale_watchdog():
+            while not cancel_evt.is_set():
+                await asyncio.sleep(0.25)
+                if expected_total["val"] is not None and expected_total["val"] > 0:
+                    elapsed = time.time() - last_entry_time["t"]
+                    if elapsed >= stale_timeout and len(entries) > 0:
+                        got = len(entries)
+                        want = expected_total["val"]
+                        self._log.warning(
+                            f"LOG_ENTRY stream stalled — received {got}/{want} entries "
+                            f"(no new entry for {elapsed:.1f}s). "
+                            f"Returning partial results; {want - got} entries may be corrupted/missing."
+                        )
+                        cancel_evt.set()  # unblocks send_and_wait
+
+        watchdog_task = asyncio.create_task(_stale_watchdog())
+
+        try:
+            await self.send_and_wait(
+                match_key=msg_id,
+                request_msg=request_msg,
+                collector=_collector,
+                timeout=timeout,
+                cancel_event=cancel_evt,
+            )
+        except TimeoutError:
+            # If we collected *some* entries before the hard timeout, return
+            # them instead of propagating the error.
+            if entries:
+                got = len(entries)
+                want = expected_total.get("val")
+                self._log.warning(
+                    f"Hard timeout ({timeout}s) reached while collecting LOG_ENTRY packets. "
+                    f"Returning {got}/{want} entries collected so far."
+                )
+            else:
+                raise  # genuinely got nothing — let caller handle it
+        finally:
+            cancel_evt.set()
+            watchdog_task.cancel()
+            try:
+                await watchdog_task
+            except asyncio.CancelledError:
+                pass
+
         return entries
 
     async def _request_chunk(
