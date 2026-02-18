@@ -500,7 +500,7 @@ set and publishes the results to ``command/web``.
        {
          "parameter_name": "CA_ROTOR_COUNT",
          "parameter_value": 4,
-         "parameter_type": "UINT8"
+         "parameter_type": "INT32"
        },
        {
          "parameter_name": "VTO_LOITER_ALT",
