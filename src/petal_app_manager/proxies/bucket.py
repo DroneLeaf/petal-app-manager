@@ -398,7 +398,7 @@ class S3BucketProxy(BaseProxy):
         def _list():
             try:
                 # Build the prefix for listing with new structure: machine_id/flight-logs/
-                list_prefix = f"{machine_id}/flight-logs/"
+                list_prefix = f"{machine_id}/"
                 
                 if prefix:
                     list_prefix += prefix

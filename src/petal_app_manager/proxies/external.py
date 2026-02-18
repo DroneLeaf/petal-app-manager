@@ -47,6 +47,8 @@ from .. import Config
 from ..models.mavlink import (
     RebootStatusCode,
     RebootAutopilotResponse,
+    FormatStorageResponse, 
+    FormatStorageStatusCode
 )
 from pymavlink import mavutil, mavftp
 from pymavlink.mavftp_op import FTP_OP
@@ -1298,6 +1300,152 @@ class MavLinkExternalProxy(ExternalProxy):
             param1,  # param1: reboot autopilot
             param2,  # param2: reboot onboard computer
             0, 0, 0, 0, 0  # param3..param7 unused
+        )
+
+    def build_format_storage_command(
+        self,
+        storage_id: int = 0,
+    ) -> mavutil.mavlink.MAVLink_command_long_message:
+        """
+        Build a MAVLink command to format the SD card (MAV_CMD_PREFLIGHT_STORAGE).
+
+        Parameters
+        ----------
+        storage_id : int
+            Storage device ID (0 = primary SD card). Default is 0.
+
+        Returns
+        -------
+        mavutil.mavlink.MAVLink_command_long_message
+            The MAVLink COMMAND_LONG message for format storage.
+
+        Raises
+        ------
+        RuntimeError
+            If MAVLink connection is not established.
+        """
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        return self.master.mav.command_long_encode(
+            self.master.target_system,
+            self.master.target_component,
+            mavutil.mavlink.MAV_CMD_PREFLIGHT_STORAGE,  # 245
+            0,                  # confirmation
+            2,                  # param1: 2 = format
+            float(storage_id),  # param2: storage id / device
+            0, 0, 0, 0, 0      # param3..param7 unused
+        )
+
+    async def format_sd_card(
+        self,
+        storage_id: int = 0,
+        timeout: float = 10.0,
+    ) -> "FormatStorageResponse":
+        """
+        Send a format storage command to the autopilot and wait for ACK.
+
+        Parameters
+        ----------
+        storage_id : int
+            Storage device ID (0 = primary SD card). Default is 0.
+        timeout : float
+            Maximum time to wait for acknowledgment. Default is 10.0 seconds
+            (formatting can take a few seconds).
+
+        Returns
+        -------
+        FormatStorageResponse
+            Structured response indicating success/failure and reason.
+        """
+        
+        if not self.connected:
+            return FormatStorageResponse(
+                success=False,
+                status_code=FormatStorageStatusCode.FAIL_NOT_CONNECTED,
+                reason="MAVLink connection not established.",
+                ack_result=None,
+            )
+
+        cmd = self.build_format_storage_command(storage_id=storage_id)
+
+        result = {"ack_received": False, "result": None}
+
+        def _collector(pkt) -> bool:
+            if pkt.get_type() != "COMMAND_ACK":
+                return False
+            if pkt.command == mavutil.mavlink.MAV_CMD_PREFLIGHT_STORAGE:
+                result["ack_received"] = True
+                result["result"] = pkt.result
+                return True
+            return False
+
+        COMMAND_ACK_ID = str(mavutil.mavlink.MAVLINK_MSG_ID_COMMAND_ACK)
+
+        _ACK_TO_STATUS = {
+            mavutil.mavlink.MAV_RESULT_DENIED: FormatStorageStatusCode.FAIL_ACK_DENIED,
+            mavutil.mavlink.MAV_RESULT_TEMPORARILY_REJECTED: FormatStorageStatusCode.FAIL_ACK_TEMPORARILY_REJECTED,
+            mavutil.mavlink.MAV_RESULT_UNSUPPORTED: FormatStorageStatusCode.FAIL_ACK_UNSUPPORTED,
+            mavutil.mavlink.MAV_RESULT_FAILED: FormatStorageStatusCode.FAIL_ACK_FAILED,
+            mavutil.mavlink.MAV_RESULT_IN_PROGRESS: FormatStorageStatusCode.FAIL_ACK_IN_PROGRESS,
+            getattr(mavutil.mavlink, "MAV_RESULT_CANCELLED", -999): FormatStorageStatusCode.FAIL_ACK_CANCELLED,
+        }
+
+        _ACK_NAME = {
+            mavutil.mavlink.MAV_RESULT_ACCEPTED: "ACCEPTED",
+            mavutil.mavlink.MAV_RESULT_TEMPORARILY_REJECTED: "TEMPORARILY_REJECTED",
+            mavutil.mavlink.MAV_RESULT_DENIED: "DENIED",
+            mavutil.mavlink.MAV_RESULT_UNSUPPORTED: "UNSUPPORTED",
+            mavutil.mavlink.MAV_RESULT_FAILED: "FAILED",
+            mavutil.mavlink.MAV_RESULT_IN_PROGRESS: "IN_PROGRESS",
+            getattr(mavutil.mavlink, "MAV_RESULT_CANCELLED", -999): "CANCELLED",
+        }
+
+        try:
+            await self.send_and_wait(
+                match_key=COMMAND_ACK_ID,
+                request_msg=cmd,
+                collector=_collector,
+                timeout=timeout,
+            )
+        except TimeoutError:
+            self._log.warning("Format storage command sent but no ACK received within timeout.")
+            return FormatStorageResponse(
+                success=False,
+                status_code=FormatStorageStatusCode.FAIL_TIMEOUT,
+                reason=f"No ACK received within {timeout}s timeout.",
+                ack_result=None,
+            )
+
+        # ACK path
+        if result["ack_received"]:
+            ack_val = result["result"]
+            ack_name = _ACK_NAME.get(ack_val, f"UNKNOWN({ack_val})")
+
+            if ack_val == mavutil.mavlink.MAV_RESULT_ACCEPTED:
+                self._log.info("Format storage command accepted by autopilot")
+                return FormatStorageResponse(
+                    success=True,
+                    status_code=FormatStorageStatusCode.OK_ACK_ACCEPTED,
+                    reason="Autopilot acknowledged the format storage command (ACCEPTED).",
+                    ack_result=ack_val,
+                )
+
+            status = _ACK_TO_STATUS.get(ack_val, FormatStorageStatusCode.FAIL_ACK_UNKNOWN)
+            self._log.warning(f"Format storage command rejected with result: {ack_val} ({ack_name})")
+            return FormatStorageResponse(
+                success=False,
+                status_code=status,
+                reason=f"Autopilot rejected the format storage command: {ack_name}.",
+                ack_result=ack_val,
+            )
+
+        # Rare: send_and_wait returned without TimeoutError but collector never matched
+        return FormatStorageResponse(
+            success=False,
+            status_code=FormatStorageStatusCode.FAIL_NO_ACK_MATCH,
+            reason="send_and_wait returned but no matching COMMAND_ACK for format storage was observed.",
+            ack_result=None,
         )
 
     def build_motor_value_command(
@@ -3012,6 +3160,50 @@ class MavLinkFTPProxy(BaseProxy):
             self._log.error(f"All {n_attempts} attempts to download ulog failed.")
             raise last_exception
     
+    async def delete_file(self, remote_path: str, connection_timeout: float = 3.0) -> None:
+        """
+        Delete a single file at *remote_path* on the vehicle via MAVFTP.
+        """
+        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+            self._log.warning("FTP connection not established, attempting to connect...")
+            t_start = time.time()
+            while True:
+                await asyncio.sleep(1.0)
+                if self.mavlink_proxy.master and self.mavlink_proxy.connected:
+                    break
+                if time.time() - t_start > connection_timeout:
+                    self._log.error("Timeout waiting for MAVLink FTP connection")
+                    raise RuntimeError("MAVLink FTP connection could not be established")
+
+        if not hasattr(self, '_parser') or self._parser is None:
+            await self._init_parser()
+
+        await self._loop.run_in_executor(self._exe, self._parser.delete_file, remote_path)
+
+    async def delete_all_logs(self, base: str = None, connection_timeout: float = 3.0) -> Dict[str, Any]:
+        """
+        Recursively delete every ``.ulg`` file under *base* on the vehicle.
+        Returns a summary dict with deleted/failed counts.
+        """
+        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+            self._log.warning("FTP connection not established, attempting to connect...")
+            t_start = time.time()
+            while True:
+                await asyncio.sleep(1.0)
+                if self.mavlink_proxy.master and self.mavlink_proxy.connected:
+                    break
+                if time.time() - t_start > connection_timeout:
+                    self._log.error("Timeout waiting for MAVLink FTP connection")
+                    raise RuntimeError("MAVLink FTP connection could not be established")
+
+        if base is None:
+            base = self.mavlink_proxy.root_sd_path
+
+        if not hasattr(self, '_parser') or self._parser is None:
+            await self._init_parser()
+
+        return await self._loop.run_in_executor(self._exe, self._parser.delete_all_logs, base)
+
     async def clear_error_logs(self, remote_path: str, connection_timeout: float = 3.0):
         """
         Clear error logs under *remote_path* from the vehicle.
@@ -3368,7 +3560,56 @@ class _BlockingParser:
                 self._log.error(f"Error deleting log {log.remote_path}: {e}")
         self._log.info("Cleared all error logs")
 
-    # 4) ls a directory ------------------------------------------------------ #
+    # 4) delete_file --------------------------------------------------------- #
+    def delete_file(self, path: str) -> None:
+        """
+        Delete a single file at *path* on the vehicle via MAVFTP.
+        Wraps the private ``_delete`` helper with a public interface.
+        """
+        self._log.info(f"Deleting file: {path}")
+        if not self.proxy.master or not self.proxy.connected:
+            raise RuntimeError("MAVLink connection not available for delete operation")
+        self._delete(path)
+
+    # 5) delete_all_logs ----------------------------------------------------- #
+    def delete_all_logs(self, base: str = "fs/microsd/log") -> Dict[str, Any]:
+        """
+        Recursively walk *base* (same logic as ``_walk_ulogs``) and delete
+        every ``.ulg`` file found.  Does NOT require log entries from the
+        vehicle – purely filesystem-based.
+
+        Returns a summary dict with ``deleted``, ``failed``, and ``total``
+        counts plus a list of per-file results.
+        """
+        self._log.info(f"Deleting all ULog files under {base}")
+        if not self.proxy.master or not self.proxy.connected:
+            raise RuntimeError("MAVLink connection not available for delete operation")
+
+        results: List[Dict[str, Any]] = []
+        deleted = 0
+        failed = 0
+
+        for remote_path, size in self._walk_ulogs(base):
+            try:
+                self._delete(remote_path)
+                results.append({"path": remote_path, "size_bytes": size, "status": "deleted"})
+                deleted += 1
+                time.sleep(0.1)  # brief pause between deletes
+            except Exception as e:
+                self._log.error(f"Failed to delete {remote_path}: {e}")
+                results.append({"path": remote_path, "size_bytes": size, "status": "failed", "error": str(e)})
+                failed += 1
+
+        summary = {
+            "total": deleted + failed,
+            "deleted": deleted,
+            "failed": failed,
+            "files": results,
+        }
+        self._log.info(f"Delete all logs complete: {deleted} deleted, {failed} failed out of {deleted + failed} total")
+        return summary
+
+    # 6) ls a directory ------------------------------------------------------ #
     def list_directory(self, base: str = "fs/microsd") -> List[Dict[str, Any]]:
         """List the contents of a directory on the vehicle's filesystem."""
         try:
@@ -3459,6 +3700,9 @@ class _BlockingParser:
                             raise OSError("Invalid file descriptor")
                 except (OSError, AttributeError):
                     self._log.warning(f"File descriptor invalid, marking connection as lost (attempt {n}/{retries})")
+                    with self.proxy._mav_lock:
+                        with self.proxy._download_lock:
+                            self._reset_ftp_state()
                     if n >= retries:
                         return []
                     time.sleep(delay)
@@ -3549,6 +3793,9 @@ class _BlockingParser:
                             raise OSError("Invalid file descriptor")
                 except (OSError, AttributeError):
                     self._log.warning(f"File descriptor invalid for delete, marking connection as lost (attempt {n}/{retries})")
+                    with self.proxy._mav_lock:
+                        with self.proxy._download_lock:
+                            self._reset_ftp_state()
                     if n >= retries:
                         return
                     time.sleep(delay)
