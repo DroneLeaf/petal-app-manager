@@ -60,7 +60,7 @@ prod = [
     "leaf-pymavlink>=0.1.17,<0.1.18",
     "petal-flight-log==0.2.6",
     "petal-warehouse==0.1.9",
-    "petal-leafsdk==0.2.11",
+    "petal-leafsdk==0.2.12",
     "petal-user-journey-coordinator==0.1.12",
     "petal-qgc-mission-server==0.1.4",
 ]
