@@ -3521,7 +3521,7 @@ class MavLinkFTPProxy(BaseProxy):
             files = []
             dirs = []
             try:
-                base_entries = self._parser._ls(base_dir)
+                base_entries = self._parser._ls(base_dir, retries=2)
             except Exception as exc:
                 # Empty directory → MAVFTP returns code 73 (timeout).
                 # Treat as "nothing to delete".
