@@ -3520,7 +3520,17 @@ class MavLinkFTPProxy(BaseProxy):
             """Return (file_list, date_dir_list)."""
             files = []
             dirs = []
-            for date, _, is_dir in self._parser._ls(base_dir):
+            try:
+                base_entries = self._parser._ls(base_dir)
+            except Exception as exc:
+                # Empty directory → MAVFTP returns code 73 (timeout).
+                # Treat as "nothing to delete".
+                self._log.info(
+                    f"Base directory listing failed ({exc}) — "
+                    f"assuming empty, nothing to delete"
+                )
+                return files, dirs
+            for date, _, is_dir in base_entries:
                 if not is_dir:
                     continue
                 sub = f"{base_dir}/{date}"
