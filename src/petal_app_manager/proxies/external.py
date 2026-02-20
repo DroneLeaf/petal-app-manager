@@ -3515,9 +3515,28 @@ class MavLinkFTPProxy(BaseProxy):
         if not hasattr(self, '_parser') or self._parser is None:
             await self._init_parser()
 
-        # Use FTP listing to discover all .ulg files (listing still works)
-        ulog_files = await self._loop.run_in_executor(
-            self._exe, lambda: list(self._parser._walk_ulogs(base))
+        # ── Discover .ulg files AND date directories in one pass ──
+        def _scan(base_dir):
+            """Return (file_list, date_dir_list)."""
+            files = []
+            dirs = []
+            for date, _, is_dir in self._parser._ls(base_dir):
+                if not is_dir:
+                    continue
+                sub = f"{base_dir}/{date}"
+                dirs.append(sub)
+                try:
+                    entries = self._parser._ls(sub, retries=1)
+                except Exception as exc:
+                    self._log.warning(f"Skipping {sub}: {exc}")
+                    continue
+                for name, size, child_is_dir in entries:
+                    if not child_is_dir and name.endswith(".ulg"):
+                        files.append((f"{sub}/{name}", size))
+            return files, dirs
+
+        ulog_files, date_dirs = await self._loop.run_in_executor(
+            self._exe, lambda: _scan(base)
         )
         self._log.info(
             f"Found {len(ulog_files)} ULog file(s) under {base} — "
@@ -3559,17 +3578,11 @@ class MavLinkFTPProxy(BaseProxy):
                     except Exception:
                         pass  # never let a callback error abort deletion
 
-            # ── Clean up empty date directories ──────────────────
-            # Collect unique parent directories from successfully
-            # deleted files and remove them with NuttX ``rmdir``.
-            cleaned_dirs: set[str] = set()
-            for r in results:
-                if r["status"] == "deleted":
-                    parent = r["path"].rsplit("/", 1)[0]  # e.g. fs/microsd/log/2025-08-19
-                    if parent != base:
-                        cleaned_dirs.add(parent)
-
-            for d in sorted(cleaned_dirs):
+            # ── Clean up ALL discovered date directories ─────────
+            # Remove every date dir we found during listing, not
+            # just those that had deleted files.  This ensures dirs
+            # left empty by a previous run are also removed.
+            for d in sorted(date_dirs):
                 try:
                     ok = await self.mavlink_proxy.delete_file_via_shell(
                         d, command="rmdir"
