@@ -4090,7 +4090,7 @@ class _BlockingParser:
             if not is_dir:
                 continue
             try:
-                entries = self._ls(f"{base}/{date}")
+                entries = self._ls(f"{base}/{date}", retries=1)
             except Exception as exc:
                 self._log.warning(
                     f"Skipping {base}/{date}: listing failed ({exc})"
