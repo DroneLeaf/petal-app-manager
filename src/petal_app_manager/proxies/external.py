@@ -1551,6 +1551,100 @@ class MavLinkExternalProxy(ExternalProxy):
 
         return msgs
 
+    async def send_shell_command(
+        self,
+        command: str,
+        settle_time: float = 0.5,
+        timeout: float = 3.0,
+    ) -> None:
+        """
+        Send a shell command to PX4 via MAVLink SERIAL_CONTROL and wait
+        for PX4 to acknowledge it.
+
+        Uses :py:meth:`send_and_wait` so the command is transmitted through
+        the normal I/O queue **and** we block until PX4 replies with at
+        least one ``SERIAL_CONTROL`` packet (flag ``REPLY``), confirming
+        the shell received the command.  A *settle_time* pause is added
+        afterwards so PX4 has time to act on it (e.g. release file
+        handles).
+
+        Parameters
+        ----------
+        command : str
+            The shell command to send (e.g. ``"logger stop\\n"``).
+        settle_time : float
+            Extra time (seconds) to wait **after** PX4 acknowledges the
+            command, giving it time to act (e.g. close file handles).
+        timeout : float
+            Maximum time (seconds) to wait for a reply before raising
+            ``TimeoutError``.
+        """
+        if not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        msgs = self.build_shell_serial_control_msgs(command)
+        if not msgs:
+            return
+
+        # We only need to send_and_wait on the *last* chunk; PX4 will
+        # reply once it has the full command (terminated by \n).
+        # Send all chunks except the last one directly.
+        for msg in msgs[:-1]:
+            self.send("mav", msg)
+
+        serial_control_id = str(mavutil.mavlink.MAVLINK_MSG_ID_SERIAL_CONTROL)
+
+        reply_received = False
+
+        def _collector(pkt) -> bool:
+            """Return True once we get any SERIAL_CONTROL reply from PX4."""
+            nonlocal reply_received
+            flags = getattr(pkt, "flags", 0)
+            if flags & mavutil.mavlink.SERIAL_CONTROL_FLAG_REPLY:
+                reply_received = True
+                return True
+            return False
+
+        try:
+            await self.send_and_wait(
+                match_key=serial_control_id,
+                request_msg=msgs[-1],
+                collector=_collector,
+                timeout=timeout,
+            )
+        except TimeoutError:
+            self._log.warning(
+                f"No SERIAL_CONTROL reply for shell command "
+                f"{command.strip()!r} within {timeout}s — "
+                f"proceeding anyway (command may still have been received)"
+            )
+
+        # Give PX4 time to act on the command (e.g. release file handles)
+        if settle_time > 0:
+            await asyncio.sleep(settle_time)
+
+    async def stop_px4_logging(self, settle_time: float = 2.0, timeout: float = 5.0) -> None:
+        """
+        Stop PX4's SD-card logger so that log files can be deleted.
+
+        Sends ``logger stop\\n`` via the MAVLink shell and waits for PX4
+        to acknowledge.  The logger module releases its file handles,
+        making files deletable via MAVFTP.
+        """
+        self._log.info("Stopping PX4 logger to allow file deletion…")
+        await self.send_shell_command("logger stop\n", settle_time=settle_time, timeout=timeout)
+        self._log.info("PX4 logger stopped.")
+
+    async def start_px4_logging(self, settle_time: float = 1.0, timeout: float = 5.0) -> None:
+        """
+        Restart PX4's SD-card logger after file operations.
+
+        Sends ``logger start\\n`` via the MAVLink shell.
+        """
+        self._log.info("Restarting PX4 logger…")
+        await self.send_shell_command("logger start\n", settle_time=settle_time, timeout=timeout)
+        self._log.info("PX4 logger restarted.")
+
     async def reboot_autopilot(
         self,
         reboot_onboard_computer: bool = False,
@@ -3251,9 +3345,19 @@ class MavLinkFTPProxy(BaseProxy):
             self._log.error(f"All {n_attempts} attempts to download ulog failed.")
             raise last_exception
     
-    async def delete_file(self, remote_path: str, connection_timeout: float = 3.0) -> None:
+    async def delete_file(self, remote_path: str, connection_timeout: float = 3.0, stop_logger: bool = True) -> None:
         """
         Delete a single file at *remote_path* on the vehicle via MAVFTP.
+
+        Parameters
+        ----------
+        remote_path : str
+            The path on the vehicle to delete.
+        connection_timeout : float
+            Maximum time to wait for MAVLink connection.
+        stop_logger : bool
+            If True, stop PX4 logging before deletion to avoid
+            ``FileProtected`` (FTP error 9) and restart it afterwards.
         """
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
             self._log.warning("FTP connection not established, attempting to connect...")
@@ -3269,11 +3373,21 @@ class MavLinkFTPProxy(BaseProxy):
         if not hasattr(self, '_parser') or self._parser is None:
             await self._init_parser()
 
-        await self._loop.run_in_executor(self._exe, self._parser.delete_file, remote_path)
+        if stop_logger:
+            await self.mavlink_proxy.stop_px4_logging()
+        try:
+            await self._loop.run_in_executor(self._exe, self._parser.delete_file, remote_path)
+        finally:
+            if stop_logger:
+                await self.mavlink_proxy.start_px4_logging()
 
     async def delete_all_logs(self, base: str = None, connection_timeout: float = 3.0) -> Dict[str, Any]:
         """
         Recursively delete every ``.ulg`` file under *base* on the vehicle.
+
+        Stops PX4 logging before deletion to prevent ``FileProtected``
+        (FTP error 9) and restarts it afterwards.
+
         Returns a summary dict with deleted/failed counts.
         """
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
@@ -3293,7 +3407,13 @@ class MavLinkFTPProxy(BaseProxy):
         if not hasattr(self, '_parser') or self._parser is None:
             await self._init_parser()
 
-        return await self._loop.run_in_executor(self._exe, self._parser.delete_all_logs, base)
+        # Stop PX4 logger before deletion to release file handles
+        await self.mavlink_proxy.stop_px4_logging()
+        try:
+            return await self._loop.run_in_executor(self._exe, self._parser.delete_all_logs, base)
+        finally:
+            # Always restart the logger, even if deletion failed
+            await self.mavlink_proxy.start_px4_logging()
 
     async def clear_error_logs(self, remote_path: str, connection_timeout: float = 3.0):
         """
@@ -3669,12 +3789,24 @@ class _BlockingParser:
         every ``.ulg`` file found.  Does NOT require log entries from the
         vehicle – purely filesystem-based.
 
+        .. note::
+
+           The caller (``MavLinkFTPProxy.delete_all_logs``) is responsible
+           for stopping PX4 logging **before** invoking this method.
+           Without that, PX4 returns ``FileProtected`` (FTP code 9) for
+           every file because the logger holds open file handles.
+
         Returns a summary dict with ``deleted``, ``failed``, and ``total``
         counts plus a list of per-file results.
         """
         self._log.info(f"Deleting all ULog files under {base}")
         if not self.proxy.master or not self.proxy.connected:
             raise RuntimeError("MAVLink connection not available for delete operation")
+
+        # Reset FTP state before starting the delete loop to ensure a clean session
+        with self.proxy._mav_lock:
+            with self.proxy._download_lock:
+                self._reset_ftp_state()
 
         results: List[Dict[str, Any]] = []
         deleted = 0
@@ -3906,9 +4038,30 @@ class _BlockingParser:
                             self._log.info(f"Successfully deleted {path}")
                             return
                         else:
-                            self._log.warning(f"FTP delete failed: {ack.return_code} (attempt {n}/{retries})")
+                            # Translate FTP error codes to human-readable messages
+                            _FTP_ERR_NAMES = {
+                                1: "Fail", 2: "FailErrno", 3: "InvalidDataSize",
+                                4: "InvalidSession", 5: "NoSessionsAvailable",
+                                6: "EndOfFile", 7: "UnknownCommand",
+                                8: "FileExists", 9: "FileProtected",
+                                10: "FileNotFound", 73: "RemoteReplyTimeout",
+                            }
+                            err_name = _FTP_ERR_NAMES.get(ack.return_code, f"Unknown({ack.return_code})")
+                            detail = (
+                                f"FTP delete failed: {err_name} (code {ack.return_code}) "
+                                f"(attempt {n}/{retries})"
+                            )
+                            if ack.return_code == 9:  # FileProtected
+                                detail += (
+                                    " — PX4 logger likely has the file locked. "
+                                    "Ensure 'logger stop' is sent before deleting."
+                                )
+                            self._log.warning(detail)
                             if n >= retries:
-                                raise RuntimeError(f"delete('{path}') failed after {retries} attempts: FTP return code {ack.return_code}")
+                                raise RuntimeError(
+                                    f"delete('{path}') failed after {retries} attempts: "
+                                    f"{err_name} (FTP code {ack.return_code})"
+                                )
                             
             except (OSError, socket.error) as e:
                 # Handle connection errors gracefully
