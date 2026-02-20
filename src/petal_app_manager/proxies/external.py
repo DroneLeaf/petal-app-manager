@@ -3464,7 +3464,12 @@ class MavLinkFTPProxy(BaseProxy):
             if stop_logger:
                 await self.mavlink_proxy.start_px4_logging()
 
-    async def delete_all_logs(self, base: str = None, connection_timeout: float = 3.0) -> Dict[str, Any]:
+    async def delete_all_logs(
+        self,
+        base: str = None,
+        connection_timeout: float = 3.0,
+        progress_callback: "Callable[[int, int], Any] | None" = None,
+    ) -> Dict[str, Any]:
         """
         Recursively delete every ``.ulg`` file under *base* on the vehicle.
 
@@ -3474,6 +3479,13 @@ class MavLinkFTPProxy(BaseProxy):
         blocks ``cmd_rm`` on all log files.
 
         Stops the PX4 logger before deletion and restarts it afterwards.
+
+        Args:
+            base: Root directory to scan for .ulg files.
+            connection_timeout: Seconds to wait for a MAVLink connection.
+            progress_callback: Optional ``callback(current_index, total)``
+                invoked after each file deletion attempt.  May be a
+                regular function or an ``async`` coroutine.
 
         Returns a summary dict with deleted/failed counts.
         """
@@ -3510,7 +3522,8 @@ class MavLinkFTPProxy(BaseProxy):
             deleted = 0
             failed = 0
 
-            for remote_path, size in ulog_files:
+            total = len(ulog_files)
+            for idx, (remote_path, size) in enumerate(ulog_files, 1):
                 ok = await self.mavlink_proxy.delete_file_via_shell(remote_path)
                 if ok:
                     results.append({
@@ -3527,6 +3540,15 @@ class MavLinkFTPProxy(BaseProxy):
                         "error": "Shell rm failed",
                     })
                     failed += 1
+
+                # Report per-file progress
+                if progress_callback is not None:
+                    try:
+                        ret = progress_callback(idx, total)
+                        if asyncio.iscoroutine(ret):
+                            await ret
+                    except Exception:
+                        pass  # never let a callback error abort deletion
 
             summary = {
                 "total": deleted + failed,
