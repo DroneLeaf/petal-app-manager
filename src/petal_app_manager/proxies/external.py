@@ -175,6 +175,14 @@ class DownloadCancelledException(Exception):
     pass
 
 
+class FTPDeleteError(Exception):
+    """Raised when a MAVFTP delete operation fails with a known FTP error code."""
+    def __init__(self, path: str, ftp_code: int, message: str):
+        self.path = path
+        self.ftp_code = ftp_code
+        super().__init__(message)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 class ExternalProxy(BaseProxy):
     """
@@ -1556,7 +1564,7 @@ class MavLinkExternalProxy(ExternalProxy):
         command: str,
         settle_time: float = 0.5,
         timeout: float = 3.0,
-    ) -> None:
+    ) -> str:
         """
         Send a shell command to PX4 via MAVLink SERIAL_CONTROL and wait
         for PX4 to acknowledge it.
@@ -1578,13 +1586,19 @@ class MavLinkExternalProxy(ExternalProxy):
         timeout : float
             Maximum time (seconds) to wait for a reply before raising
             ``TimeoutError``.
+
+        Returns
+        -------
+        str
+            The text content of the first SERIAL_CONTROL reply from PX4,
+            or an empty string if no reply was received.
         """
         if not self.connected:
             raise RuntimeError("MAVLink connection not established")
 
         msgs = self.build_shell_serial_control_msgs(command)
         if not msgs:
-            return
+            return ""
 
         # We only need to send_and_wait on the *last* chunk; PX4 will
         # reply once it has the full command (terminated by \n).
@@ -1595,12 +1609,20 @@ class MavLinkExternalProxy(ExternalProxy):
         serial_control_id = str(mavutil.mavlink.MAVLINK_MSG_ID_SERIAL_CONTROL)
 
         reply_received = False
+        reply_chunks: list[str] = []
 
         def _collector(pkt) -> bool:
             """Return True once we get any SERIAL_CONTROL reply from PX4."""
             nonlocal reply_received
             flags = getattr(pkt, "flags", 0)
             if flags & mavutil.mavlink.SERIAL_CONTROL_FLAG_REPLY:
+                # Capture reply text for diagnostics
+                count = getattr(pkt, "count", 0)
+                data = getattr(pkt, "data", [])
+                if count > 0 and data:
+                    reply_chunks.append(
+                        bytes(data[:count]).decode("utf-8", errors="replace")
+                    )
                 reply_received = True
                 return True
             return False
@@ -1612,7 +1634,13 @@ class MavLinkExternalProxy(ExternalProxy):
                 collector=_collector,
                 timeout=timeout,
             )
+            reply_text = "".join(reply_chunks).strip()
+            self._log.info(
+                f"Shell command {command.strip()!r} acknowledged by PX4"
+                + (f" — reply: {reply_text!r}" if reply_text else "")
+            )
         except TimeoutError:
+            reply_text = ""
             self._log.warning(
                 f"No SERIAL_CONTROL reply for shell command "
                 f"{command.strip()!r} within {timeout}s — "
@@ -1622,6 +1650,8 @@ class MavLinkExternalProxy(ExternalProxy):
         # Give PX4 time to act on the command (e.g. release file handles)
         if settle_time > 0:
             await asyncio.sleep(settle_time)
+
+        return reply_text
 
     async def stop_px4_logging(self, settle_time: float = 2.0, timeout: float = 5.0) -> None:
         """
@@ -1644,6 +1674,56 @@ class MavLinkExternalProxy(ExternalProxy):
         self._log.info("Restarting PX4 logger…")
         await self.send_shell_command("logger start\n", settle_time=settle_time, timeout=timeout)
         self._log.info("PX4 logger restarted.")
+
+    async def delete_file_via_shell(self, remote_path: str, timeout: float = 5.0) -> bool:
+        """
+        Delete a file on PX4 using the NuttX shell ``rm`` command.
+
+        This is a fallback for when MAVFTP ``cmd_rm`` fails with
+        ``FileProtected`` (code 9).  The shell ``rm`` bypasses the
+        MAVFTP server's protection checks and deletes the file
+        directly via NuttX ``unlink()``.
+
+        Parameters
+        ----------
+        remote_path : str
+            Full path on the vehicle, e.g.
+            ``"fs/microsd/log/2025-09-01/07_50_39.ulg"``.
+            The path must start without a leading ``/``.
+        timeout : float
+            Maximum seconds to wait for PX4 shell acknowledgment.
+
+        Returns
+        -------
+        bool
+            ``True`` if the command completed (no error detected in
+            the reply text), ``False`` otherwise.
+        """
+        # NuttX rm expects an absolute path starting with /
+        abs_path = remote_path if remote_path.startswith("/") else f"/{remote_path}"
+        self._log.info(f"Shell rm fallback: rm {abs_path}")
+        try:
+            reply = await self.send_shell_command(
+                f"rm {abs_path}\n", settle_time=0.3, timeout=timeout
+            )
+            # NuttX rm prints nothing on success; on error it prints
+            # something like "rm: /path: No such file or directory"
+            lower = reply.lower()
+            if reply and (
+                "no such" in lower
+                or "error" in lower
+                or "failed" in lower
+                or "invalid" in lower
+            ):
+                self._log.warning(
+                    f"Shell rm for {remote_path} returned error: {reply!r}"
+                )
+                return False
+            self._log.info(f"Shell rm completed for {remote_path}")
+            return True
+        except Exception as e:
+            self._log.error(f"Shell rm failed for {remote_path}: {e}")
+            return False
 
     async def reboot_autopilot(
         self,
@@ -3376,7 +3456,23 @@ class MavLinkFTPProxy(BaseProxy):
         if stop_logger:
             await self.mavlink_proxy.stop_px4_logging()
         try:
-            await self._loop.run_in_executor(self._exe, self._parser.delete_file, remote_path)
+            try:
+                await self._loop.run_in_executor(
+                    self._exe, self._parser.delete_file, remote_path
+                )
+            except FTPDeleteError as e:
+                if e.ftp_code == 9:  # FileProtected
+                    self._log.info(
+                        f"FTP delete returned FileProtected for {remote_path} "
+                        f"— retrying via shell rm"
+                    )
+                    ok = await self.mavlink_proxy.delete_file_via_shell(remote_path)
+                    if not ok:
+                        raise RuntimeError(
+                            f"Both FTP and shell rm failed for {remote_path}"
+                        ) from e
+                else:
+                    raise
         finally:
             if stop_logger:
                 await self.mavlink_proxy.start_px4_logging()
@@ -3410,7 +3506,38 @@ class MavLinkFTPProxy(BaseProxy):
         # Stop PX4 logger before deletion to release file handles
         await self.mavlink_proxy.stop_px4_logging()
         try:
-            return await self._loop.run_in_executor(self._exe, self._parser.delete_all_logs, base)
+            result = await self._loop.run_in_executor(
+                self._exe, self._parser.delete_all_logs, base
+            )
+
+            # ── Shell rm fallback for FileProtected failures ──────────
+            # PX4's MAVFTP server may return FileProtected (code 9) for
+            # ALL files in the log directory — not just the active one —
+            # due to aggressive protection rules in some firmware builds.
+            # The NuttX shell 'rm' command bypasses these checks.
+            file_protected = [
+                f for f in result.get("files", [])
+                if f.get("status") == "failed" and f.get("ftp_code") == 9
+            ]
+            if file_protected:
+                self._log.info(
+                    f"{len(file_protected)} file(s) failed with FileProtected "
+                    f"— retrying via shell rm"
+                )
+                for entry in file_protected:
+                    path = entry["path"]
+                    ok = await self.mavlink_proxy.delete_file_via_shell(path)
+                    if ok:
+                        entry["status"] = "deleted"
+                        entry["method"] = "shell_rm"
+                        entry.pop("error", None)
+                        entry.pop("ftp_code", None)
+                        result["deleted"] = result.get("deleted", 0) + 1
+                        result["failed"] = max(result.get("failed", 0) - 1, 0)
+                    else:
+                        entry["method"] = "shell_rm_failed"
+
+            return result
         finally:
             # Always restart the logger, even if deletion failed
             await self.mavlink_proxy.start_px4_logging()
@@ -3818,6 +3945,16 @@ class _BlockingParser:
                 results.append({"path": remote_path, "size_bytes": size, "status": "deleted"})
                 deleted += 1
                 time.sleep(0.1)  # brief pause between deletes
+            except FTPDeleteError as e:
+                self._log.error(f"Failed to delete {remote_path}: {e}")
+                results.append({
+                    "path": remote_path,
+                    "size_bytes": size,
+                    "status": "failed",
+                    "error": str(e),
+                    "ftp_code": e.ftp_code,
+                })
+                failed += 1
             except Exception as e:
                 self._log.error(f"Failed to delete {remote_path}: {e}")
                 results.append({"path": remote_path, "size_bytes": size, "status": "failed", "error": str(e)})
@@ -4058,9 +4195,13 @@ class _BlockingParser:
                                 )
                             self._log.warning(detail)
                             if n >= retries:
-                                raise RuntimeError(
-                                    f"delete('{path}') failed after {retries} attempts: "
-                                    f"{err_name} (FTP code {ack.return_code})"
+                                raise FTPDeleteError(
+                                    path=path,
+                                    ftp_code=ack.return_code,
+                                    message=(
+                                        f"delete('{path}') failed after {retries} attempts: "
+                                        f"{err_name} (FTP code {ack.return_code})"
+                                    ),
                                 )
                             
             except (OSError, socket.error) as e:
@@ -4072,6 +4213,8 @@ class _BlockingParser:
                 else:
                     self._log.error(f"Unexpected socket error during delete: {e}")
                     raise
+            except FTPDeleteError:
+                raise  # propagate structured FTP errors as-is
             except Exception as e:
                 self._log.error(f"Error during delete operation (attempt {n}/{retries}): {e}")
                 if n >= retries:
