@@ -3427,7 +3427,10 @@ class MavLinkFTPProxy(BaseProxy):
     
     async def delete_file(self, remote_path: str, connection_timeout: float = 3.0, stop_logger: bool = True) -> None:
         """
-        Delete a single file at *remote_path* on the vehicle via MAVFTP.
+        Delete a single file at *remote_path* on the vehicle.
+
+        Uses the NuttX shell ``rm`` command via MAVLink SERIAL_CONTROL,
+        which bypasses PX4's MAVFTP ``FileProtected`` restriction.
 
         Parameters
         ----------
@@ -3436,43 +3439,27 @@ class MavLinkFTPProxy(BaseProxy):
         connection_timeout : float
             Maximum time to wait for MAVLink connection.
         stop_logger : bool
-            If True, stop PX4 logging before deletion to avoid
-            ``FileProtected`` (FTP error 9) and restart it afterwards.
+            If True, stop PX4 logging before deletion and restart it
+            afterwards.  Pass ``False`` when the caller has already
+            stopped the logger (e.g. bulk-delete loop).
         """
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
-            self._log.warning("FTP connection not established, attempting to connect...")
+            self._log.warning("MAVLink connection not established, attempting to connect...")
             t_start = time.time()
             while True:
                 await asyncio.sleep(1.0)
                 if self.mavlink_proxy.master and self.mavlink_proxy.connected:
                     break
                 if time.time() - t_start > connection_timeout:
-                    self._log.error("Timeout waiting for MAVLink FTP connection")
-                    raise RuntimeError("MAVLink FTP connection could not be established")
-
-        if not hasattr(self, '_parser') or self._parser is None:
-            await self._init_parser()
+                    self._log.error("Timeout waiting for MAVLink connection")
+                    raise RuntimeError("MAVLink connection could not be established")
 
         if stop_logger:
             await self.mavlink_proxy.stop_px4_logging()
         try:
-            try:
-                await self._loop.run_in_executor(
-                    self._exe, self._parser.delete_file, remote_path
-                )
-            except FTPDeleteError as e:
-                if e.ftp_code == 9:  # FileProtected
-                    self._log.info(
-                        f"FTP delete returned FileProtected for {remote_path} "
-                        f"— retrying via shell rm"
-                    )
-                    ok = await self.mavlink_proxy.delete_file_via_shell(remote_path)
-                    if not ok:
-                        raise RuntimeError(
-                            f"Both FTP and shell rm failed for {remote_path}"
-                        ) from e
-                else:
-                    raise
+            ok = await self.mavlink_proxy.delete_file_via_shell(remote_path)
+            if not ok:
+                raise RuntimeError(f"Shell rm failed for {remote_path}")
         finally:
             if stop_logger:
                 await self.mavlink_proxy.start_px4_logging()
@@ -3481,21 +3468,25 @@ class MavLinkFTPProxy(BaseProxy):
         """
         Recursively delete every ``.ulg`` file under *base* on the vehicle.
 
-        Stops PX4 logging before deletion to prevent ``FileProtected``
-        (FTP error 9) and restarts it afterwards.
+        Uses MAVFTP only for *listing* directories, then deletes each file
+        via the NuttX shell ``rm`` command (MAVLink SERIAL_CONTROL).  This
+        bypasses PX4's MAVFTP ``FileProtected`` (code 9) restriction which
+        blocks ``cmd_rm`` on all log files.
+
+        Stops the PX4 logger before deletion and restarts it afterwards.
 
         Returns a summary dict with deleted/failed counts.
         """
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
-            self._log.warning("FTP connection not established, attempting to connect...")
+            self._log.warning("MAVLink connection not established, attempting to connect...")
             t_start = time.time()
             while True:
                 await asyncio.sleep(1.0)
                 if self.mavlink_proxy.master and self.mavlink_proxy.connected:
                     break
                 if time.time() - t_start > connection_timeout:
-                    self._log.error("Timeout waiting for MAVLink FTP connection")
-                    raise RuntimeError("MAVLink FTP connection could not be established")
+                    self._log.error("Timeout waiting for MAVLink connection")
+                    raise RuntimeError("MAVLink connection could not be established")
 
         if base is None:
             base = self.mavlink_proxy.root_sd_path
@@ -3503,41 +3494,51 @@ class MavLinkFTPProxy(BaseProxy):
         if not hasattr(self, '_parser') or self._parser is None:
             await self._init_parser()
 
+        # Use FTP listing to discover all .ulg files (listing still works)
+        ulog_files = await self._loop.run_in_executor(
+            self._exe, lambda: list(self._parser._walk_ulogs(base))
+        )
+        self._log.info(
+            f"Found {len(ulog_files)} ULog file(s) under {base} — "
+            f"deleting via shell rm"
+        )
+
         # Stop PX4 logger before deletion to release file handles
         await self.mavlink_proxy.stop_px4_logging()
         try:
-            result = await self._loop.run_in_executor(
-                self._exe, self._parser.delete_all_logs, base
+            results: List[Dict[str, Any]] = []
+            deleted = 0
+            failed = 0
+
+            for remote_path, size in ulog_files:
+                ok = await self.mavlink_proxy.delete_file_via_shell(remote_path)
+                if ok:
+                    results.append({
+                        "path": remote_path,
+                        "size_bytes": size,
+                        "status": "deleted",
+                    })
+                    deleted += 1
+                else:
+                    results.append({
+                        "path": remote_path,
+                        "size_bytes": size,
+                        "status": "failed",
+                        "error": "Shell rm failed",
+                    })
+                    failed += 1
+
+            summary = {
+                "total": deleted + failed,
+                "deleted": deleted,
+                "failed": failed,
+                "files": results,
+            }
+            self._log.info(
+                f"Delete all logs complete: {deleted} deleted, "
+                f"{failed} failed out of {deleted + failed} total"
             )
-
-            # ── Shell rm fallback for FileProtected failures ──────────
-            # PX4's MAVFTP server may return FileProtected (code 9) for
-            # ALL files in the log directory — not just the active one —
-            # due to aggressive protection rules in some firmware builds.
-            # The NuttX shell 'rm' command bypasses these checks.
-            file_protected = [
-                f for f in result.get("files", [])
-                if f.get("status") == "failed" and f.get("ftp_code") == 9
-            ]
-            if file_protected:
-                self._log.info(
-                    f"{len(file_protected)} file(s) failed with FileProtected "
-                    f"— retrying via shell rm"
-                )
-                for entry in file_protected:
-                    path = entry["path"]
-                    ok = await self.mavlink_proxy.delete_file_via_shell(path)
-                    if ok:
-                        entry["status"] = "deleted"
-                        entry["method"] = "shell_rm"
-                        entry.pop("error", None)
-                        entry.pop("ftp_code", None)
-                        result["deleted"] = result.get("deleted", 0) + 1
-                        result["failed"] = max(result.get("failed", 0) - 1, 0)
-                    else:
-                        entry["method"] = "shell_rm_failed"
-
-            return result
+            return summary
         finally:
             # Always restart the logger, even if deletion failed
             await self.mavlink_proxy.start_px4_logging()
