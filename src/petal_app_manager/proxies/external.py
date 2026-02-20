@@ -1675,9 +1675,14 @@ class MavLinkExternalProxy(ExternalProxy):
         await self.send_shell_command("logger start\n", settle_time=settle_time, timeout=timeout)
         self._log.info("PX4 logger restarted.")
 
-    async def delete_file_via_shell(self, remote_path: str, timeout: float = 5.0) -> bool:
+    async def delete_file_via_shell(
+        self,
+        remote_path: str,
+        timeout: float = 5.0,
+        command: str = "rm",
+    ) -> bool:
         """
-        Delete a file on PX4 using the NuttX shell ``rm`` command.
+        Delete a file (or empty directory) on PX4 using a NuttX shell command.
 
         This is a fallback for when MAVFTP ``cmd_rm`` fails with
         ``FileProtected`` (code 9).  The shell ``rm`` bypasses the
@@ -1692,6 +1697,9 @@ class MavLinkExternalProxy(ExternalProxy):
             The path must start without a leading ``/``.
         timeout : float
             Maximum seconds to wait for PX4 shell acknowledgment.
+        command : str
+            NuttX shell command to use.  ``"rm"`` for files,
+            ``"rmdir"`` for empty directories.
 
         Returns
         -------
@@ -1699,12 +1707,12 @@ class MavLinkExternalProxy(ExternalProxy):
             ``True`` if the command completed (no error detected in
             the reply text), ``False`` otherwise.
         """
-        # NuttX rm expects an absolute path starting with /
+        # NuttX rm/rmdir expects an absolute path starting with /
         abs_path = remote_path if remote_path.startswith("/") else f"/{remote_path}"
-        self._log.info(f"Shell rm fallback: rm {abs_path}")
+        self._log.info(f"Shell {command} fallback: {command} {abs_path}")
         try:
             reply = await self.send_shell_command(
-                f"rm {abs_path}\n", settle_time=0.3, timeout=timeout
+                f"{command} {abs_path}\n", settle_time=0.3, timeout=timeout
             )
             # NuttX rm prints nothing on success; on error it prints
             # something like "rm: /path: No such file or directory"
@@ -1714,15 +1722,16 @@ class MavLinkExternalProxy(ExternalProxy):
                 or "error" in lower
                 or "failed" in lower
                 or "invalid" in lower
+                or "not empty" in lower
             ):
                 self._log.warning(
-                    f"Shell rm for {remote_path} returned error: {reply!r}"
+                    f"Shell {command} for {remote_path} returned error: {reply!r}"
                 )
                 return False
-            self._log.info(f"Shell rm completed for {remote_path}")
+            self._log.info(f"Shell {command} completed for {remote_path}")
             return True
         except Exception as e:
-            self._log.error(f"Shell rm failed for {remote_path}: {e}")
+            self._log.error(f"Shell {command} failed for {remote_path}: {e}")
             return False
 
     async def reboot_autopilot(
@@ -3550,6 +3559,28 @@ class MavLinkFTPProxy(BaseProxy):
                     except Exception:
                         pass  # never let a callback error abort deletion
 
+            # ── Clean up empty date directories ──────────────────
+            # Collect unique parent directories from successfully
+            # deleted files and remove them with NuttX ``rmdir``.
+            cleaned_dirs: set[str] = set()
+            for r in results:
+                if r["status"] == "deleted":
+                    parent = r["path"].rsplit("/", 1)[0]  # e.g. fs/microsd/log/2025-08-19
+                    if parent != base:
+                        cleaned_dirs.add(parent)
+
+            for d in sorted(cleaned_dirs):
+                try:
+                    ok = await self.mavlink_proxy.delete_file_via_shell(
+                        d, command="rmdir"
+                    )
+                    if ok:
+                        self._log.info(f"Removed empty directory {d}")
+                    else:
+                        self._log.debug(f"rmdir {d} skipped (may not be empty)")
+                except Exception as exc:
+                    self._log.debug(f"rmdir {d} failed: {exc}")
+
             summary = {
                 "total": deleted + failed,
                 "deleted": deleted,
@@ -4058,7 +4089,14 @@ class _BlockingParser:
         for date, _, is_dir in dates:
             if not is_dir:
                 continue
-            for name, size, is_dir in self._ls(f"{base}/{date}"):
+            try:
+                entries = self._ls(f"{base}/{date}")
+            except Exception as exc:
+                self._log.warning(
+                    f"Skipping {base}/{date}: listing failed ({exc})"
+                )
+                continue
+            for name, size, is_dir in entries:
                 if not is_dir and name.endswith(".ulg"):
                     yield f"{base}/{date}/{name}", size
 
