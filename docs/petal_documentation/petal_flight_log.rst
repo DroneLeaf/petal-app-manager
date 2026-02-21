@@ -591,6 +591,356 @@ Cancels all active bulk delete flight records jobs.
        "cancelled_jobs": ["f47ac10b-58cc-4372-a567-0e02b2c3d479"]
    }
 
+Clear Error Logs Commands
+-------------------------
+
+detect_error_logs
+^^^^^^^^^^^^^^^^^
+
+**Command:** ``petal-flight-log/detect_error_logs``
+
+Scans the Pixhawk SD card for ``fail_*.log`` error log files **without deleting them**.
+This uses a two-phase response pattern:
+
+1. **Immediate Response** (via ``send_command_response``): Acknowledges the command was received
+2. **Status Publish** (via ``publish_message``): Reports the scan result after completion
+
+Files are listed via MAVFTP. No files are modified or deleted.
+
+**Payload:**
+
+.. code-block:: json
+
+   {
+       "base": "fs/microsd"
+   }
+
+**Parameters:**
+
+- ``base`` (str, optional): Base directory to scan for error logs (default: ``"fs/microsd"``)
+
+**Phase 1: Immediate Response (waitResponse)**
+
+Sent immediately via ``send_command_response`` when ``waitResponse: true``:
+
+.. code-block:: json
+
+   {
+       "status": "success",
+       "message": "Detect error logs command initiated"
+   }
+
+**Phase 1: Error Responses**
+
+*Validation Error:*
+
+.. code-block:: json
+
+   {
+       "status": "error",
+       "message": "Invalid request parameters: <validation details>",
+       "error_code": "INVALID_PARAMETERS"
+   }
+
+*Handler Error:*
+
+.. code-block:: json
+
+   {
+       "status": "error",
+       "message": "Error processing detect_error_logs command: <error details>",
+       "error_code": "HANDLER_ERROR"
+   }
+
+**Phase 2: Status Publish (publish_message)**
+
+After the scan completes (or fails), the petal publishes the result to the ``command/web``
+MQTT topic.
+
+**Status Publish Command Name Pattern:**
+
+.. code-block:: text
+
+   /<petal_name>/detect_error_logs
+
+For this petal, the command will be:
+
+.. code-block:: text
+
+   /petal-flight-log/detect_error_logs
+
+**Front-End Handling:**
+
+The front-end should:
+
+1. Subscribe to the ``command/web`` MQTT topic
+2. Filter incoming messages by checking if ``message.command`` equals ``/petal-flight-log/detect_error_logs``
+3. Use the ``messageId`` field to correlate the status with the original request
+
+**Status Publish (Success — files found):**
+
+.. code-block:: json
+
+   {
+       "messageId": "detect-err-001",
+       "command": "/petal-flight-log/detect_error_logs",
+       "timestamp": "2026-02-18T12:00:05.000Z",
+       "payload": {
+           "status": "success",
+           "message": "Detected 2 error log file(s) under fs/microsd",
+           "base": "fs/microsd",
+           "total_files": 2,
+           "files": [
+               {"path": "fs/microsd/fail_1234.log", "size_bytes": 512},
+               {"path": "fs/microsd/fail_5678.log", "size_bytes": 1024}
+           ],
+           "error_code": null,
+           "timestamp": "2026-02-18T12:00:05.000Z"
+       }
+   }
+
+**Status Publish (Success — no files found):**
+
+.. code-block:: json
+
+   {
+       "messageId": "detect-err-002",
+       "command": "/petal-flight-log/detect_error_logs",
+       "timestamp": "2026-02-18T12:00:05.000Z",
+       "payload": {
+           "status": "success",
+           "message": "No error log files found under fs/microsd",
+           "base": "fs/microsd",
+           "total_files": 0,
+           "files": [],
+           "error_code": null,
+           "timestamp": "2026-02-18T12:00:05.000Z"
+       }
+   }
+
+**Status Publish (Execution Error):**
+
+.. code-block:: json
+
+   {
+       "messageId": "detect-err-003",
+       "command": "/petal-flight-log/detect_error_logs",
+       "timestamp": "2026-02-18T12:00:05.000Z",
+       "payload": {
+           "status": "error",
+           "message": "Detect error logs failed: MAVFTP proxy not available",
+           "base": "fs/microsd",
+           "total_files": 0,
+           "files": [],
+           "error_code": "EXECUTION_ERROR",
+           "timestamp": "2026-02-18T12:00:05.000Z"
+       }
+   }
+
+**Status Payload Fields (DetectErrorLogsStatusPayload):**
+
+- ``status`` (str): ``"success"`` or ``"error"``
+- ``message`` (str): Human-readable status message
+- ``base`` (str): The base directory that was scanned
+- ``total_files`` (int): Total number of error log files found
+- ``files`` (list): List of detected files, each with ``path`` (str) and ``size_bytes`` (int)
+- ``error_code`` (str|null): Error code if applicable:
+
+  - ``null`` — Operation succeeded
+  - ``EXECUTION_ERROR`` — The operation raised an exception
+
+- ``timestamp`` (datetime): When the status was generated
+
+.. note::
+   The ``messageId`` in both the immediate response and the status publish matches the
+   original request's ``messageId``, allowing the front-end to correlate responses with
+   their originating requests.
+
+clear_error_logs
+^^^^^^^^^^^^^^^^
+
+**Command:** ``petal-flight-log/clear_error_logs``
+
+Deletes all ``fail_*.log`` error log files from the Pixhawk SD card. This uses a two-phase
+response pattern:
+
+1. **Immediate Response** (via ``send_command_response``): Acknowledges the command was received
+2. **Status Publish** (via ``publish_message``): Reports the result after completion
+
+Files are listed via MAVFTP and deleted via the NuttX shell ``rm`` command.
+If no error log files are found, the operation still counts as a success.
+
+**Payload:**
+
+.. code-block:: json
+
+   {
+       "base": "fs/microsd"
+   }
+
+**Parameters:**
+
+- ``base`` (str, optional): Base directory to scan for error logs (default: ``"fs/microsd"``)
+
+**Phase 1: Immediate Response (waitResponse)**
+
+Sent immediately via ``send_command_response`` when ``waitResponse: true``:
+
+.. code-block:: json
+
+   {
+       "status": "success",
+       "message": "Clear error logs command initiated"
+   }
+
+**Phase 1: Error Responses**
+
+*Validation Error:*
+
+.. code-block:: json
+
+   {
+       "status": "error",
+       "message": "Invalid request parameters: <validation details>",
+       "error_code": "INVALID_PARAMETERS"
+   }
+
+*Handler Error:*
+
+.. code-block:: json
+
+   {
+       "status": "error",
+       "message": "Error processing clear_error_logs command: <error details>",
+       "error_code": "HANDLER_ERROR"
+   }
+
+**Phase 2: Status Publish (publish_message)**
+
+After the deletion completes (or fails), the petal publishes the result to the ``command/web``
+MQTT topic.
+
+**Status Publish Command Name Pattern:**
+
+.. code-block:: text
+
+   /<petal_name>/clear_error_logs
+
+For this petal, the command will be:
+
+.. code-block:: text
+
+   /petal-flight-log/clear_error_logs
+
+**Front-End Handling:**
+
+The front-end should:
+
+1. Subscribe to the ``command/web`` MQTT topic
+2. Filter incoming messages by checking if ``message.command`` equals ``/petal-flight-log/clear_error_logs``
+3. Use the ``messageId`` field to correlate the status with the original request
+
+**Status Publish (Success — files deleted):**
+
+.. code-block:: json
+
+   {
+       "messageId": "clear-err-001",
+       "command": "/petal-flight-log/clear_error_logs",
+       "timestamp": "2026-02-18T12:00:05.000Z",
+       "payload": {
+           "status": "success",
+           "message": "Cleared 3 error log file(s) from fs/microsd",
+           "base": "fs/microsd",
+           "total_files": 3,
+           "deleted": 3,
+           "failed": 0,
+           "error_code": null,
+           "timestamp": "2026-02-18T12:00:05.000Z"
+       }
+   }
+
+**Status Publish (Success — no files found):**
+
+.. code-block:: json
+
+   {
+       "messageId": "clear-err-002",
+       "command": "/petal-flight-log/clear_error_logs",
+       "timestamp": "2026-02-18T12:00:05.000Z",
+       "payload": {
+           "status": "success",
+           "message": "No error log files found under fs/microsd",
+           "base": "fs/microsd",
+           "total_files": 0,
+           "deleted": 0,
+           "failed": 0,
+           "error_code": null,
+           "timestamp": "2026-02-18T12:00:05.000Z"
+       }
+   }
+
+**Status Publish (Partial Failure):**
+
+.. code-block:: json
+
+   {
+       "messageId": "clear-err-003",
+       "command": "/petal-flight-log/clear_error_logs",
+       "timestamp": "2026-02-18T12:00:05.000Z",
+       "payload": {
+           "status": "error",
+           "message": "Cleared 2 of 3 error log files (1 failed)",
+           "base": "fs/microsd",
+           "total_files": 3,
+           "deleted": 2,
+           "failed": 1,
+           "error_code": "PARTIAL_FAILURE",
+           "timestamp": "2026-02-18T12:00:05.000Z"
+       }
+   }
+
+**Status Publish (Execution Error):**
+
+.. code-block:: json
+
+   {
+       "messageId": "clear-err-004",
+       "command": "/petal-flight-log/clear_error_logs",
+       "timestamp": "2026-02-18T12:00:05.000Z",
+       "payload": {
+           "status": "error",
+           "message": "Clear error logs failed: MAVFTP proxy not available",
+           "base": "fs/microsd",
+           "total_files": 0,
+           "deleted": 0,
+           "failed": 0,
+           "error_code": "EXECUTION_ERROR",
+           "timestamp": "2026-02-18T12:00:05.000Z"
+       }
+   }
+
+**Status Payload Fields (ClearErrorLogsStatusPayload):**
+
+- ``status`` (str): ``"success"`` or ``"error"``
+- ``message`` (str): Human-readable status message
+- ``base`` (str): The base directory that was scanned
+- ``total_files`` (int): Total number of error log files found
+- ``deleted`` (int): Number of files successfully deleted
+- ``failed`` (int): Number of files that failed to delete
+- ``error_code`` (str|null): Error code if applicable:
+
+  - ``null`` — Operation succeeded
+  - ``PARTIAL_FAILURE`` — Some files could not be deleted
+  - ``EXECUTION_ERROR`` — The operation raised an exception
+
+- ``timestamp`` (datetime): When the status was generated
+
+.. note::
+   The ``messageId`` in both the immediate response and the status publish matches the
+   original request's ``messageId``, allowing the front-end to correlate responses with
+   their originating requests.
+
 Clear All ULogs Commands
 ------------------------
 
@@ -793,6 +1143,8 @@ MQTT Topics Reference
 - ``petal-flight-log/fetch_flight_records`` - Fetch results broadcast
 - ``petal-flight-log/cancel_sync_job`` - Sync cancellation notifications
 - ``petal-flight-log/delete_flight_record`` - Delete notifications
+- ``petal-flight-log/detect_error_logs`` - Detect error logs scan result
+- ``petal-flight-log/clear_error_logs`` - Clear error logs status (success/failure)
 
 Data Models
 -----------
@@ -880,6 +1232,11 @@ Commands are received on the ``command/edge`` topic with the following format:
 - ``petal-flight-log/unsubscribe_bulk_delete_flight_records`` - Unsubscribe from bulk delete progress
 - ``petal-flight-log/cancel_bulk_delete_flight_records`` - Cancel active bulk delete job
 
+**Error Log Management:**
+
+- ``petal-flight-log/detect_error_logs`` - Detect fail_*.log error files on Pixhawk SD card
+- ``petal-flight-log/clear_error_logs`` - Clear fail_*.log error files from Pixhawk SD card
+
 **ULog Management:**
 
 - ``petal-flight-log/clear_all_ulogs`` - Clear all ULog files from Pixhawk SD card
@@ -916,6 +1273,11 @@ The petal publishes status updates and progress to ``command/web`` with the foll
 - ``/petal-flight-log/publish_fetch_flight_records_job_value_stream`` - Fetch job status and progress
 - ``/petal-flight-log/publish_bulk_delete_job_value_stream`` - Bulk delete job status and progress
 - ``/petal-flight-log/publish_clear_all_ulogs_job_value_stream`` - Clear all ULogs job status and progress
+
+**Command Results:**
+
+- ``/petal-flight-log/detect_error_logs`` - Detect error logs scan result
+- ``/petal-flight-log/clear_error_logs`` - Clear error logs status (success/failure)
 
 **Job Results:**
 

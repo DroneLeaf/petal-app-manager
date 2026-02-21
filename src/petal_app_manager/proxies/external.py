@@ -3619,48 +3619,127 @@ class MavLinkFTPProxy(BaseProxy):
             # Always restart the logger, even if deletion failed
             await self.mavlink_proxy.start_px4_logging()
 
-    async def clear_error_logs(self, remote_path: str, connection_timeout: float = 3.0):
+    async def detect_error_logs(self, remote_path: str, connection_timeout: float = 3.0) -> Dict[str, Any]:
         """
-        Clear error logs under *remote_path* from the vehicle.
+        Detect ``fail_*.log`` error log files under *remote_path* on the vehicle.
+
+        Lists files via MAVFTP without deleting anything.
+
+        Returns a summary dict ``{total, files}`` where *files* is a list of
+        ``{path, size_bytes}`` dicts.
         """
         # Check connection and attempt to establish if needed
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
             self._log.warning("FTP connection not established, attempting to connect...")
             t_start = time.time()
             while True:
-                await asyncio.sleep(1.0)  # brief wait before re-checking
+                await asyncio.sleep(1.0)
                 if self.mavlink_proxy.master and self.mavlink_proxy.connected:
                     break
-
                 if time.time() - t_start > connection_timeout:
                     self._log.error("Timeout waiting for MAVLink FTP connection")
                     raise RuntimeError("MAVLink FTP connection could not be established")
 
-        # Initialize parser if not already done (e.g., after reconnection)
+        # Initialize parser if not already done
         if not hasattr(self, '_parser') or self._parser is None:
             await self._init_parser()
 
-        # Try to get log entries from the vehicle, but handle timeout gracefully
-        entries = {}
-        try:
-            msg_id = str(mavutil.mavlink.MAVLINK_MSG_ID_LOG_ENTRY)
-            msg = self.mavlink_proxy.build_req_msg_log_request(message_id=msg_id)
+        # List fail_*.log files via MAVFTP
+        def _list_fail_logs():
+            try:
+                entries = self._parser._ls(remote_path, retries=2)
+                return [
+                    (f"{remote_path}/{name}", size)
+                    for name, size, is_dir in entries
+                    if not is_dir and name.startswith("fail_") and name.endswith(".log")
+                ]
+            except Exception as exc:
+                self._log.warning(f"Failed to list error logs in {remote_path}: {exc}")
+                return []
 
-            entries = await self.mavlink_proxy.get_log_entries(
-                msg_id=msg_id,
-                request_msg=msg,
-                timeout=5.0
-            )
-        except (TimeoutError, RuntimeError) as e:
-            self._log.warning(f"Failed to get log entries from vehicle: {e}")
-            self._log.info("Attempting to list files directly via FTP without log entries...")
-            entries = {}
+        fail_logs = await self._loop.run_in_executor(self._exe, _list_fail_logs)
 
-        await self._loop.run_in_executor(
-            self._exe, 
-            self._parser.clear_error_logs, 
-            remote_path
+        files_info = [
+            {"path": path, "size_bytes": size}
+            for path, size in fail_logs
+        ]
+        self._log.info(
+            f"Detected {len(files_info)} fail_*.log file(s) under {remote_path}"
         )
+        return {"total": len(files_info), "files": files_info}
+
+    async def clear_error_logs(self, remote_path: str, connection_timeout: float = 3.0) -> Dict[str, Any]:
+        """
+        Clear ``fail_*.log`` error logs under *remote_path* from the vehicle.
+
+        Uses MAVFTP only for *listing*, then deletes each file via the
+        NuttX shell ``rm`` command (same approach as ``delete_all_logs``).
+
+        Returns a summary dict ``{total, deleted, failed}``.
+        """
+        # Check connection and attempt to establish if needed
+        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+            self._log.warning("FTP connection not established, attempting to connect...")
+            t_start = time.time()
+            while True:
+                await asyncio.sleep(1.0)
+                if self.mavlink_proxy.master and self.mavlink_proxy.connected:
+                    break
+                if time.time() - t_start > connection_timeout:
+                    self._log.error("Timeout waiting for MAVLink FTP connection")
+                    raise RuntimeError("MAVLink FTP connection could not be established")
+
+        # Initialize parser if not already done
+        if not hasattr(self, '_parser') or self._parser is None:
+            await self._init_parser()
+
+        # List fail_*.log files via MAVFTP
+        def _list_fail_logs():
+            try:
+                entries = self._parser._ls(remote_path, retries=2)
+                return [
+                    (f"{remote_path}/{name}", size)
+                    for name, size, is_dir in entries
+                    if not is_dir and name.startswith("fail_") and name.endswith(".log")
+                ]
+            except Exception as exc:
+                self._log.warning(f"Failed to list error logs in {remote_path}: {exc}")
+                return []
+
+        fail_logs = await self._loop.run_in_executor(self._exe, _list_fail_logs)
+
+        if not fail_logs:
+            self._log.info(f"No fail_*.log files found under {remote_path}")
+            return {"total": 0, "deleted": 0, "failed": 0}
+
+        self._log.info(f"Found {len(fail_logs)} fail_*.log file(s) under {remote_path}")
+
+        deleted = 0
+        failed = 0
+
+        # Stop logger, delete via shell rm, restart logger
+        await self.mavlink_proxy.stop_px4_logging()
+        try:
+            for path, _size in fail_logs:
+                try:
+                    ok = await self.mavlink_proxy.delete_file_via_shell(path)
+                    if ok:
+                        self._log.info(f"Deleted error log {path}")
+                        deleted += 1
+                    else:
+                        self._log.warning(f"Shell rm failed for {path}")
+                        failed += 1
+                except Exception as exc:
+                    self._log.warning(f"Error deleting {path}: {exc}")
+                    failed += 1
+        finally:
+            await self.mavlink_proxy.start_px4_logging()
+
+        self._log.info(
+            f"Clear error logs complete: {deleted} deleted, "
+            f"{failed} failed out of {deleted + failed} total"
+        )
+        return {"total": deleted + failed, "deleted": deleted, "failed": failed}
 
     async def list_directory(self, base: str = None, connection_timeout: float = 3.0) -> List[str]:
         """
