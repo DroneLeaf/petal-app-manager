@@ -3330,6 +3330,40 @@ class MavLinkFTPProxy(BaseProxy):
             create_parser
         )
 
+    # ------------------- deletion helper with fallback ------------- #
+    async def _delete_file_with_fallback(self, path: str) -> bool:
+        """Delete a file on the vehicle, trying shell rm first then MAVFTP.
+
+        On real NuttX hardware the shell ``rm`` command works and bypasses
+        PX4's MAVFTP ``FileProtected`` restriction.  In SITL builds the
+        NuttX shell is not available (``Invalid command: rm``), so we
+        fall back to MAVFTP ``cmd_rm`` which works there.
+
+        The caller is responsible for stopping the PX4 logger before
+        invoking this method.
+
+        Returns ``True`` on success, ``False`` on failure.
+        """
+        # 1) Try the NuttX shell rm (works on real hardware)
+        ok = await self.mavlink_proxy.delete_file_via_shell(path)
+        if ok:
+            return True
+
+        # 2) Fall back to MAVFTP cmd_rm (works on SITL)
+        self._log.info(f"Shell rm failed for {path}, falling back to MAVFTP delete")
+        if not hasattr(self, '_parser') or self._parser is None:
+            await self._init_parser()
+
+        def _ftp_delete():
+            try:
+                self._parser._delete(path)
+                return True
+            except Exception as exc:
+                self._log.warning(f"MAVFTP delete also failed for {path}: {exc}")
+                return False
+
+        return await self._loop.run_in_executor(self._exe, _ftp_delete)
+
     # ------------------- exposing blocking parser methods --------- #
     async def list_ulogs(self, base: str = None, connection_timeout: float = 3.0) -> List[ULogInfo]:
         """Return metadata for every .ulg file on the vehicle."""
@@ -3466,9 +3500,9 @@ class MavLinkFTPProxy(BaseProxy):
         if stop_logger:
             await self.mavlink_proxy.stop_px4_logging()
         try:
-            ok = await self.mavlink_proxy.delete_file_via_shell(remote_path)
+            ok = await self._delete_file_with_fallback(remote_path)
             if not ok:
-                raise RuntimeError(f"Shell rm failed for {remote_path}")
+                raise RuntimeError(f"Delete failed for {remote_path} (shell rm and MAVFTP both failed)")
         finally:
             if stop_logger:
                 await self.mavlink_proxy.start_px4_logging()
@@ -3562,7 +3596,7 @@ class MavLinkFTPProxy(BaseProxy):
 
             total = len(ulog_files)
             for idx, (remote_path, size) in enumerate(ulog_files, 1):
-                ok = await self.mavlink_proxy.delete_file_via_shell(remote_path)
+                ok = await self._delete_file_with_fallback(remote_path)
                 if ok:
                     results.append({
                         "path": remote_path,
@@ -3575,7 +3609,7 @@ class MavLinkFTPProxy(BaseProxy):
                         "path": remote_path,
                         "size_bytes": size,
                         "status": "failed",
-                        "error": "Shell rm failed",
+                        "error": "Delete failed (shell rm and MAVFTP)",
                     })
                     failed += 1
 
@@ -3717,17 +3751,17 @@ class MavLinkFTPProxy(BaseProxy):
         deleted = 0
         failed = 0
 
-        # Stop logger, delete via shell rm, restart logger
+        # Stop logger, delete via shell rm (with MAVFTP fallback), restart logger
         await self.mavlink_proxy.stop_px4_logging()
         try:
             for path, _size in fail_logs:
                 try:
-                    ok = await self.mavlink_proxy.delete_file_via_shell(path)
+                    ok = await self._delete_file_with_fallback(path)
                     if ok:
                         self._log.info(f"Deleted error log {path}")
                         deleted += 1
                     else:
-                        self._log.warning(f"Shell rm failed for {path}")
+                        self._log.warning(f"Delete failed for {path} (shell rm and MAVFTP)")
                         failed += 1
                 except Exception as exc:
                     self._log.warning(f"Error deleting {path}: {exc}")
