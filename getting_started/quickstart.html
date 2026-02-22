@@ -1,0 +1,1316 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quick Start Guide &mdash; Petal App Manager 0.2.2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ba7fdd6d" />
+
+  
+    <link rel="shortcut icon" href="../_static/cropped-site-icon.png"/>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=000c92bf"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="How to Use" href="../how_to_use/index.html" />
+    <link rel="prev" title="Dependencies Installation" href="dependencies.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Petal App Manager
+              <img src="../_static/White logo-vertical.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../introduction.html#what-is-petal-app-manager">What is Petal App Manager?</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#key-features">Key Features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#architecture">Architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../introduction.html#system-architecture-diagram">System Architecture Diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../introduction.html#architecture-components">Architecture Components</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../introduction.html#data-flow">Data Flow</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#use-cases">Use Cases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#why-petal-app-manager">Why Petal App Manager?</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Getting Started</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dependencies.html">Dependencies Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dependencies.html#system-requirements">System Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dependencies.html#python-3-11-installation">Python 3.11 Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dependencies.html#pdm-installation">PDM Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dependencies.html#redis-installation-and-configuration">Redis Installation and Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dependencies.html#redis-development-tools">Redis Development Tools</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dependencies.html#controller-dashboard">Controller Dashboard</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Quick Start Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#development-installation">Development Installation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#using-hear-cli-recommended">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#manual-development-setup">Manual Development Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#production-installation">Production Installation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#custom-version-installation-field-testing">Custom Version Installation (Field Testing)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#manual-production-installation">Manual Production Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#environment-configuration">Environment Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#running-the-application">Running the Application</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#verifying-the-installation">Verifying the Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#quick-development-workflow">Quick Development Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../how_to_use/index.html">How to Use</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../how_to_use/making_requests.html">Making Requests</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#using-the-postman-collection">Using the Postman Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#using-the-docs-interface">Using the /docs Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/making_requests.html#accessing-swagger-ui">Accessing Swagger UI</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/making_requests.html#interactive-api-testing">Interactive API Testing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#using-redoc">Using ReDoc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#example-api-calls">Example API Calls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#quick-testing-workflow">Quick Testing Workflow</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how_to_use/service_management.html">The Petal App Manager Service</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#admin-dashboard-interface">Admin Dashboard Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#accessing-the-admin-dashboard">Accessing the Admin Dashboard</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#dashboard-features">Dashboard Features</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#using-the-admin-dashboard">Using the Admin Dashboard</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#alternative-access-methods">Alternative Access Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#managing-petals-and-proxies-via-api">Managing Petals and Proxies via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#checking-what-s-running">Checking What’s Running</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#viewing-all-available-components">Viewing All Available Components</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#petal-control-via-api">Petal Control via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#enabling-petals">Enabling Petals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#disabling-petals">Disabling Petals</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#proxy-control-via-api">Proxy Control via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#enabling-proxies">Enabling Proxies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#disabling-proxies">Disabling Proxies</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#common-use-cases">Common Use Cases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#restart-management">Restart Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#service-files-and-locations">Service Files and Locations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how_to_use/configuration.html">Configuration Changes in .env</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#environment-variables-overview">Environment Variables Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#general-configuration">General Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-log-level">PETAL_LOG_LEVEL</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-log-to-file">PETAL_LOG_TO_FILE</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-log-dir">PETAL_LOG_DIR</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#mavlink-configuration">MAVLink Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-mavlink-endpoint">PETAL_MAVLINK_ENDPOINT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-mavlink-baud">PETAL_MAVLINK_BAUD</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#other-mavlink-settings">Other MAVLink Settings</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#cloud-configuration">Cloud Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#redis-configuration">Redis Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-redis-host-and-petal-redis-port">PETAL_REDIS_HOST and PETAL_REDIS_PORT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-redis-unix-socket-path">PETAL_REDIS_UNIX_SOCKET_PATH</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-redis-health-message-rate">PETAL_REDIS_HEALTH_MESSAGE_RATE</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#database-configuration">Database Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#data-operations-urls">Data Operations URLs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#mqtt-configuration">MQTT Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#proxy-connection-retry-configuration">Proxy Connection Retry Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#petal-specific-configuration">Petal-Specific Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#applying-configuration-changes">Applying Configuration Changes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#configuration-examples">Configuration Examples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../development_contribution/index.html">Development and Contribution Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../development_contribution/adding_petals.html">Adding a New Petal Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#what-is-a-petal">What is a Petal?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#creating-a-new-petal">Creating a New Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#using-hear-cli-recommended">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#manual-setup">Manual Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#petal-structure">Petal Structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#key-components">Key Components</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#mqtt-command-handlers-mqtt-action">MQTT Command Handlers (<code class="docutils literal notranslate"><span class="pre">&#64;mqtt_action</span></code>)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#handler-signature">Handler Signature</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#the-cpu-heavy-parameter">The <code class="docutils literal notranslate"><span class="pre">cpu_heavy</span></code> Parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#how-it-works-under-the-hood">How It Works Under the Hood</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#dynamic-factory-handlers">Dynamic / Factory Handlers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#migration-from-legacy-pattern">Migration from Legacy Pattern</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#registering-the-petal">Registering the Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#adding-to-proxies-yaml">Adding to proxies.yaml</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#adding-to-pyproject-toml-for-production">Adding to pyproject.toml (for Production)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#installing-your-petal">Installing Your Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#development-installation-editable">Development Installation (Editable)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#production-installation-git-tag">Production Installation (Git Tag)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#testing-your-petal">Testing Your Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#unit-tests">Unit Tests</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#integration-testing">Integration Testing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#debugging">Debugging</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#best-practices">Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#naming-conventions">Naming Conventions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#proxy-management">Proxy Management</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#logging">Logging</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#versioning">Versioning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#documentation">Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#common-pitfalls">Common Pitfalls</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#petal-name-must-start-with-petal">Petal Name Must Start with <code class="docutils literal notranslate"><span class="pre">petal-*</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#petal-not-loading">Petal Not Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#entry-point-errors">Entry Point Errors</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../development_contribution/inter-petal_communications.html">Inter-Petal Communication Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#goal">Goal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#overview">Overview</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#benefits">Benefits</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#implementation-guide">Implementation Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#for-sink-petal-developers-message-receivers">For Sink Petal Developers (Message Receivers)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#for-source-petal-developers-message-senders">For Source Petal Developers (Message Senders)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#best-practices">Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#data-model-design">Data Model Design</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#channel-naming-convention">Channel Naming Convention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#versioning">Versioning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#testing">Testing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#example-complete-implementation">Example: Complete Implementation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#sink-petal-petal-leafsdk">Sink Petal (petal-leafsdk)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#source-petal-petal-qgc-mission-adapter">Source Petal (petal-qgc-mission-adapter)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#acceptance-criteria">Acceptance Criteria</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#reference-implementation">Reference Implementation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#migration-path">Migration Path</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#for-existing-petals">For Existing Petals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#deprecation-strategy">Deprecation Strategy</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#additional-resources">Additional Resources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#common-issues">Common Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../development_contribution/contribution_guidelines.html">Contribution Guidelines</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#dependency-architecture">Dependency Architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#understanding-the-petal-stack-dependencies">Understanding the Petal Stack Dependencies</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#version-management-by-repository">Version Management by Repository</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#petal-app-manager">Petal App Manager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#individual-petals">Individual Petals</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#non-petal-packages">Non-Petal Packages</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#leafsdk">LeafSDK</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#mavlink-pymavlink-very-special-case">mavlink/pymavlink (Very Special Case)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#version-summary-table">Version Summary Table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../development_contribution/using_proxies.html">Using Proxies in Petals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#available-proxy-types">Available Proxy Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#accessing-proxies-in-your-petal">Accessing Proxies in Your Petal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#redisproxy">RedisProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#mavlinkexternalproxy">MavlinkExternalProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#clouddbproxy">CloudDBProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#localdbproxy">LocalDBProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#s3bucketproxy">S3BucketProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#mqttproxy">MQTTProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#error-handling-and-best-practices">Error Handling and Best Practices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../development_contribution/advanced_debugging.html">Advanced Debugging and Logging</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#available-logging-tools">Available Logging Tools</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#per-level-logging-configuration">Per-Level Logging Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#configuration-methods">Configuration Methods</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#output-options">Output Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#common-configuration-scenarios">Common Configuration Scenarios</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#legacy-format-support">Legacy Format Support</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#csv-signal-logging-tool">CSV Signal Logging Tool</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#advanced-configuration">Advanced Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#complete-petal-example">Complete Petal Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#api-reference">API Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#debugging-best-practices">Debugging Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#environment-specific-configuration">Environment-Specific Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#performance-considerations">Performance Considerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#error-handling-and-recovery">Error Handling and Recovery</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#integration-with-admin-dashboard">Integration with Admin Dashboard</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#testing-and-validation">Testing and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#file-management">File Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../development_contribution/profiling.html">Petal App Manager Profiling Tools</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#quick-start">Quick Start</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#prerequisites">1. Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#install-dependencies">2. Install Dependencies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#start-pam">3. Start PAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#run-profiling-and-or-monitoring">4. Run Profiling and/or Monitoring</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#view-results">5. View Results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#command-line-flags">6. Command-Line Flags</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#profiling-scenarios">Profiling Scenarios</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#workflow-for-profiling-different-scenarios">Workflow for Profiling Different Scenarios</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#example-sitl-mission-for-profiling">Example SITL Mission for Profiling</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#output-formats-visualizations">Output Formats &amp; Visualizations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#speedscope-json-interactive">Speedscope JSON (Interactive) ⭐</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#monitor-output-cpu-and-memory-usage">Monitor Output: CPU and Memory Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#interpretation-guide">Interpretation Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#what-to-look-for">What to Look For</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#reading-flame-graphs">Reading Flame Graphs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#common-patterns-to-identify">Common Patterns to Identify</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#environment-issues">Environment Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#profiler-issues">Profiler Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#visualization-issues">Visualization Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#performance-issues">Performance Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#results-interpretation-issues">Results Interpretation Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#quick-reference">Quick Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#command-cheatsheet">Command Cheatsheet</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#file-naming-conventions">File Naming Conventions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#keyboard-shortcuts-speedscope">Keyboard Shortcuts (Speedscope)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#getting-help">Getting Help</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#summary">Summary</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../petal_documentation/index.html">Petal Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html">Petal User Journey Coordinator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#required-proxies">Required Proxies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#command-categories">Command Categories</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-calibration-commands">ESC Calibration Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-calibration">esc_calibration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-force-run-all">esc_force_run_all</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-force-run-single">esc_force_run_single</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-calibration-single">esc_calibration_single</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#parameter-configuration-commands">Parameter Configuration Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#geometry">geometry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#gps-module">gps_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#dist-module">dist_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#oflow-module">oflow_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#gps-spatial-offset">gps_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#distance-spatial-offset">distance_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#optical-flow-spatial-offset">optical_flow_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-update-calibration-limits">esc_update_calibration_limits</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#bulk-parameter-operations">Bulk Parameter Operations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#bulk-set-parameters">bulk_set_parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#bulk-get-parameters">bulk_get_parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#real-time-telemetry-streams">Real-Time Telemetry Streams</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#subscribe-rc-value-stream">subscribe_rc_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#unsubscribe-rc-value-stream">unsubscribe_rc_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#subscribe-pose-value-stream">subscribe_pose_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#unsubscribe-pose-value-stream">unsubscribe_pose_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#subscribe-ks-status-stream">subscribe_ks_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#unsubscribe-ks-status-stream">unsubscribe_ks_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#subscribe-mfs-a-status-stream-subscribe-mfs-b-status-stream">subscribe_mfs_a_status_stream / subscribe_mfs_b_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#unsubscribeall">unsubscribeall</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#trajectory-verification-commands">Trajectory Verification Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#verify-pos-yaw-directions">verify_pos_yaw_directions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#verify-pos-yaw-directions-complete">verify_pos_yaw_directions_complete</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#wifi-optitrack-commands">WiFi &amp; OptiTrack Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#connect-to-wifi-and-verify-optitrack">connect_to_wifi_and_verify_optitrack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#set-static-ip-address">set_static_ip_address</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#system-commands">System Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#reboot-px4">reboot_px4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#format-sd-card">format_sd_card</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#get-log-entries">get_log_entries</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#complete-usage-example">Complete Usage Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#error-handling">Error Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#mqtt-topics-reference">MQTT Topics Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#commands-received-on-command-edge">Commands (Received on <code class="docutils literal notranslate"><span class="pre">command/edge</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#published-topics-sent-to-command-web">Published Topics (Sent to <code class="docutils literal notranslate"><span class="pre">command/web</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../petal_documentation/petal_flight_log.html">Petal Flight Log</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#required-proxies">Required Proxies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#command-categories">Command Categories</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#flight-record-fetch-commands">Flight Record Fetch Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#fetch-flight-records">fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#subscribe-fetch-flight-records">subscribe_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#unsubscribe-fetch-flight-records">unsubscribe_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#cancel-fetch-flight-records">cancel_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#fetch-existing-flight-records">fetch_existing_flight_records</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#flight-record-sync-commands">Flight Record Sync Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#start-sync-flight-record">start_sync_flight_record</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#subscribe-sync-job-value-stream">subscribe_sync_job_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#unsubscribe-sync-job-value-stream">unsubscribe_sync_job_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#cancel-sync-job">cancel_sync_job</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#flight-record-management-commands">Flight Record Management Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#delete-flight-record">delete_flight_record</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#bulk-delete-flight-records-commands">Bulk Delete Flight Records Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#bulk-delete-flight-records">bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#subscribe-bulk-delete-flight-records">subscribe_bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#unsubscribe-bulk-delete-flight-records">unsubscribe_bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#cancel-bulk-delete-flight-records">cancel_bulk_delete_flight_records</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#clear-error-logs-commands">Clear Error Logs Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#detect-error-logs">detect_error_logs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#clear-error-logs">clear_error_logs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#clear-all-ulogs-commands">Clear All ULogs Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#clear-all-ulogs">clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#subscribe-clear-all-ulogs">subscribe_clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#unsubscribe-clear-all-ulogs">unsubscribe_clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#cancel-clear-all-ulogs">cancel_clear_all_ulogs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#job-status-values">Job Status Values</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#mqtt-topics-reference">MQTT Topics Reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#data-models">Data Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#flightrecordmatch">FlightRecordMatch</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#error-handling">Error Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#id1">MQTT Topics Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#commands-received-on-command-edge">Commands (Received on <code class="docutils literal notranslate"><span class="pre">command/edge</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#published-topics-sent-to-command-web">Published Topics (Sent to <code class="docutils literal notranslate"><span class="pre">command/web</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-2-2-2026-02-22">Version 0.2.2 (2026-02-22)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-2-1-2026-02-12">Version 0.2.1 (2026-02-12)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-2-0-2026-02-12">Version 0.2.0 (2026-02-12)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-62-2026-02-06">Version 0.1.62 (2026-02-06)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-61-2026-02-03">Version 0.1.61 (2026-02-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-60-2026-01-30">Version 0.1.60 (2026-01-30)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-59-2026-01-27">Version 0.1.59 (2026-01-27)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-57-2026-01-18">Version 0.1.57 (2026-01-18)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-56-2026-01-17">Version 0.1.56 (2026-01-17)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-54-2026-01-15">Version 0.1.54 (2026-01-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-53-2026-01-15">Version 0.1.53 (2026-01-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-52-2026-01-14">Version 0.1.52 (2026-01-14)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-51-2026-01-08">Version 0.1.51 (2026-01-08)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-50-2026-01-05">Version 0.1.50 (2026-01-05)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-49-2025-01-05">Version 0.1.49 (2025-01-05)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-48-2025-12-31">Version 0.1.48 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-47-2025-12-31">Version 0.1.47 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-46-2025-12-31">Version 0.1.46 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-45-2025-11-23">Version 0.1.45 (2025-11-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-44-2025-11-07">Version 0.1.44 (2025-11-07)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-43-2025-11-05-hotfix">Version 0.1.43 (2025-11-05) - Hotfix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-42-2025-11-03">Version 0.1.42 (2025-11-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-41-2025-11-02">Version 0.1.41 (2025-11-02)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-39-2025-10-23">Version 0.1.39 (2025-10-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-38-2025-10-23">Version 0.1.38 (2025-10-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-37-2025-10-22">Version 0.1.37 (2025-10-22)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-31-2025-09-25">Version 0.1.31 (2025-09-25)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-29-2025-08-28">Version 0.1.29 (2025-08-28)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-28-2025-08-17">Version 0.1.28 (2025-08-17)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-23-2025-07-31">Version 0.1.23 (2025-07-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-18-2025-07-29">Version 0.1.18 (2025-07-29)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-5-2025-07-03-first-stable-release">Version 0.1.5 (2025-07-03) - First Stable Release</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-0-2025-06-22-initial-release">Version 0.1.0 (2025-06-22) - Initial Release</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api_reference/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/core_api.html">Core API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.admin_ui">Admin UI</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.admin_ui.admin_dashboard"><code class="docutils literal notranslate"><span class="pre">admin_dashboard()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.admin_ui.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.health">Health Endpoints</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.detailed_health_check"><code class="docutils literal notranslate"><span class="pre">detailed_health_check()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.health_check"><code class="docutils literal notranslate"><span class="pre">health_check()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.organization_health_check"><code class="docutils literal notranslate"><span class="pre">organization_health_check()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.config_api">Configuration API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.AllComponentsResponse"><code class="docutils literal notranslate"><span class="pre">AllComponentsResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.ConfigResponse"><code class="docutils literal notranslate"><span class="pre">ConfigResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.PetalControlRequest"><code class="docutils literal notranslate"><span class="pre">PetalControlRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.PetalInfo"><code class="docutils literal notranslate"><span class="pre">PetalInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.ProxyInfo"><code class="docutils literal notranslate"><span class="pre">ProxyInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.control_petals"><code class="docutils literal notranslate"><span class="pre">control_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.control_proxies"><code class="docutils literal notranslate"><span class="pre">control_proxies()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.get_status"><code class="docutils literal notranslate"><span class="pre">get_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.list_all_components"><code class="docutils literal notranslate"><span class="pre">list_all_components()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.cloud_api">Cloud API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.GetItemRequest"><code class="docutils literal notranslate"><span class="pre">GetItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.ScanTableRequest"><code class="docutils literal notranslate"><span class="pre">ScanTableRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.SetItemRequest"><code class="docutils literal notranslate"><span class="pre">SetItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.UpdateItemRequest"><code class="docutils literal notranslate"><span class="pre">UpdateItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.delete_item"><code class="docutils literal notranslate"><span class="pre">delete_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.get_item"><code class="docutils literal notranslate"><span class="pre">get_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.scan_table"><code class="docutils literal notranslate"><span class="pre">scan_table()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.set_item"><code class="docutils literal notranslate"><span class="pre">set_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.update_item"><code class="docutils literal notranslate"><span class="pre">update_item()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.bucket_api">Bucket API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.delete_file_test"><code class="docutils literal notranslate"><span class="pre">delete_file_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.download_file_test"><code class="docutils literal notranslate"><span class="pre">download_file_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.get_info"><code class="docutils literal notranslate"><span class="pre">get_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.list_files_test"><code class="docutils literal notranslate"><span class="pre">list_files_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.upload_file_test"><code class="docutils literal notranslate"><span class="pre">upload_file_test()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.mavftp_api">MAVLink FTP API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.ClearFailLogsRequest"><code class="docutils literal notranslate"><span class="pre">ClearFailLogsRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.clear_fail_logs"><code class="docutils literal notranslate"><span class="pre">clear_fail_logs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.list_directory"><code class="docutils literal notranslate"><span class="pre">list_directory()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.mqtt_api">MQTT API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.MQTTResponse"><code class="docutils literal notranslate"><span class="pre">MQTTResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.PublishMessageRequest"><code class="docutils literal notranslate"><span class="pre">PublishMessageRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.SubscribePatternRequest"><code class="docutils literal notranslate"><span class="pre">SubscribePatternRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.SubscribeTopicRequest"><code class="docutils literal notranslate"><span class="pre">SubscribeTopicRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.UnsubscribeTopicRequest"><code class="docutils literal notranslate"><span class="pre">UnsubscribeTopicRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.get_mqtt_status"><code class="docutils literal notranslate"><span class="pre">get_mqtt_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.list_subscriptions"><code class="docutils literal notranslate"><span class="pre">list_subscriptions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.publish_message"><code class="docutils literal notranslate"><span class="pre">publish_message()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.subscribe_topic"><code class="docutils literal notranslate"><span class="pre">subscribe_topic()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.unsubscribe_topic"><code class="docutils literal notranslate"><span class="pre">unsubscribe_topic()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.proxy_info">Proxy Info</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.proxy_info.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.proxy_info.list_proxies"><code class="docutils literal notranslate"><span class="pre">list_proxies()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/proxies.html">Proxies</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.base">Base Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.base.BaseProxy"><code class="docutils literal notranslate"><span class="pre">BaseProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.redis">Redis Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#redisproxy">RedisProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy"><code class="docutils literal notranslate"><span class="pre">RedisProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.external">External MAVLink Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petalappmanager-proxies-external">petalappmanager.proxies.external</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.DownloadCancelledException"><code class="docutils literal notranslate"><span class="pre">DownloadCancelledException</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.ExternalProxy"><code class="docutils literal notranslate"><span class="pre">ExternalProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.FTPDeleteError"><code class="docutils literal notranslate"><span class="pre">FTPDeleteError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.MavLinkExternalProxy"><code class="docutils literal notranslate"><span class="pre">MavLinkExternalProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.MavLinkFTPProxy"><code class="docutils literal notranslate"><span class="pre">MavLinkFTPProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.ULogInfo"><code class="docutils literal notranslate"><span class="pre">ULogInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.setup_file_only_logger"><code class="docutils literal notranslate"><span class="pre">setup_file_only_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.localdb">Local Database Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#localdbproxy">LocalDBProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.localdb.LocalDBProxy"><code class="docutils literal notranslate"><span class="pre">LocalDBProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.cloud">Cloud Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#clouddbproxy">CloudDBProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.cloud.CloudDBProxy"><code class="docutils literal notranslate"><span class="pre">CloudDBProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.bucket">Bucket Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.bucket.S3BucketProxy"><code class="docutils literal notranslate"><span class="pre">S3BucketProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.mqtt">MQTT Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#mqttproxy">MQTTProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.mqtt.MQTTProxy"><code class="docutils literal notranslate"><span class="pre">MQTTProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.mqtt.MessageCallback"><code class="docutils literal notranslate"><span class="pre">MessageCallback</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/plugins.html">Plugins System</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/plugins.html#module-petal_app_manager.plugins.base">Base Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.base.Petal"><code class="docutils literal notranslate"><span class="pre">Petal</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/plugins.html#module-petal_app_manager.plugins.decorators">Decorators</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.decorators.http_action"><code class="docutils literal notranslate"><span class="pre">http_action()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.decorators.mqtt_action"><code class="docutils literal notranslate"><span class="pre">mqtt_action()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.decorators.websocket_action"><code class="docutils literal notranslate"><span class="pre">websocket_action()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/plugins.html#module-petal_app_manager.plugins.loader">Loader</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.loader.initialize_petals"><code class="docutils literal notranslate"><span class="pre">initialize_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.loader.load_petals"><code class="docutils literal notranslate"><span class="pre">load_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.loader.startup_petals"><code class="docutils literal notranslate"><span class="pre">startup_petals()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/petals.html">Available Petals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/petals.html#production-petals">Production Petals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-flight-log">petal-flight-log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-warehouse">petal-warehouse</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-leafsdk">petal-leafsdk</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-user-journey-coordinator">petal-user-journey-coordinator</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/petals.html#development-petals">Development Petals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-qgc-mission-server">petal-qgc-mission-server</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/index.html#core-modules">Core Modules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../known_issues.html">Known Issues</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#petal-issues">Petal Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#petal-name-must-start-with-petal">Petal Name Must Start with <code class="docutils literal notranslate"><span class="pre">petal-*</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#petal-not-getting-loaded">Petal Not Getting Loaded</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#python-3-11-issues">Python 3.11 Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#python-3-11-not-found">Python 3.11 Not Found</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#pdm-issues">PDM Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#pdm-installation-fails">PDM Installation Fails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#pdm-lock-file-issues">PDM Lock File Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#redis-issues">Redis Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#redis-connection-errors">Redis Connection Errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#redis-configuration-issues">Redis Configuration Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#mavlink-issues">MAVLink Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#mavlink-connection-issues">MAVLink Connection Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#mavlink-submodule-branch-issues-sitl">MAVLink Submodule Branch Issues (SITL)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#mqtt-issues">MQTT Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#mqtt-proxy-fails-on-fresh-installation">MQTT Proxy Fails on Fresh Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#port-conflicts">Port Conflicts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#port-9000-already-in-use">Port 9000 Already in Use</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#reporting-issues">Reporting Issues</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Petal App Manager</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Getting Started</a></li>
+      <li class="breadcrumb-item active">Quick Start Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/getting_started/quickstart.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="quick-start-guide">
+<h1>Quick Start Guide<a class="headerlink" href="#quick-start-guide" title="Link to this heading"></a></h1>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><strong>Recommended Installation Methods</strong></p>
+<p>Use HEAR-CLI for automated installation - it handles all dependencies and configuration automatically:</p>
+<ul class="simple">
+<li><p><strong>Development/Local Setup</strong>: <code class="docutils literal notranslate"><span class="pre">hear-cli</span> <span class="pre">local_machine</span> <span class="pre">run_program</span> <span class="pre">--p</span> <span class="pre">petal_app_manager_prepare_sitl</span></code></p></li>
+<li><p><strong>Production/Drone Deployment</strong>: <code class="docutils literal notranslate"><span class="pre">hear-cli</span> <span class="pre">target_machine</span> <span class="pre">copy_run_program</span> <span class="pre">--p</span> <span class="pre">petal_app_manager_prepare_arm</span></code></p></li>
+<li><p><strong>Production/Drone Testing and Development</strong>: <code class="docutils literal notranslate"><span class="pre">hear-cli</span> <span class="pre">target_machine</span> <span class="pre">copy_run_program</span> <span class="pre">--p</span> <span class="pre">petal_app_manager_update_arm</span></code></p></li>
+</ul>
+</div>
+<section id="development-installation">
+<h2>Development Installation<a class="headerlink" href="#development-installation" title="Link to this heading"></a></h2>
+<section id="using-hear-cli-recommended">
+<h3>Using HEAR-CLI (Recommended)<a class="headerlink" href="#using-hear-cli-recommended" title="Link to this heading"></a></h3>
+<p>For local development and debugging, use the SITL (Software In The Loop) setup:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hear-cli<span class="w"> </span>local_machine<span class="w"> </span>run_program<span class="w"> </span>--p<span class="w"> </span>petal_app_manager_prepare_sitl
+</pre></div>
+</div>
+<p><strong>What this command does:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Installs all dependencies</strong>: Python 3.11 (Miniforge), PDM, Redis 7.2+</p></li>
+<li><p><strong>Creates development directory</strong>: <code class="docutils literal notranslate"><span class="pre">~/petal-app-manager-dev/</span></code></p></li>
+<li><p><strong>Clones all repositories</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-app-manager</span></code> (main framework)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LeafSDK</span></code> (mission planning SDK)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mavlink</span></code> (MAVLink protocol with custom messages)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log</span></code> (flight log management)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-leafsdk</span></code> (LeafSDK integration for mission plan execution)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-qgc-mission-server</span></code> (QGroundControl integration)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-user-journey-coordinator</span></code> (user journey management)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-warehouse</span></code> (data warehousing)</p></li>
+</ul>
+</li>
+<li><p><strong>Configures development environment</strong>: Sets up PDM virtual environments for each component</p></li>
+<li><p><strong>Creates ``.env`` file</strong>: Pre-configured for development use</p></li>
+<li><p><strong>Installs development dependencies</strong>: All petals in editable mode</p></li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The SITL setup creates a complete development environment with all petals linked for cross-development.</p>
+</div>
+<section id="development-directory-structure">
+<h4>Development Directory Structure<a class="headerlink" href="#development-directory-structure" title="Link to this heading"></a></h4>
+<p>The development setup creates the following repository structure with editable installations:</p>
+<figure class="align-default" id="id2">
+<div class="graphviz"><img src="../_images/graphviz-c4e0678acb74b197dde8361a9ac2cca45ac75a77.png" alt="digraph dev_structure {
+    rankdir=LR;
+    node [shape=folder, style=filled];
+
+    // Main development directory
+    dev_root [label=&quot;~/petal-app-manager-dev/&quot;, fillcolor=lightyellow, shape=box];
+
+    // Repositories
+    pam [label=&quot;petal-app-manager/\n(Main Framework)&quot;, fillcolor=lightblue];
+    leafsdk [label=&quot;LeafSDK/\n(Mission SDK)&quot;, fillcolor=lightgreen];
+    mavlink [label=&quot;mavlink/\n(Protocol)&quot;, fillcolor=orange];
+    pymavlink [label=&quot;mavlink/pymavlink/\n(Python Library)&quot;, fillcolor=orange];
+
+    // Petals
+    flight_log [label=&quot;petal-flight-log/\n(Flight Logs)&quot;, fillcolor=palegreen];
+    warehouse [label=&quot;petal-warehouse/\n(Data Warehouse)&quot;, fillcolor=palegreen];
+    leafsdk_petal [label=&quot;petal-leafsdk/\n(SDK Integration)&quot;, fillcolor=palegreen];
+    journey [label=&quot;petal-user-journey-coordinator/\n(Mission Coord)&quot;, fillcolor=palegreen];
+    qgc [label=&quot;petal-qgc-mission-server/\n(QGC Server)&quot;, fillcolor=palegreen];
+
+    // Directory structure
+    dev_root -&gt; pam;
+    dev_root -&gt; leafsdk;
+    dev_root -&gt; mavlink;
+    dev_root -&gt; flight_log;
+    dev_root -&gt; warehouse;
+    dev_root -&gt; leafsdk_petal;
+    dev_root -&gt; journey;
+    dev_root -&gt; qgc;
+
+    mavlink -&gt; pymavlink [label=&quot;contains&quot;, style=dotted];
+
+    // Editable installations (development dependencies)
+    pam -&gt; flight_log [label=&quot;editable\ninstall&quot;, color=blue, style=bold];
+    pam -&gt; warehouse [label=&quot;editable\ninstall&quot;, color=blue, style=bold];
+    pam -&gt; leafsdk_petal [label=&quot;editable\ninstall&quot;, color=blue, style=bold];
+    pam -&gt; journey [label=&quot;editable\ninstall&quot;, color=blue, style=bold];
+    pam -&gt; leafsdk [label=&quot;editable\ninstall&quot;, color=blue, style=bold];
+    pam -&gt; pymavlink [label=&quot;file://\ninstall&quot;, color=red, style=bold];
+
+    // Legend
+    subgraph cluster_legend {
+        label=&quot;Legend&quot;;
+        style=filled;
+        color=lightgray;
+        rankdir=TB;
+
+        leg_edit_a [label=&quot;&quot;, shape=point, width=0];
+        leg_edit_b [label=&quot;editable install (changes reflect immediately)&quot;, shape=plaintext];
+
+        leg_file_a [label=&quot;&quot;, shape=point, width=0];
+        leg_file_b [label=&quot;file:// install (requires rebuild)&quot;, shape=plaintext];
+
+        leg_contains_a [label=&quot;&quot;, shape=point, width=0];
+        leg_contains_b [label=&quot;contains&quot;, shape=plaintext];
+
+        leg_edit_a -&gt; leg_edit_b [color=blue, style=bold, arrowhead=vee];
+        leg_file_a -&gt; leg_file_b [color=red, style=bold, arrowhead=vee];
+        leg_contains_a -&gt; leg_contains_b [style=dotted, arrowhead=vee];
+    }
+}" class="graphviz" /></div>
+<figcaption>
+<p><span class="caption-text">Development Repository Structure and Dependencies</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p><strong>Key Structure Points:</strong></p>
+<ul class="simple">
+<li><p><strong>Main Framework</strong> (<code class="docutils literal notranslate"><span class="pre">petal-app-manager</span></code>): Central application that loads all petals</p></li>
+<li><p><strong>Editable Installations</strong>: Changes to petal code are immediately reflected without reinstallation</p></li>
+<li><p><strong>pymavlink</strong>: Installed via <code class="docutils literal notranslate"><span class="pre">file://</span></code> path (not editable) from the mavlink submodule. You must rebuild if changes are made using <code class="docutils literal notranslate"><span class="pre">pdm</span> <span class="pre">install</span> <span class="pre">-G</span> <span class="pre">dev</span> <span class="pre">--force-rebuild</span> <span class="pre">pymavlink</span></code>.</p></li>
+<li><p><strong>Independent Petals</strong>: Each petal has its own virtual environment for isolated testing</p></li>
+</ul>
+<p><strong>Typical File Locations:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>~/petal-app-manager-dev/
+├── LeafSDK/
+│   ├── src/leafsdk/          # SDK source code
+│   └── tests/                # SDK tests
+├── mavlink/
+│   ├── pymavlink/            # Python MAVLink library
+│   │   ├── generator/        # Message generator
+│   │   └── dialects/         # MAVLink dialects
+│   ├── message_definitions/  # Python MAVLink library
+│   │   └── v1.0/             # Message definitions (.xml)
+├── petal-app-manager/
+│   ├── src/petal_app_manager/
+│   │   ├── api/              # REST API endpoints
+│   │   ├── plugins/          # Petal loader
+│   │   └── proxies/          # Backend proxies
+│   ├── docs/                 # This documentation
+│   └── tests/                # Framework tests
+├── petal-flight-log/
+│   ├── src/petal_flight_log/ # Flight log handling
+│   └── tests/
+├── petal-warehouse/
+│   ├── src/petal_warehouse/  # Data warehousing
+│   └── tests/
+├── petal-leafsdk/
+│   ├── src/petal_leafsdk/    # Mission execution
+│   └── tests/
+├── petal-user-journey-coordinator/
+│   ├── src/petal_user_journey_coordinator/
+│   └── tests/
+└── petal-qgc-mission-server/
+    ├── src/petal_qgc_mission_server/
+    └── tests/
+</pre></div>
+</div>
+</section>
+</section>
+<section id="manual-development-setup">
+<h3>Manual Development Setup<a class="headerlink" href="#manual-development-setup" title="Link to this heading"></a></h3>
+<p>If you need to set up manually (requires dependencies from previous section):</p>
+<p><strong>1. Create Development Directory</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>-p<span class="w"> </span>~/petal-app-manager-dev
+<span class="nb">cd</span><span class="w"> </span>~/petal-app-manager-dev
+</pre></div>
+</div>
+<p><strong>2. Clone Repositories</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Core framework</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/DroneLeaf/petal-app-manager.git
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/DroneLeaf/LeafSDK.git
+git<span class="w"> </span>clone<span class="w"> </span>--recurse-submodules<span class="w"> </span>https://github.com/DroneLeaf/leaf-mavlink.git<span class="w"> </span>mavlink
+
+<span class="c1"># Petals</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/DroneLeaf/petal-flight-log.git
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/DroneLeaf/petal-leafsdk.git
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/DroneLeaf/petal-qgc-mission-server.git
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/DroneLeaf/petal-user-journey-coordinator.git
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/DroneLeaf/petal-warehouse.git
+</pre></div>
+</div>
+<p><strong>3. Set Up Main Application</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>petal-app-manager
+
+<span class="c1"># Configure PDM to use Python 3.11</span>
+pdm<span class="w"> </span>use<span class="w"> </span>-f<span class="w"> </span>/usr/bin/python3.11
+
+<span class="c1"># Install development dependencies (includes all petals in editable mode)</span>
+pdm<span class="w"> </span>install<span class="w"> </span>-G<span class="w"> </span>dev
+</pre></div>
+</div>
+</section>
+</section>
+<section id="production-installation">
+<h2>Production Installation<a class="headerlink" href="#production-installation" title="Link to this heading"></a></h2>
+<section id="id1">
+<h3>Using HEAR-CLI (Recommended)<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<p>For deployment to drone companion computers or production systems:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hear-cli<span class="w"> </span>target_machine<span class="w"> </span>copy_run_program<span class="w"> </span>--p<span class="w"> </span>petal_app_manager_prepare_arm
+</pre></div>
+</div>
+<p><strong>What this command does:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Installs system dependencies</strong>: Python 3.11 (pyenv), PDM, Redis 7.2+</p></li>
+<li><p><strong>Sets up production environment</strong>: <code class="docutils literal notranslate"><span class="pre">~/.droneleaf/petal-app-manager/</span></code></p></li>
+<li><p><strong>Configures for production</strong>: Optimized for resource-constrained systems</p></li>
+<li><p><strong>Installs only production petals</strong>: Core functionality without development tools</p></li>
+<li><p><strong>Creates systemd service</strong>: Auto-start on boot</p></li>
+<li><p><strong>Configures ``.env`` file</strong>: Production-ready configuration</p></li>
+</ol>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This command is designed for deployment to target machines (companion computers on drones).
+It requires HEAR-CLI to be configured with target machine credentials.</p>
+</div>
+</section>
+<section id="custom-version-installation-field-testing">
+<h3>Custom Version Installation (Field Testing)<a class="headerlink" href="#custom-version-installation-field-testing" title="Link to this heading"></a></h3>
+<p>For testing specific combinations of Petal App Manager and petals on drones without creating formal releases:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hear-cli<span class="w"> </span>target_machine<span class="w"> </span>copy_run_program<span class="w"> </span>--p<span class="w"> </span>petal_app_manager_update_arm
+</pre></div>
+</div>
+<p><strong>Interactive Version Selection</strong></p>
+<p>This command prompts you to specify versions for each component, allowing flexible combinations for field testing:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">droneleaf@ubuntu:~/HEAR_CLI$ </span>hear-cli<span class="w"> </span>target_machine<span class="w"> </span>copy_run_program<span class="w"> </span>--p<span class="w"> </span>petal_app_manager_update_arm
+<span class="go">Enter petal-app-manager version 😎 (v0.1.41): v0.1.42</span>
+<span class="go">Enter petal-flight-log version 😎 (v0.1.6): master</span>
+<span class="go">Enter petal-warehouse version 😎 (v0.1.7): dev</span>
+<span class="go">Enter petal-leafsdk version 😎 (v0.2.0):</span>
+<span class="go">Enter petal-user-journey-coordinator version 😎 (v0.1.2):</span>
+<span class="go">⭐ program will run in your target_machine, Are you sure? 😎 [y/n] (y):</span>
+</pre></div>
+</div>
+<p><strong>Version Specification Options</strong></p>
+<ul class="simple">
+<li><p><strong>Git Tags</strong>: <code class="docutils literal notranslate"><span class="pre">v0.1.42</span></code>, <code class="docutils literal notranslate"><span class="pre">v0.2.0</span></code> (stable releases)</p></li>
+<li><p><strong>Branch Names</strong>: <code class="docutils literal notranslate"><span class="pre">master</span></code>, <code class="docutils literal notranslate"><span class="pre">dev</span></code>, <code class="docutils literal notranslate"><span class="pre">feature/new-functionality</span></code> (development versions)</p></li>
+<li><p><strong>Commit SHA</strong>: <code class="docutils literal notranslate"><span class="pre">abc123ef</span></code> (specific commits)</p></li>
+<li><p><strong>Empty/Default</strong>: Press Enter to use the default version shown in parentheses</p></li>
+</ul>
+<p><strong>Use Cases for Custom Versions</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Feature Testing</strong>: Deploy a development branch of a specific petal while keeping others stable</p></li>
+<li><p><strong>Bug Fixes</strong>: Test a hotfix branch before creating an official release</p></li>
+<li><p><strong>Integration Testing</strong>: Combine multiple development branches for comprehensive testing</p></li>
+<li><p><strong>Rollback Testing</strong>: Test with older versions to isolate issues</p></li>
+</ol>
+<p><strong>What this command does:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Prompts for each component version</strong>: Interactive selection for precise control</p></li>
+<li><p><strong>Downloads specified versions</strong>: Clones exact git references (tags/branches/commits)</p></li>
+<li><p><strong>Updates existing installation</strong>: Replaces current versions without full reinstall</p></li>
+<li><p><strong>Preserves configuration</strong>: Keeps existing <code class="docutils literal notranslate"><span class="pre">.env</span></code> and <code class="docutils literal notranslate"><span class="pre">proxies.yaml</span></code> files</p></li>
+<li><p><strong>Restarts services</strong>: Automatically restarts Petal App Manager with new versions</p></li>
+</ol>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><strong>Development Workflow</strong>: Use this command to test your development branches on actual hardware
+before merging to main or creating releases. It’s perfect for validating changes in real-world conditions.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This command requires HEAR-CLI to be configured with credentials for the target drone/companion computer.</p>
+</div>
+</section>
+<section id="manual-production-installation">
+<h3>Manual Production Installation<a class="headerlink" href="#manual-production-installation" title="Link to this heading"></a></h3>
+<p>For manual production setup:</p>
+<p><strong>1. Create Production Directory</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.droneleaf
+sudo<span class="w"> </span>chmod<span class="w"> </span>-R<span class="w"> </span><span class="m">777</span><span class="w"> </span>~/.droneleaf
+<span class="nb">cd</span><span class="w"> </span>~/.droneleaf
+</pre></div>
+</div>
+<p><strong>2. Clone Main Repository</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/DroneLeaf/petal-app-manager.git
+<span class="nb">cd</span><span class="w"> </span>petal-app-manager
+</pre></div>
+</div>
+<p><strong>3. Install Production Dependencies</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Configure PDM</span>
+pdm<span class="w"> </span>use<span class="w"> </span>-f<span class="w"> </span>/usr/bin/python3.11
+
+<span class="c1"># Install production dependencies only</span>
+pdm<span class="w"> </span>install<span class="w"> </span>-G<span class="w"> </span>prod
+</pre></div>
+</div>
+</section>
+</section>
+<section id="environment-configuration">
+<h2>Environment Configuration<a class="headerlink" href="#environment-configuration" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">.env</span></code> file contains all configuration for Petal App Manager:</p>
+<p><strong>Automatic Configuration</strong></p>
+<p>Both HEAR-CLI methods automatically create a <code class="docutils literal notranslate"><span class="pre">.env</span></code> file. For manual setups, create:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>All environment variables use the <code class="docutils literal notranslate"><span class="pre">PETAL_</span></code> prefix to avoid conflicts with other applications.</p>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>&gt;<span class="w"> </span>.env<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
+<span class="s"># .env file for Petal App Manager configuration</span>
+<span class="s"># General configuration</span>
+<span class="s">PETAL_LOG_LEVEL=INFO</span>
+<span class="s">PETAL_LOG_TO_FILE=true</span>
+<span class="s">PETAL_LOG_DIR=logs</span>
+<span class="s"># MAVLink configuration</span>
+<span class="s">PETAL_MAVLINK_ENDPOINT=udp:127.0.0.1:14551</span>
+<span class="s">PETAL_MAVLINK_BAUD=115200</span>
+<span class="s">PETAL_MAVLINK_MAXLEN=200</span>
+<span class="s">PETAL_MAVLINK_WORKER_SLEEP_MS=1</span>
+<span class="s">PETAL_MAVLINK_WORKER_THREADS=4</span>
+<span class="s">PETAL_MAVLINK_HEARTBEAT_SEND_FREQUENCY=5.0</span>
+<span class="s">PETAL_ROOT_SD_PATH=fs/microsd/log</span>
+<span class="s"># Cloud configuration</span>
+<span class="s">PETAL_ACCESS_TOKEN_URL=http://localhost:3001/session-manager/access-token</span>
+<span class="s">PETAL_SESSION_TOKEN_URL=http://localhost:3001/session-manager/session-token</span>
+<span class="s">PETAL_S3_BUCKET_NAME=devhube21f2631b51e4fa69c771b1e8107b21cb431a-dev</span>
+<span class="s">PETAL_CLOUD_ENDPOINT=https://api.droneleaf.io</span>
+<span class="s"># Local database configuration</span>
+<span class="s">PETAL_LOCAL_DB_HOST=localhost</span>
+<span class="s">PETAL_LOCAL_DB_PORT=3000</span>
+<span class="s"># Redis configuration</span>
+<span class="s">PETAL_REDIS_HOST=localhost</span>
+<span class="s">PETAL_REDIS_PORT=6379</span>
+<span class="s">PETAL_REDIS_DB=0</span>
+<span class="s">PETAL_REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis-server.sock</span>
+<span class="s">PETAL_REDIS_HEALTH_MESSAGE_RATE=3.0</span>
+<span class="s"># Data operations URLs</span>
+<span class="s">PETAL_GET_DATA_URL=/drone/onBoard/config/getData</span>
+<span class="s">PETAL_SCAN_DATA_URL=/drone/onBoard/config/scanData</span>
+<span class="s">PETAL_UPDATE_DATA_URL=/drone/onBoard/config/updateData</span>
+<span class="s">PETAL_SET_DATA_URL=/drone/onBoard/config/setData</span>
+<span class="s"># MQTT client</span>
+<span class="s">PETAL_TS_CLIENT_HOST=localhost</span>
+<span class="s">PETAL_TS_CLIENT_PORT=3004</span>
+<span class="s">PETAL_CALLBACK_HOST=localhost</span>
+<span class="s">PETAL_CALLBACK_PORT=3005</span>
+<span class="s">PETAL_POLL_INTERVAL=1.0</span>
+<span class="s">PETAL_ENABLE_CALLBACKS=true</span>
+<span class="s">PETAL_MQTT_HEALTH_CHECK_INTERVAL=10.0</span>
+<span class="s"># Proxy connection retry configuration</span>
+<span class="s">PETAL_MQTT_RETRY_INTERVAL=10.0</span>
+<span class="s">PETAL_CLOUD_RETRY_INTERVAL=10.0</span>
+<span class="s">PETAL_MQTT_STARTUP_TIMEOUT=5.0</span>
+<span class="s">PETAL_CLOUD_STARTUP_TIMEOUT=5.0</span>
+<span class="s">PETAL_MQTT_SUBSCRIBE_TIMEOUT=5.0</span>
+<span class="s"># Petal User Journey Coordinator configuration</span>
+<span class="s">PETAL_DEBUG_SQUARE_TEST=false</span>
+<span class="s">EOF</span>
+</pre></div>
+</div>
+<p><strong>Key Configuration Options</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">PETAL_LOG_LEVEL</span></code>: Set to <code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> for development, <code class="docutils literal notranslate"><span class="pre">INFO</span></code> for production</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PETAL_LOG_DIR</span></code>: Directory for log files (default: <code class="docutils literal notranslate"><span class="pre">logs</span></code>, production: <code class="docutils literal notranslate"><span class="pre">/home/droneleaf/.droneleaf/petal-app-manager</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PETAL_MAVLINK_ENDPOINT</span></code>: UDP endpoint for MAVLink communication</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PETAL_REDIS_UNIX_SOCKET_PATH</span></code>: Path to Redis UNIX socket</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PETAL_CLOUD_ENDPOINT</span></code>: DroneLeaf cloud API endpoint</p></li>
+</ul>
+</section>
+<section id="running-the-application">
+<h2>Running the Application<a class="headerlink" href="#running-the-application" title="Link to this heading"></a></h2>
+<p><strong>Development Mode</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>~/petal-app-manager-dev/petal-app-manager
+
+<span class="c1"># Activate PDM virtual environment</span>
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+
+<span class="c1"># Run with auto-reload for development</span>
+uvicorn<span class="w"> </span>petal_app_manager.main:app<span class="w"> </span>--reload<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--log-level<span class="w"> </span>info<span class="w"> </span>--no-access-log<span class="w"> </span>--http<span class="w"> </span>h11
+</pre></div>
+</div>
+<p><strong>Development Mode with Debugging (VSCode)</strong></p>
+<p>A VSCode launch configuration is provided for debugging with breakpoint support:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Location: ~/petal-app-manager-dev/petal-app-manager/.vscode/launch.json</span>
+</pre></div>
+</div>
+<p>To use the debugger:</p>
+<ol class="arabic simple">
+<li><p>Open the project in VSCode: <code class="docutils literal notranslate"><span class="pre">code</span> <span class="pre">~/petal-app-manager-dev/petal-app-manager</span></code></p></li>
+<li><p>Press <code class="docutils literal notranslate"><span class="pre">F5</span></code> or go to <strong>Run and Debug</strong> panel (Ctrl+Shift+D)</p></li>
+<li><p>Select <strong>“Petal App Manager”</strong> from the launch configuration dropdown</p></li>
+<li><p>Click the green play button or press <code class="docutils literal notranslate"><span class="pre">F5</span></code></p></li>
+</ol>
+<p>The application will start with the debugger attached, allowing you to:</p>
+<ul class="simple">
+<li><p>Set breakpoints in your code</p></li>
+<li><p>Inspect variables and call stacks</p></li>
+<li><p>Step through code execution</p></li>
+<li><p>Hot-reload on file changes (<code class="docutils literal notranslate"><span class="pre">--reload</span></code> flag is enabled)</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><strong>Debugging Petals</strong>: Since petals are installed in editable mode, you can also set breakpoints
+in petal code (e.g., <code class="docutils literal notranslate"><span class="pre">~/petal-app-manager-dev/petal-flight-log/src/petal_flight_log/</span></code>).
+To debug a petal, open the petal files in the <code class="docutils literal notranslate"><span class="pre">petal-app-manager</span></code> workspace in VSCode
+(they are linked via editable installation), then set breakpoints and run the debugger.
+Changes to petal code will be reflected immediately due to editable installation.</p>
+</div>
+<p><strong>Production Mode</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>~/.droneleaf/petal-app-manager
+
+<span class="c1"># Activate PDM virtual environment</span>
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+
+<span class="c1"># Run in production mode</span>
+uvicorn<span class="w"> </span>petal_app_manager.main:app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--log-level<span class="w"> </span>info<span class="w"> </span>--no-access-log<span class="w"> </span>--http<span class="w"> </span>h11
+</pre></div>
+</div>
+<p><strong>Background Service (Production)</strong></p>
+<p>The ARM installation script sets up a systemd service for automatic startup:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check service status</span>
+sudo<span class="w"> </span>systemctl<span class="w"> </span>status<span class="w"> </span>petal-app-manager
+
+<span class="c1"># Start/stop service</span>
+sudo<span class="w"> </span>systemctl<span class="w"> </span>start<span class="w"> </span>petal-app-manager
+sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>petal-app-manager
+
+<span class="c1"># Enable/disable auto-start</span>
+sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>petal-app-manager
+sudo<span class="w"> </span>systemctl<span class="w"> </span>disable<span class="w"> </span>petal-app-manager
+</pre></div>
+</div>
+</section>
+<section id="verifying-the-installation">
+<h2>Verifying the Installation<a class="headerlink" href="#verifying-the-installation" title="Link to this heading"></a></h2>
+<p><strong>1. Check Application Health</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Test basic connectivity</span>
+curl<span class="w"> </span>http://localhost:9000/health
+
+<span class="c1"># Expected response:</span>
+<span class="c1"># {&quot;status&quot;: &quot;ok&quot;}</span>
+</pre></div>
+</div>
+<p><strong>2. Access API Documentation</strong></p>
+<p>Open your browser and navigate to:</p>
+<ul class="simple">
+<li><p><strong>Swagger UI</strong>: <a class="reference external" href="http://localhost:9000/docs">http://localhost:9000/docs</a></p></li>
+<li><p><strong>ReDoc</strong>: <a class="reference external" href="http://localhost:9000/redoc">http://localhost:9000/redoc</a></p></li>
+</ul>
+<p><strong>3. Check Proxy Status</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Test detailed connectivity</span>
+curl<span class="w"> </span>http://localhost:9000/health/detailed
+</pre></div>
+</div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="c1">// Expected response:</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;healthy&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="nt">&quot;...&quot;</span>
+<span class="w">    </span><span class="nt">&quot;proxies&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;redis&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;healthy&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;mavlink&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;healthy&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">},</span>
+
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>4. Test Redis Connection</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Direct Redis test</span>
+redis-cli<span class="w"> </span>-s<span class="w"> </span>/var/run/redis/redis-server.sock<span class="w"> </span>ping
+<span class="c1"># Should return: PONG</span>
+</pre></div>
+</div>
+<p><strong>5. Check Logs</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># View application logs (if logging to file is enabled)</span>
+tail<span class="w"> </span>-f<span class="w"> </span>app.log
+
+<span class="c1"># Or check individual component logs</span>
+ls<span class="w"> </span>-la<span class="w"> </span>app-*.log
+</pre></div>
+</div>
+<p><strong>6. Verify Petals Loading</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check available petals</span>
+curl<span class="w"> </span>http://localhost:9000/petals/
+
+<span class="c1"># Expected: List of loaded petals</span>
+</pre></div>
+</div>
+</section>
+<section id="quick-development-workflow">
+<h2>Quick Development Workflow<a class="headerlink" href="#quick-development-workflow" title="Link to this heading"></a></h2>
+<p>Once installed, here’s the typical development workflow:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. Navigate to development directory</span>
+<span class="nb">cd</span><span class="w"> </span>~/petal-app-manager-dev/petal-app-manager
+
+<span class="c1"># 2. Activate environment</span>
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+
+<span class="c1"># 3. Start application with auto-reload</span>
+uvicorn<span class="w"> </span>petal_app_manager.main:app<span class="w"> </span>--reload<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--log-level<span class="w"> </span>info<span class="w"> </span>--no-access-log<span class="w"> </span>--http<span class="w"> </span>h11
+
+<span class="c1"># 4. In another terminal, start documentation auto-build</span>
+<span class="nb">cd</span><span class="w"> </span>docs
+sphinx-autobuild<span class="w"> </span>.<span class="w"> </span>_build/html
+
+<span class="c1"># 5. Open browser tabs:</span>
+<span class="c1"># - http://localhost:9000/docs (API documentation)</span>
+<span class="c1"># - http://127.0.0.1:8000 (documentation preview)</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><strong>VSCode Integration</strong>: The development setup includes a <code class="docutils literal notranslate"><span class="pre">.vscode/launch.json</span></code> configuration.
+Press F5 in VSCode to start debugging with breakpoint support.</p>
+</div>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<p><strong>Common Issues After Installation</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Python 3.11 not found</strong>: Ensure symlinks were created and PATH is updated</p></li>
+<li><p><strong>PDM command not found</strong>: Check that <code class="docutils literal notranslate"><span class="pre">~/.local/bin</span></code> is in your PATH</p></li>
+<li><p><strong>Redis connection failed</strong>: Verify Redis service is running and socket permissions are correct</p></li>
+<li><p><strong>Port 9000 already in use</strong>: This may occur if you’re trying to run Petal App Manager using <code class="docutils literal notranslate"><span class="pre">uvicorn</span></code> while the systemd service is currently running. For debugging, you may want to stop the service first with <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">systemctl</span> <span class="pre">stop</span> <span class="pre">petal-app-manager</span></code>. Alternatively, kill the conflicting process. You may use the command <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">lsof</span> <span class="pre">-i</span> <span class="pre">:9000</span></code> to identify the process using the port.</p></li>
+<li><p><strong>Application errors or unexpected behavior</strong>: Check the <code class="docutils literal notranslate"><span class="pre">app.log</span></code> file in the <code class="docutils literal notranslate"><span class="pre">petal-app-manager</span></code> directory (<code class="docutils literal notranslate"><span class="pre">~/petal-app-manager-dev/petal-app-manager/app.log</span></code> or <code class="docutils literal notranslate"><span class="pre">~/.droneleaf/petal-app-manager/app.log</span></code>) for detailed error messages and stack traces that can help troubleshoot issues.</p></li>
+</ol>
+<p><strong>Getting Help</strong></p>
+<ul class="simple">
+<li><p>Check the <a class="reference internal" href="../known_issues.html"><span class="doc">Known Issues</span></a> section for common problems</p></li>
+<li><p>View application logs for detailed error messages</p></li>
+<li><p>Ensure all dependencies are properly installed from the previous section</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dependencies.html" class="btn btn-neutral float-left" title="Dependencies Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../how_to_use/index.html" class="btn btn-neutral float-right" title="How to Use" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DroneLeaf.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

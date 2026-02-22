@@ -1,0 +1,1712 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Petal App Manager Profiling Tools &mdash; Petal App Manager 0.2.2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ba7fdd6d" />
+
+  
+    <link rel="shortcut icon" href="../_static/cropped-site-icon.png"/>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=000c92bf"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Petal Documentation" href="../petal_documentation/index.html" />
+    <link rel="prev" title="Advanced Debugging and Logging" href="advanced_debugging.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Petal App Manager
+              <img src="../_static/White logo-vertical.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../introduction.html#what-is-petal-app-manager">What is Petal App Manager?</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#key-features">Key Features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#architecture">Architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../introduction.html#system-architecture-diagram">System Architecture Diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../introduction.html#architecture-components">Architecture Components</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../introduction.html#data-flow">Data Flow</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#use-cases">Use Cases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#why-petal-app-manager">Why Petal App Manager?</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/dependencies.html">Dependencies Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#system-requirements">System Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#python-3-11-installation">Python 3.11 Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#pdm-installation">PDM Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#redis-installation-and-configuration">Redis Installation and Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#redis-development-tools">Redis Development Tools</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#controller-dashboard">Controller Dashboard</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quick Start Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#development-installation">Development Installation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#using-hear-cli-recommended">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#manual-development-setup">Manual Development Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#production-installation">Production Installation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#id1">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#custom-version-installation-field-testing">Custom Version Installation (Field Testing)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#manual-production-installation">Manual Production Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#environment-configuration">Environment Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#running-the-application">Running the Application</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#verifying-the-installation">Verifying the Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#quick-development-workflow">Quick Development Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../how_to_use/index.html">How to Use</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../how_to_use/making_requests.html">Making Requests</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#using-the-postman-collection">Using the Postman Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#using-the-docs-interface">Using the /docs Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/making_requests.html#accessing-swagger-ui">Accessing Swagger UI</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/making_requests.html#interactive-api-testing">Interactive API Testing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#using-redoc">Using ReDoc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#example-api-calls">Example API Calls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#quick-testing-workflow">Quick Testing Workflow</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how_to_use/service_management.html">The Petal App Manager Service</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#admin-dashboard-interface">Admin Dashboard Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#accessing-the-admin-dashboard">Accessing the Admin Dashboard</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#dashboard-features">Dashboard Features</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#using-the-admin-dashboard">Using the Admin Dashboard</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#alternative-access-methods">Alternative Access Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#managing-petals-and-proxies-via-api">Managing Petals and Proxies via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#checking-what-s-running">Checking What’s Running</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#viewing-all-available-components">Viewing All Available Components</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#petal-control-via-api">Petal Control via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#enabling-petals">Enabling Petals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#disabling-petals">Disabling Petals</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#proxy-control-via-api">Proxy Control via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#enabling-proxies">Enabling Proxies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#disabling-proxies">Disabling Proxies</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#common-use-cases">Common Use Cases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#restart-management">Restart Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#service-files-and-locations">Service Files and Locations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how_to_use/configuration.html">Configuration Changes in .env</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#environment-variables-overview">Environment Variables Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#general-configuration">General Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-log-level">PETAL_LOG_LEVEL</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-log-to-file">PETAL_LOG_TO_FILE</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-log-dir">PETAL_LOG_DIR</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#mavlink-configuration">MAVLink Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-mavlink-endpoint">PETAL_MAVLINK_ENDPOINT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-mavlink-baud">PETAL_MAVLINK_BAUD</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#other-mavlink-settings">Other MAVLink Settings</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#cloud-configuration">Cloud Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#redis-configuration">Redis Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-redis-host-and-petal-redis-port">PETAL_REDIS_HOST and PETAL_REDIS_PORT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-redis-unix-socket-path">PETAL_REDIS_UNIX_SOCKET_PATH</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-redis-health-message-rate">PETAL_REDIS_HEALTH_MESSAGE_RATE</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#database-configuration">Database Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#data-operations-urls">Data Operations URLs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#mqtt-configuration">MQTT Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#proxy-connection-retry-configuration">Proxy Connection Retry Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#petal-specific-configuration">Petal-Specific Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#applying-configuration-changes">Applying Configuration Changes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#configuration-examples">Configuration Examples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Development and Contribution Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="adding_petals.html">Adding a New Petal Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#what-is-a-petal">What is a Petal?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#creating-a-new-petal">Creating a New Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#using-hear-cli-recommended">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#manual-setup">Manual Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#petal-structure">Petal Structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#key-components">Key Components</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#mqtt-command-handlers-mqtt-action">MQTT Command Handlers (<code class="docutils literal notranslate"><span class="pre">&#64;mqtt_action</span></code>)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#handler-signature">Handler Signature</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#the-cpu-heavy-parameter">The <code class="docutils literal notranslate"><span class="pre">cpu_heavy</span></code> Parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#how-it-works-under-the-hood">How It Works Under the Hood</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#dynamic-factory-handlers">Dynamic / Factory Handlers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#migration-from-legacy-pattern">Migration from Legacy Pattern</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#registering-the-petal">Registering the Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#adding-to-proxies-yaml">Adding to proxies.yaml</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#adding-to-pyproject-toml-for-production">Adding to pyproject.toml (for Production)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#installing-your-petal">Installing Your Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#development-installation-editable">Development Installation (Editable)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#production-installation-git-tag">Production Installation (Git Tag)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#testing-your-petal">Testing Your Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#unit-tests">Unit Tests</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#integration-testing">Integration Testing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#debugging">Debugging</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#best-practices">Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#naming-conventions">Naming Conventions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#proxy-management">Proxy Management</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#logging">Logging</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#versioning">Versioning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#documentation">Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#common-pitfalls">Common Pitfalls</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#petal-name-must-start-with-petal">Petal Name Must Start with <code class="docutils literal notranslate"><span class="pre">petal-*</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#petal-not-loading">Petal Not Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#entry-point-errors">Entry Point Errors</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="inter-petal_communications.html">Inter-Petal Communication Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#goal">Goal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#overview">Overview</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#benefits">Benefits</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#implementation-guide">Implementation Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#for-sink-petal-developers-message-receivers">For Sink Petal Developers (Message Receivers)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#for-source-petal-developers-message-senders">For Source Petal Developers (Message Senders)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#best-practices">Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#data-model-design">Data Model Design</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#channel-naming-convention">Channel Naming Convention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#versioning">Versioning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#testing">Testing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#example-complete-implementation">Example: Complete Implementation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#sink-petal-petal-leafsdk">Sink Petal (petal-leafsdk)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#source-petal-petal-qgc-mission-adapter">Source Petal (petal-qgc-mission-adapter)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#acceptance-criteria">Acceptance Criteria</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#reference-implementation">Reference Implementation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#migration-path">Migration Path</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#for-existing-petals">For Existing Petals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#deprecation-strategy">Deprecation Strategy</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#additional-resources">Additional Resources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#common-issues">Common Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="contribution_guidelines.html">Contribution Guidelines</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="contribution_guidelines.html#dependency-architecture">Dependency Architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="contribution_guidelines.html#understanding-the-petal-stack-dependencies">Understanding the Petal Stack Dependencies</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="contribution_guidelines.html#version-management-by-repository">Version Management by Repository</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="contribution_guidelines.html#petal-app-manager">Petal App Manager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="contribution_guidelines.html#individual-petals">Individual Petals</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="contribution_guidelines.html#non-petal-packages">Non-Petal Packages</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="contribution_guidelines.html#leafsdk">LeafSDK</a></li>
+<li class="toctree-l4"><a class="reference internal" href="contribution_guidelines.html#mavlink-pymavlink-very-special-case">mavlink/pymavlink (Very Special Case)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="contribution_guidelines.html#version-summary-table">Version Summary Table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="contribution_guidelines.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="using_proxies.html">Using Proxies in Petals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="using_proxies.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="using_proxies.html#available-proxy-types">Available Proxy Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="using_proxies.html#accessing-proxies-in-your-petal">Accessing Proxies in Your Petal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="using_proxies.html#redisproxy">RedisProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="using_proxies.html#mavlinkexternalproxy">MavlinkExternalProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="using_proxies.html#clouddbproxy">CloudDBProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="using_proxies.html#localdbproxy">LocalDBProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="using_proxies.html#s3bucketproxy">S3BucketProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="using_proxies.html#mqttproxy">MQTTProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="using_proxies.html#error-handling-and-best-practices">Error Handling and Best Practices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="using_proxies.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="advanced_debugging.html">Advanced Debugging and Logging</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#available-logging-tools">Available Logging Tools</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#per-level-logging-configuration">Per-Level Logging Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#configuration-methods">Configuration Methods</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#output-options">Output Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#common-configuration-scenarios">Common Configuration Scenarios</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#legacy-format-support">Legacy Format Support</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#csv-signal-logging-tool">CSV Signal Logging Tool</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#advanced-configuration">Advanced Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#complete-petal-example">Complete Petal Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#api-reference">API Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#debugging-best-practices">Debugging Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#environment-specific-configuration">Environment-Specific Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#performance-considerations">Performance Considerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#error-handling-and-recovery">Error Handling and Recovery</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#integration-with-admin-dashboard">Integration with Admin Dashboard</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#testing-and-validation">Testing and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#file-management">File Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Petal App Manager Profiling Tools</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#quick-start">Quick Start</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#prerequisites">1. Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#install-dependencies">2. Install Dependencies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#start-pam">3. Start PAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#run-profiling-and-or-monitoring">4. Run Profiling and/or Monitoring</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#view-results">5. View Results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#command-line-flags">6. Command-Line Flags</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#profiling-scenarios">Profiling Scenarios</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#workflow-for-profiling-different-scenarios">Workflow for Profiling Different Scenarios</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#example-sitl-mission-for-profiling">Example SITL Mission for Profiling</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#output-formats-visualizations">Output Formats &amp; Visualizations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#speedscope-json-interactive">Speedscope JSON (Interactive) ⭐</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#monitor-output-cpu-and-memory-usage">Monitor Output: CPU and Memory Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#interpretation-guide">Interpretation Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#what-to-look-for">What to Look For</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#reading-flame-graphs">Reading Flame Graphs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#common-patterns-to-identify">Common Patterns to Identify</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#environment-issues">Environment Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#profiler-issues">Profiler Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#visualization-issues">Visualization Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#performance-issues">Performance Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#results-interpretation-issues">Results Interpretation Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#quick-reference">Quick Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#command-cheatsheet">Command Cheatsheet</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#file-naming-conventions">File Naming Conventions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#keyboard-shortcuts-speedscope">Keyboard Shortcuts (Speedscope)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#getting-help">Getting Help</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#summary">Summary</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../petal_documentation/index.html">Petal Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html">Petal User Journey Coordinator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#required-proxies">Required Proxies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#command-categories">Command Categories</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-calibration-commands">ESC Calibration Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-calibration">esc_calibration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-force-run-all">esc_force_run_all</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-force-run-single">esc_force_run_single</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-calibration-single">esc_calibration_single</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#parameter-configuration-commands">Parameter Configuration Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#geometry">geometry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#gps-module">gps_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#dist-module">dist_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#oflow-module">oflow_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#gps-spatial-offset">gps_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#distance-spatial-offset">distance_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#optical-flow-spatial-offset">optical_flow_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-update-calibration-limits">esc_update_calibration_limits</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#bulk-parameter-operations">Bulk Parameter Operations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#bulk-set-parameters">bulk_set_parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#bulk-get-parameters">bulk_get_parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#real-time-telemetry-streams">Real-Time Telemetry Streams</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#subscribe-rc-value-stream">subscribe_rc_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#unsubscribe-rc-value-stream">unsubscribe_rc_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#subscribe-pose-value-stream">subscribe_pose_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#unsubscribe-pose-value-stream">unsubscribe_pose_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#subscribe-ks-status-stream">subscribe_ks_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#unsubscribe-ks-status-stream">unsubscribe_ks_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#subscribe-mfs-a-status-stream-subscribe-mfs-b-status-stream">subscribe_mfs_a_status_stream / subscribe_mfs_b_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#unsubscribeall">unsubscribeall</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#trajectory-verification-commands">Trajectory Verification Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#verify-pos-yaw-directions">verify_pos_yaw_directions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#verify-pos-yaw-directions-complete">verify_pos_yaw_directions_complete</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#wifi-optitrack-commands">WiFi &amp; OptiTrack Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#connect-to-wifi-and-verify-optitrack">connect_to_wifi_and_verify_optitrack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#set-static-ip-address">set_static_ip_address</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#system-commands">System Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#reboot-px4">reboot_px4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#format-sd-card">format_sd_card</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#get-log-entries">get_log_entries</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#complete-usage-example">Complete Usage Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#error-handling">Error Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#mqtt-topics-reference">MQTT Topics Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#commands-received-on-command-edge">Commands (Received on <code class="docutils literal notranslate"><span class="pre">command/edge</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#published-topics-sent-to-command-web">Published Topics (Sent to <code class="docutils literal notranslate"><span class="pre">command/web</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../petal_documentation/petal_flight_log.html">Petal Flight Log</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#required-proxies">Required Proxies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#command-categories">Command Categories</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#flight-record-fetch-commands">Flight Record Fetch Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#fetch-flight-records">fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#subscribe-fetch-flight-records">subscribe_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#unsubscribe-fetch-flight-records">unsubscribe_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#cancel-fetch-flight-records">cancel_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#fetch-existing-flight-records">fetch_existing_flight_records</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#flight-record-sync-commands">Flight Record Sync Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#start-sync-flight-record">start_sync_flight_record</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#subscribe-sync-job-value-stream">subscribe_sync_job_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#unsubscribe-sync-job-value-stream">unsubscribe_sync_job_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#cancel-sync-job">cancel_sync_job</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#flight-record-management-commands">Flight Record Management Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#delete-flight-record">delete_flight_record</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#bulk-delete-flight-records-commands">Bulk Delete Flight Records Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#bulk-delete-flight-records">bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#subscribe-bulk-delete-flight-records">subscribe_bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#unsubscribe-bulk-delete-flight-records">unsubscribe_bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#cancel-bulk-delete-flight-records">cancel_bulk_delete_flight_records</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#clear-error-logs-commands">Clear Error Logs Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#detect-error-logs">detect_error_logs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#clear-error-logs">clear_error_logs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#clear-all-ulogs-commands">Clear All ULogs Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#clear-all-ulogs">clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#subscribe-clear-all-ulogs">subscribe_clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#unsubscribe-clear-all-ulogs">unsubscribe_clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#cancel-clear-all-ulogs">cancel_clear_all_ulogs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#job-status-values">Job Status Values</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#mqtt-topics-reference">MQTT Topics Reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#data-models">Data Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#flightrecordmatch">FlightRecordMatch</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#error-handling">Error Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#id1">MQTT Topics Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#commands-received-on-command-edge">Commands (Received on <code class="docutils literal notranslate"><span class="pre">command/edge</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#published-topics-sent-to-command-web">Published Topics (Sent to <code class="docutils literal notranslate"><span class="pre">command/web</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-2-2-2026-02-22">Version 0.2.2 (2026-02-22)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-2-1-2026-02-12">Version 0.2.1 (2026-02-12)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-2-0-2026-02-12">Version 0.2.0 (2026-02-12)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-62-2026-02-06">Version 0.1.62 (2026-02-06)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-61-2026-02-03">Version 0.1.61 (2026-02-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-60-2026-01-30">Version 0.1.60 (2026-01-30)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-59-2026-01-27">Version 0.1.59 (2026-01-27)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-57-2026-01-18">Version 0.1.57 (2026-01-18)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-56-2026-01-17">Version 0.1.56 (2026-01-17)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-54-2026-01-15">Version 0.1.54 (2026-01-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-53-2026-01-15">Version 0.1.53 (2026-01-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-52-2026-01-14">Version 0.1.52 (2026-01-14)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-51-2026-01-08">Version 0.1.51 (2026-01-08)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-50-2026-01-05">Version 0.1.50 (2026-01-05)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-49-2025-01-05">Version 0.1.49 (2025-01-05)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-48-2025-12-31">Version 0.1.48 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-47-2025-12-31">Version 0.1.47 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-46-2025-12-31">Version 0.1.46 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-45-2025-11-23">Version 0.1.45 (2025-11-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-44-2025-11-07">Version 0.1.44 (2025-11-07)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-43-2025-11-05-hotfix">Version 0.1.43 (2025-11-05) - Hotfix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-42-2025-11-03">Version 0.1.42 (2025-11-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-41-2025-11-02">Version 0.1.41 (2025-11-02)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-39-2025-10-23">Version 0.1.39 (2025-10-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-38-2025-10-23">Version 0.1.38 (2025-10-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-37-2025-10-22">Version 0.1.37 (2025-10-22)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-31-2025-09-25">Version 0.1.31 (2025-09-25)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-29-2025-08-28">Version 0.1.29 (2025-08-28)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-28-2025-08-17">Version 0.1.28 (2025-08-17)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-23-2025-07-31">Version 0.1.23 (2025-07-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-18-2025-07-29">Version 0.1.18 (2025-07-29)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-5-2025-07-03-first-stable-release">Version 0.1.5 (2025-07-03) - First Stable Release</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-0-2025-06-22-initial-release">Version 0.1.0 (2025-06-22) - Initial Release</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api_reference/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/core_api.html">Core API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.admin_ui">Admin UI</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.admin_ui.admin_dashboard"><code class="docutils literal notranslate"><span class="pre">admin_dashboard()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.admin_ui.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.health">Health Endpoints</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.detailed_health_check"><code class="docutils literal notranslate"><span class="pre">detailed_health_check()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.health_check"><code class="docutils literal notranslate"><span class="pre">health_check()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.organization_health_check"><code class="docutils literal notranslate"><span class="pre">organization_health_check()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.config_api">Configuration API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.AllComponentsResponse"><code class="docutils literal notranslate"><span class="pre">AllComponentsResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.ConfigResponse"><code class="docutils literal notranslate"><span class="pre">ConfigResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.PetalControlRequest"><code class="docutils literal notranslate"><span class="pre">PetalControlRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.PetalInfo"><code class="docutils literal notranslate"><span class="pre">PetalInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.ProxyInfo"><code class="docutils literal notranslate"><span class="pre">ProxyInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.control_petals"><code class="docutils literal notranslate"><span class="pre">control_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.control_proxies"><code class="docutils literal notranslate"><span class="pre">control_proxies()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.get_status"><code class="docutils literal notranslate"><span class="pre">get_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.list_all_components"><code class="docutils literal notranslate"><span class="pre">list_all_components()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.cloud_api">Cloud API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.GetItemRequest"><code class="docutils literal notranslate"><span class="pre">GetItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.ScanTableRequest"><code class="docutils literal notranslate"><span class="pre">ScanTableRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.SetItemRequest"><code class="docutils literal notranslate"><span class="pre">SetItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.UpdateItemRequest"><code class="docutils literal notranslate"><span class="pre">UpdateItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.delete_item"><code class="docutils literal notranslate"><span class="pre">delete_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.get_item"><code class="docutils literal notranslate"><span class="pre">get_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.scan_table"><code class="docutils literal notranslate"><span class="pre">scan_table()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.set_item"><code class="docutils literal notranslate"><span class="pre">set_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.update_item"><code class="docutils literal notranslate"><span class="pre">update_item()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.bucket_api">Bucket API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.delete_file_test"><code class="docutils literal notranslate"><span class="pre">delete_file_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.download_file_test"><code class="docutils literal notranslate"><span class="pre">download_file_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.get_info"><code class="docutils literal notranslate"><span class="pre">get_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.list_files_test"><code class="docutils literal notranslate"><span class="pre">list_files_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.upload_file_test"><code class="docutils literal notranslate"><span class="pre">upload_file_test()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.mavftp_api">MAVLink FTP API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.ClearFailLogsRequest"><code class="docutils literal notranslate"><span class="pre">ClearFailLogsRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.clear_fail_logs"><code class="docutils literal notranslate"><span class="pre">clear_fail_logs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.list_directory"><code class="docutils literal notranslate"><span class="pre">list_directory()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.mqtt_api">MQTT API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.MQTTResponse"><code class="docutils literal notranslate"><span class="pre">MQTTResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.PublishMessageRequest"><code class="docutils literal notranslate"><span class="pre">PublishMessageRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.SubscribePatternRequest"><code class="docutils literal notranslate"><span class="pre">SubscribePatternRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.SubscribeTopicRequest"><code class="docutils literal notranslate"><span class="pre">SubscribeTopicRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.UnsubscribeTopicRequest"><code class="docutils literal notranslate"><span class="pre">UnsubscribeTopicRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.get_mqtt_status"><code class="docutils literal notranslate"><span class="pre">get_mqtt_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.list_subscriptions"><code class="docutils literal notranslate"><span class="pre">list_subscriptions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.publish_message"><code class="docutils literal notranslate"><span class="pre">publish_message()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.subscribe_topic"><code class="docutils literal notranslate"><span class="pre">subscribe_topic()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.unsubscribe_topic"><code class="docutils literal notranslate"><span class="pre">unsubscribe_topic()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.proxy_info">Proxy Info</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.proxy_info.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.proxy_info.list_proxies"><code class="docutils literal notranslate"><span class="pre">list_proxies()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/proxies.html">Proxies</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.base">Base Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.base.BaseProxy"><code class="docutils literal notranslate"><span class="pre">BaseProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.redis">Redis Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#redisproxy">RedisProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy"><code class="docutils literal notranslate"><span class="pre">RedisProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.external">External MAVLink Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petalappmanager-proxies-external">petalappmanager.proxies.external</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.DownloadCancelledException"><code class="docutils literal notranslate"><span class="pre">DownloadCancelledException</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.ExternalProxy"><code class="docutils literal notranslate"><span class="pre">ExternalProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.FTPDeleteError"><code class="docutils literal notranslate"><span class="pre">FTPDeleteError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.MavLinkExternalProxy"><code class="docutils literal notranslate"><span class="pre">MavLinkExternalProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.MavLinkFTPProxy"><code class="docutils literal notranslate"><span class="pre">MavLinkFTPProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.ULogInfo"><code class="docutils literal notranslate"><span class="pre">ULogInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.setup_file_only_logger"><code class="docutils literal notranslate"><span class="pre">setup_file_only_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.localdb">Local Database Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#localdbproxy">LocalDBProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.localdb.LocalDBProxy"><code class="docutils literal notranslate"><span class="pre">LocalDBProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.cloud">Cloud Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#clouddbproxy">CloudDBProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.cloud.CloudDBProxy"><code class="docutils literal notranslate"><span class="pre">CloudDBProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.bucket">Bucket Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.bucket.S3BucketProxy"><code class="docutils literal notranslate"><span class="pre">S3BucketProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.mqtt">MQTT Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#mqttproxy">MQTTProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.mqtt.MQTTProxy"><code class="docutils literal notranslate"><span class="pre">MQTTProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.mqtt.MessageCallback"><code class="docutils literal notranslate"><span class="pre">MessageCallback</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/plugins.html">Plugins System</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/plugins.html#module-petal_app_manager.plugins.base">Base Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.base.Petal"><code class="docutils literal notranslate"><span class="pre">Petal</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/plugins.html#module-petal_app_manager.plugins.decorators">Decorators</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.decorators.http_action"><code class="docutils literal notranslate"><span class="pre">http_action()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.decorators.mqtt_action"><code class="docutils literal notranslate"><span class="pre">mqtt_action()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.decorators.websocket_action"><code class="docutils literal notranslate"><span class="pre">websocket_action()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/plugins.html#module-petal_app_manager.plugins.loader">Loader</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.loader.initialize_petals"><code class="docutils literal notranslate"><span class="pre">initialize_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.loader.load_petals"><code class="docutils literal notranslate"><span class="pre">load_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.loader.startup_petals"><code class="docutils literal notranslate"><span class="pre">startup_petals()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/petals.html">Available Petals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/petals.html#production-petals">Production Petals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-flight-log">petal-flight-log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-warehouse">petal-warehouse</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-leafsdk">petal-leafsdk</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-user-journey-coordinator">petal-user-journey-coordinator</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/petals.html#development-petals">Development Petals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-qgc-mission-server">petal-qgc-mission-server</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/index.html#core-modules">Core Modules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../known_issues.html">Known Issues</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#petal-issues">Petal Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#petal-name-must-start-with-petal">Petal Name Must Start with <code class="docutils literal notranslate"><span class="pre">petal-*</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#petal-not-getting-loaded">Petal Not Getting Loaded</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#python-3-11-issues">Python 3.11 Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#python-3-11-not-found">Python 3.11 Not Found</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#pdm-issues">PDM Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#pdm-installation-fails">PDM Installation Fails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#pdm-lock-file-issues">PDM Lock File Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#redis-issues">Redis Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#redis-connection-errors">Redis Connection Errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#redis-configuration-issues">Redis Configuration Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#mavlink-issues">MAVLink Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#mavlink-connection-issues">MAVLink Connection Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#mavlink-submodule-branch-issues-sitl">MAVLink Submodule Branch Issues (SITL)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#mqtt-issues">MQTT Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#mqtt-proxy-fails-on-fresh-installation">MQTT Proxy Fails on Fresh Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#port-conflicts">Port Conflicts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#port-9000-already-in-use">Port 9000 Already in Use</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#reporting-issues">Reporting Issues</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Petal App Manager</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Development and Contribution Guide</a></li>
+      <li class="breadcrumb-item active">Petal App Manager Profiling Tools</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/development_contribution/profiling.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="petal-app-manager-profiling-tools">
+<h1>Petal App Manager Profiling Tools<a class="headerlink" href="#petal-app-manager-profiling-tools" title="Link to this heading"></a></h1>
+<p>Comprehensive profiling infrastructure for analyzing PAM performance under different operational scenarios to identify bottlenecks and optimize resource usage on low-resource devices (RPi, Orin).</p>
+<section id="table-of-contents">
+<h2>Table of Contents<a class="headerlink" href="#table-of-contents" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="#overview">Overview</a></p></li>
+<li><p><a class="reference internal" href="#quick-start">Quick Start</a></p></li>
+<li><p><a class="reference internal" href="#profiling-scenarios">Profiling Scenarios</a></p></li>
+<li><p><a class="reference internal" href="#output-formats-visualizations">Output Formats &amp; Visualizations</a></p></li>
+<li><p><a class="reference internal" href="#interpretation-guide">Interpretation Guide</a></p></li>
+<li><p><a class="reference internal" href="#troubleshooting">Troubleshooting</a></p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>This profiling tool uses <strong>py-spy</strong>, a sampling profiler that can profile ALL threads and async tasks in PAM:</p>
+<p>✅ <strong>Captures complete PAM behavior:</strong></p>
+<ul class="simple">
+<li><p>MAVLink worker threads for message processing</p></li>
+<li><p>Redis worker threads for pub/sub handling</p></li>
+<li><p>MQTT worker threads for message handling</p></li>
+<li><p>Async background tasks (health status publishing, petal loading, etc.)</p></li>
+<li><p>Petal startup/shutdown async methods</p></li>
+<li><p>Proxy initialization and runtime behavior</p></li>
+</ul>
+<p>✅ <strong>Rich visualization:</strong></p>
+<ul class="simple">
+<li><p>Interactive Speedscope viewer with flame graph, icicle graph, and timeline views</p></li>
+<li><p>Per-thread filtering and analysis</p></li>
+<li><p>No installation required (web-based viewer)</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h2>
+<section id="prerequisites">
+<h3>1. Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h3>
+<p>Ensure you have:</p>
+<ul class="simple">
+<li><p>PAM development environment set up</p></li>
+<li><p>Python 3.11.x virtual environment at <code class="docutils literal notranslate"><span class="pre">.venv</span></code></p></li>
+<li><p>Redis, MQTT broker, and other PAM dependencies running</p></li>
+<li><p><strong>PAM already running</strong> (for profiling and monitoring to attach to)</p></li>
+</ul>
+</section>
+<section id="install-dependencies">
+<h3>2. Install Dependencies<a class="headerlink" href="#install-dependencies" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Navigate to petal-app-manager directory</span>
+<span class="nb">cd</span><span class="w"> </span>/home/droneleaf/petal-app-manager-dev/petal-app-manager
+
+<span class="c1"># Activate virtual environment</span>
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+
+<span class="c1"># Install profiling tools</span>
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>tools/profiling/requirements-profiling.txt
+
+<span class="c1"># (Optional) Install Speedscope CLI for local viewing</span>
+<span class="c1"># Note: The web version at https://www.speedscope.app/ requires NO installation!</span>
+<span class="c1"># Only install CLI if you prefer local viewing over uploading to web.</span>
+<span class="c1"># Requires Node.js/npm to be installed first:</span>
+npm<span class="w"> </span>install<span class="w"> </span>-g<span class="w"> </span>speedscope
+</pre></div>
+</div>
+<p><strong>Installed Python tools:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">py-spy</span></code> - Multi-threaded sampling profiler (used by profile_pam.py)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">psutil</span></code> - Process monitoring (used by monitor_cpu.py)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">matplotlib</span></code> - Plotting library (used by monitor_cpu.py)</p></li>
+</ul>
+<p><strong>Optional CLI tools:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">speedscope</span></code> (npm) - Local speedscope viewer (web version at speedscope.app requires no installation)</p></li>
+</ul>
+</section>
+<section id="start-pam">
+<h3>3. Start PAM<a class="headerlink" href="#start-pam" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Terminal 1 - Start PAM first (required for profiling)</span>
+uvicorn<span class="w"> </span>petal_app_manager.main:app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--log-level<span class="w"> </span>info<span class="w"> </span>--no-access-log<span class="w"> </span>--http<span class="w"> </span>h11
+</pre></div>
+</div>
+</section>
+<section id="run-profiling-and-or-monitoring">
+<h3>4. Run Profiling and/or Monitoring<a class="headerlink" href="#run-profiling-and-or-monitoring" title="Link to this heading"></a></h3>
+<p>You can run the profiler alone, CPU monitor alone, or both simultaneously.</p>
+<p><strong>Option A: Profiling Only</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Terminal 2 - Profile PAM (attaches to running process)</span>
+python<span class="w"> </span>tools/profiling/profile_pam.py<span class="w"> </span>--scenario<span class="w"> </span>idle-no-leaffc
+
+<span class="c1"># Press Ctrl+C when done to stop and save profile</span>
+</pre></div>
+</div>
+<p><strong>Option B: CPU Monitoring Only</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Terminal 2 - Monitor CPU and memory usage</span>
+python<span class="w"> </span>tools/profiling/monitor_cpu.py<span class="w"> </span>--scenario<span class="w"> </span>idle-no-leaffc<span class="w"> </span>--interval<span class="w"> </span><span class="m">1</span><span class="w"> </span>--plot
+
+<span class="c1"># Press Ctrl+C when done to save CSV and PNG</span>
+</pre></div>
+</div>
+<p><strong>Option C: Both Profiling and Monitoring (Not Recommended)</strong></p>
+<p><strong>Note:</strong> Running both simultaneously is <strong>not recommended</strong> because the profiler adds significant CPU overhead depending on the sampling rate (30-40% increase at 100Hz), which will distort CPU monitoring results. Run them separately for accurate measurements.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Terminal 2 - CPU monitoring</span>
+python<span class="w"> </span>tools/profiling/monitor_cpu.py<span class="w"> </span>--scenario<span class="w"> </span>idle-no-leaffc<span class="w"> </span>--interval<span class="w"> </span><span class="m">1</span><span class="w"> </span>--plot
+
+<span class="c1"># Terminal 3 - Profiling (if needed separately)</span>
+python<span class="w"> </span>tools/profiling/profile_pam.py<span class="w"> </span>--scenario<span class="w"> </span>idle-no-leaffc
+
+<span class="c1"># Press Ctrl+C in both terminals when done</span>
+</pre></div>
+</div>
+<p>This will:</p>
+<ol class="arabic simple">
+<li><p>Attach to the running PAM process (PID found automatically)</p></li>
+<li><p>Profile/monitor until you press Ctrl+C</p></li>
+<li><p>Generate timestamped output files</p></li>
+<li><p>Save to <code class="docutils literal notranslate"><span class="pre">tools/profiling/profiles/</span></code></p></li>
+</ol>
+<p><strong>Output files (with matching timestamps):</strong></p>
+<ul class="simple">
+<li><p>Profile: <code class="docutils literal notranslate"><span class="pre">pam_&lt;scenario&gt;_&lt;timestamp&gt;_profile.speedscope.json</span></code></p></li>
+<li><p>CPU data: <code class="docutils literal notranslate"><span class="pre">pam_&lt;scenario&gt;_&lt;timestamp&gt;_cpu.csv</span></code></p></li>
+<li><p>CPU plot: <code class="docutils literal notranslate"><span class="pre">pam_&lt;scenario&gt;_&lt;timestamp&gt;_cpu.png</span></code></p></li>
+</ul>
+</section>
+<section id="view-results">
+<h3>5. View Results<a class="headerlink" href="#view-results" title="Link to this heading"></a></h3>
+<p><strong>Interactive (best for thread analysis):</strong></p>
+<p><strong>Speedscope Profile Viewer:</strong></p>
+<p><strong>Option 1: Web-based (Recommended - No installation required!)</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>1. Visit https://www.speedscope.app/
+2. Click &quot;Browse&quot; and select the .speedscope.json file from:
+   tools/profiling/profiles/pam_*_profile.speedscope.json
+3. Toggle between views:
+   - Time Order: See execution timeline
+   - Left Heavy: Flame graph (top-down)
+   - Sandwich: Icicle graph (bottom-up)
+4. Use thread filter to isolate worker threads
+</pre></div>
+</div>
+<p><strong>Option 2: CLI (if you installed speedscope via npm)</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># View speedscope locally (opens in browser)</span>
+speedscope<span class="w"> </span>tools/profiling/profiles/pam_idle-no-leaffc_*_profile.speedscope.json
+
+<span class="c1"># Or navigate to the file and run</span>
+<span class="nb">cd</span><span class="w"> </span>tools/profiling/profiles
+speedscope<span class="w"> </span>pam_*_profile.speedscope.json
+</pre></div>
+</div>
+<p><strong>CPU Monitor Plots:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># View the PNG plot</span>
+xdg-open<span class="w"> </span>tools/profiling/profiles/pam_idle-no-leaffc_*_cpu.png
+
+<span class="c1"># Or analyze CSV data</span>
+cat<span class="w"> </span>tools/profiling/profiles/pam_idle-no-leaffc_*_cpu.csv
+</pre></div>
+</div>
+</section>
+<section id="command-line-flags">
+<h3>6. Command-Line Flags<a class="headerlink" href="#command-line-flags" title="Link to this heading"></a></h3>
+<p><strong>profile_pam.py Flags</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>python tools/profiling/profile_pam.py [OPTIONS]
+
+Required:
+  --scenario TEXT          Scenario label for organizing files
+                          Examples: idle-no-leaffc, mission-execution, esc-calibration
+
+Optional:
+  --output PATH           Output directory for profile files
+                          Default: tools/profiling/profiles/
+  --help                  Show help message and exit
+</pre></div>
+</div>
+<p><strong>Example:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>tools/profiling/profile_pam.py<span class="w"> </span>--scenario<span class="w"> </span>idle-no-leaffc
+python<span class="w"> </span>tools/profiling/profile_pam.py<span class="w"> </span>--scenario<span class="w"> </span>mission-execution<span class="w"> </span>--output<span class="w"> </span>/tmp/profiles
+</pre></div>
+</div>
+<p><strong>monitor_cpu.py Flags</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>python tools/profiling/monitor_cpu.py [OPTIONS]
+
+Required:
+  --scenario TEXT          Scenario label for organizing files
+                          Examples: idle-no-leaffc, mission-execution
+
+Optional:
+  --interval INTEGER      Measurement interval in seconds (default: 2)
+                          Lower = more data points
+  --output PATH           Output directory for CSV and PNG files
+                          Default: tools/profiling/profiles/
+  --plot                  Generate PNG plot in addition to CSV
+                          Recommended for visual analysis
+  --help                  Show help message and exit
+</pre></div>
+</div>
+<p><strong>Examples:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Basic monitoring (2-second intervals, CSV only)</span>
+python<span class="w"> </span>tools/profiling/monitor_cpu.py<span class="w"> </span>--scenario<span class="w"> </span>idle-no-leaffc
+
+<span class="c1"># High-resolution monitoring with plot (1-second intervals)</span>
+python<span class="w"> </span>tools/profiling/monitor_cpu.py<span class="w"> </span>--scenario<span class="w"> </span>mission-execution<span class="w"> </span>--interval<span class="w"> </span><span class="m">1</span><span class="w"> </span>--plot
+
+<span class="c1"># Custom output directory</span>
+python<span class="w"> </span>tools/profiling/monitor_cpu.py<span class="w"> </span>--scenario<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--interval<span class="w"> </span><span class="m">1</span><span class="w"> </span>--plot<span class="w"> </span>--output<span class="w"> </span>/tmp/cpu_data
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="profiling-scenarios">
+<h2>Profiling Scenarios<a class="headerlink" href="#profiling-scenarios" title="Link to this heading"></a></h2>
+<p>Example scenario labels for organizing profile data:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">idle-no-leaffc</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">idle-with-leaffc</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">esc-calibration</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rc-stream</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mission-execution</span></code></p></li>
+</ul>
+<p><strong>Note:</strong> Scenarios are labels for record keeping only. The profiler captures whatever PAM is actually doing at runtime.</p>
+<section id="workflow-for-profiling-different-scenarios">
+<h3>Workflow for Profiling Different Scenarios<a class="headerlink" href="#workflow-for-profiling-different-scenarios" title="Link to this heading"></a></h3>
+<ol class="arabic">
+<li><p><strong>Start PAM:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Terminal 1</span>
+uvicorn<span class="w"> </span>petal_app_manager.main:app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--log-level<span class="w"> </span>info<span class="w"> </span>--no-access-log<span class="w"> </span>--http<span class="w"> </span>h11
+</pre></div>
+</div>
+</li>
+<li><p><strong>Start monitoring (optional but recommended):</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Terminal 2</span>
+python<span class="w"> </span>tools/profiling/monitor_cpu.py<span class="w"> </span>--scenario<span class="w"> </span>&lt;scenario&gt;<span class="w"> </span>--interval<span class="w"> </span><span class="m">1</span><span class="w"> </span>--plot
+</pre></div>
+</div>
+</li>
+<li><p><strong>Start profiling:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Terminal 3</span>
+python<span class="w"> </span>tools/profiling/profile_pam.py<span class="w"> </span>--scenario<span class="w"> </span>&lt;scenario&gt;
+</pre></div>
+</div>
+</li>
+<li><p><strong>Execute the scenario:</strong></p>
+<ul class="simple">
+<li><p>For <code class="docutils literal notranslate"><span class="pre">idle-*</span></code>: Just let it run</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">mission-execution</span></code>: Send mission plan (see example below)</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">esc-calibration</span></code>: Trigger calibration via API</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">rc-stream</span></code>: Start RC streaming</p></li>
+</ul>
+</li>
+<li><p><strong>Stop profiling:</strong></p>
+<ul class="simple">
+<li><p>Press Ctrl+C in both monitoring and profiling terminals</p></li>
+<li><p>Files are automatically saved</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="example-sitl-mission-for-profiling">
+<h3>Example SITL Mission for Profiling<a class="headerlink" href="#example-sitl-mission-for-profiling" title="Link to this heading"></a></h3>
+<p>For profiling mission execution in SITL (Software-In-The-Loop), use this sample mission plan:</p>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">tools/profiling/example_mission_sitl.json</span></code></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;joystick_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ENABLED_ON_PAUSE&quot;</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;edges&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;from&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Takeoff&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;to&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Wait 1&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;from&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Wait 1&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;to&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GotoLocalWaypoint 1&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;from&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GotoLocalWaypoint 1&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;to&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GotoLocalWaypoint 2&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;from&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GotoLocalWaypoint 2&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;to&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GotoLocalWaypoint 3&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;from&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GotoLocalWaypoint 3&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;to&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Wait 2&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;from&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Wait 2&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;to&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Land&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;main&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;nodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Takeoff&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;alt&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Takeoff&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Wait 1&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;duration&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Wait&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GotoLocalWaypoint 1&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;speed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="mf">0.2</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;waypoints&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="p">[</span>
+<span class="w">            </span><span class="mf">0.5</span><span class="p">,</span>
+<span class="w">            </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">            </span><span class="mi">1</span>
+<span class="w">          </span><span class="p">]</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;yaw_speed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="mi">30</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;yaws_deg&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="mi">0</span>
+<span class="w">        </span><span class="p">]</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GotoLocalPosition&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GotoLocalWaypoint 2&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;speed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="mf">0.2</span><span class="p">,</span>
+<span class="w">          </span><span class="mf">0.2</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;waypoints&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="p">[</span>
+<span class="w">            </span><span class="mf">0.5</span><span class="p">,</span>
+<span class="w">            </span><span class="mf">0.5</span><span class="p">,</span>
+<span class="w">            </span><span class="mi">1</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="p">[</span>
+<span class="w">            </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">            </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">            </span><span class="mi">1</span>
+<span class="w">          </span><span class="p">]</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;yaw_speed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="mi">30</span><span class="p">,</span>
+<span class="w">          </span><span class="mi">30</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;yaws_deg&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">          </span><span class="mi">0</span>
+<span class="w">        </span><span class="p">]</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GotoLocalPosition&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GotoLocalWaypoint 3&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;speed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="mf">0.2</span><span class="p">,</span>
+<span class="w">          </span><span class="mf">0.3</span><span class="p">,</span>
+<span class="w">          </span><span class="mf">0.4</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;waypoints&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="p">[</span>
+<span class="w">            </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">            </span><span class="mf">0.5</span><span class="p">,</span>
+<span class="w">            </span><span class="mi">1</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="p">[</span>
+<span class="w">            </span><span class="mf">0.5</span><span class="p">,</span>
+<span class="w">            </span><span class="mf">0.5</span><span class="p">,</span>
+<span class="w">            </span><span class="mi">1</span>
+<span class="w">          </span><span class="p">],</span>
+<span class="w">          </span><span class="p">[</span>
+<span class="w">            </span><span class="mf">0.5</span><span class="p">,</span>
+<span class="w">            </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">            </span><span class="mi">1</span>
+<span class="w">          </span><span class="p">]</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;yaw_speed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">          </span><span class="mi">20</span><span class="p">,</span>
+<span class="w">          </span><span class="mi">20</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;yaws_deg&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">          </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">          </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">          </span><span class="mi">20</span>
+<span class="w">        </span><span class="p">]</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GotoLocalPosition&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Wait 2&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;duration&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Wait&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Land&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Land&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>How to profile with this mission:</strong></p>
+<ol class="arabic">
+<li><p><strong>Start PAM:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Terminal 1</span>
+uvicorn<span class="w"> </span>petal_app_manager.main:app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--log-level<span class="w"> </span>info<span class="w"> </span>--no-access-log<span class="w"> </span>--http<span class="w"> </span>h11
+</pre></div>
+</div>
+</li>
+<li><p><strong>Start monitoring:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Terminal 2</span>
+python<span class="w"> </span>tools/profiling/monitor_cpu.py<span class="w"> </span>--scenario<span class="w"> </span>mission-execution<span class="w"> </span>--interval<span class="w"> </span><span class="m">1</span><span class="w"> </span>--plot
+</pre></div>
+</div>
+</li>
+<li><p><strong>Start profiling:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Terminal 3</span>
+python<span class="w"> </span>tools/profiling/profile_pam.py<span class="w"> </span>--scenario<span class="w"> </span>mission-execution
+</pre></div>
+</div>
+</li>
+<li><p><strong>Send mission via MQTT or HTTP:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Terminal 4 (or use a separate terminal)</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9000/petal-leafsdk/mission/plan<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span>@tools/profiling/example_mission_sitl.json
+</pre></div>
+</div>
+</li>
+<li><p><strong>Wait for mission to complete, then stop profiling (Ctrl+C in terminals 2 and 3)</strong></p></li>
+</ol>
+<p>The profile will capture mission execution including:</p>
+<ul class="simple">
+<li><p>Mission loading and validation</p></li>
+<li><p>Mission runner loop execution</p></li>
+<li><p>MAVLink command generation</p></li>
+<li><p>Waypoint processing</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="output-formats-visualizations">
+<h2>Output Formats &amp; Visualizations<a class="headerlink" href="#output-formats-visualizations" title="Link to this heading"></a></h2>
+<section id="speedscope-json-interactive">
+<h3>Speedscope JSON (Interactive) ⭐<a class="headerlink" href="#speedscope-json-interactive" title="Link to this heading"></a></h3>
+<p>Each profiling run generates a single Speedscope JSON file:</p>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">pam_&lt;scenario&gt;_&lt;timestamp&gt;_profile.speedscope.json</span></code></p>
+<p><strong>Three interactive views in one:</strong></p>
+<ul class="simple">
+<li><p><strong>Time Order:</strong> Chronological execution timeline</p></li>
+<li><p><strong>Left Heavy:</strong> Flame graph (top-down call hierarchy)</p></li>
+<li><p><strong>Sandwich:</strong> Icicle graph (bottom-up call hierarchy)</p></li>
+</ul>
+<p><strong>Features:</strong></p>
+<ul class="simple">
+<li><p>Filter by thread name to isolate workers</p></li>
+<li><p>Search for specific functions</p></li>
+<li><p>Zoom into call stacks</p></li>
+<li><p>See exact time percentages and call counts</p></li>
+<li><p>No installation required (web viewer at speedscope.app)</p></li>
+</ul>
+<p><strong>How to view:</strong></p>
+<ol class="arabic simple">
+<li><p>Visit <a class="reference external" href="https://www.speedscope.app/">https://www.speedscope.app/</a></p></li>
+<li><p>Click “Browse” and select the <code class="docutils literal notranslate"><span class="pre">.speedscope.json</span></code> file</p></li>
+<li><p>Use the thread dropdown to analyze individual workers</p></li>
+<li><p>Toggle between the three view modes</p></li>
+</ol>
+<p><strong>Or with CLI (if installed):</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>speedscope<span class="w"> </span>tools/profiling/profiles/pam_*_profile.speedscope.json
+</pre></div>
+</div>
+</section>
+<section id="monitor-output-cpu-and-memory-usage">
+<h3>Monitor Output: CPU and Memory Usage<a class="headerlink" href="#monitor-output-cpu-and-memory-usage" title="Link to this heading"></a></h3>
+<p>Each monitoring run generates CSV data and a plot:</p>
+<p><strong>Files:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">pam_&lt;scenario&gt;_&lt;timestamp&gt;_cpu.csv</span></code> - Time-series data</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pam_&lt;scenario&gt;_&lt;timestamp&gt;_cpu.png</span></code> - Visualization</p></li>
+</ul>
+<p><strong>CSV Columns:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">elapsed_seconds</span></code> - Time since monitoring started</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cpu_percent</span></code> - Process CPU usage (% of total system)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">memory_mb</span></code> - Process memory usage in MB</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">memory_percent</span></code> - Process memory usage (% of total system)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">timestamp</span></code> - ISO timestamp</p></li>
+</ul>
+<p><strong>Plot Format:</strong></p>
+<ul class="simple">
+<li><p>Two subplots: CPU usage (top), Memory usage (bottom)</p></li>
+<li><p>X-axis: Elapsed seconds</p></li>
+<li><p>Useful for identifying CPU/memory spikes during operations</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="interpretation-guide">
+<h2>Interpretation Guide<a class="headerlink" href="#interpretation-guide" title="Link to this heading"></a></h2>
+<section id="what-to-look-for">
+<h3>What to Look For<a class="headerlink" href="#what-to-look-for" title="Link to this heading"></a></h3>
+<section id="worker-thread-overhead-target-5-cpu-in-idle">
+<h4>1. Worker Thread Overhead (Target: &lt;5% CPU in idle)<a class="headerlink" href="#worker-thread-overhead-target-5-cpu-in-idle" title="Link to this heading"></a></h4>
+<p><strong>Where:</strong> Filter by thread in Speedscope, or look for thread names in flame graph</p>
+<p><strong>Look for:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">time.sleep()</span></code> should dominate (95%+ in idle scenarios)</p></li>
+<li><p>Actual work (message parsing, pub/sub) should be minimal in idle</p></li>
+<li><p>Excessive polling or busy-waiting</p></li>
+</ul>
+<p><strong>PAM worker threads:</strong></p>
+<ul class="simple">
+<li><p>MAVLink worker threads: Message processing</p></li>
+<li><p>Redis worker threads: Pub/sub handling</p></li>
+<li><p>MQTT worker threads: Message handling</p></li>
+</ul>
+<p><strong>Example findings:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Thread: MAVLinkWorker-1
+├─ time.sleep() ━━━━━━━━━━━━━━━━━━━ 97.5%
+└─ parse_message() ━ 2.5%  ← This should be minimal in idle
+</pre></div>
+</div>
+</section>
+<section id="async-task-analysis">
+<h4>2. Async Task Analysis<a class="headerlink" href="#async-task-analysis" title="Link to this heading"></a></h4>
+<p><strong>Where:</strong> Search for async task functions in Speedscope (e.g., health status publishing, petal loading)</p>
+<p><strong>Look for:</strong></p>
+<ul class="simple">
+<li><p>Health publisher frequency and overhead</p></li>
+<li><p>Petal loading overhead</p></li>
+<li><p>Unnecessary async task creation</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>publish_health_status()
+├─ redis.publish() ━━━━━ 60%
+├─ get_health_data() ━━ 30%
+└─ json.dumps() ━ 10%
+</pre></div>
+</div>
+</section>
+<section id="periodic-task-frequency">
+<h4>3. Periodic Task Frequency<a class="headerlink" href="#periodic-task-frequency" title="Link to this heading"></a></h4>
+<p><strong>Where:</strong> Speedscope search or timeline view</p>
+<p><strong>Look for:</strong></p>
+<ul class="simple">
+<li><p>Functions appearing frequently in the timeline</p></li>
+<li><p>Repetitive call patterns in flame graph</p></li>
+<li><p>High sample counts for specific functions</p></li>
+</ul>
+<p><strong>How to identify:</strong></p>
+<ol class="arabic simple">
+<li><p>Use Speedscope search (Ctrl/Cmd+F) to find a function</p></li>
+<li><p>Check how many times it appears across samples</p></li>
+<li><p>Look for regular patterns in timeline view</p></li>
+</ol>
+<p><strong>Example issue:</strong> Function appears every few milliseconds when it should run every few seconds</p>
+</section>
+<section id="blocking-operations">
+<h4>4. Blocking Operations<a class="headerlink" href="#blocking-operations" title="Link to this heading"></a></h4>
+<p><strong>Where:</strong> Speedscope timeline view, look for long plateaus</p>
+<p><strong>Look for:</strong></p>
+<ul class="simple">
+<li><p>Synchronous HTTP requests in async context</p></li>
+<li><p>File I/O blocking event loop</p></li>
+<li><p>Database queries without connection pooling</p></li>
+<li><p>Slow JSON parsing on large payloads</p></li>
+</ul>
+<p><strong>Red flags:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">requests.get()</span></code> in async function (use <code class="docutils literal notranslate"><span class="pre">aiohttp</span></code> instead)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">open().read()</span></code> on large files (use async I/O)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">time.sleep()</span></code> in async function (use <code class="docutils literal notranslate"><span class="pre">asyncio.sleep()</span></code>)</p></li>
+</ul>
+</section>
+<section id="message-processing-overhead">
+<h4>5. Message Processing Overhead<a class="headerlink" href="#message-processing-overhead" title="Link to this heading"></a></h4>
+<p><strong>Where:</strong> Filter by MAVLink/Redis/MQTT threads</p>
+<p><strong>Look for:</strong></p>
+<ul class="simple">
+<li><p>Time spent in message deserialization</p></li>
+<li><p>Excessive message copying</p></li>
+<li><p>Inefficient message routing</p></li>
+</ul>
+</section>
+</section>
+<section id="reading-flame-graphs">
+<h3>Reading Flame Graphs<a class="headerlink" href="#reading-flame-graphs" title="Link to this heading"></a></h3>
+<p><strong>Visual guide:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Width = CPU time (wider = more time spent)
+   ↓
+┌─────────────────────────────────────────────┐
+│          main() [60.0s]                     │  ← Entry point (widest)
+├─────────────────────┬───────────────────────┤
+│  startup_all()      │   message_loop()      │  ← Major functions
+│     [10.0s]         │      [50.0s]          │
+├──────┬──────────────┼──────────┬────────────┤
+│load_ │publish_      │parse_msg │process_msg │  ← Leaf functions
+│petals│health()      │()        │()          │     (actual work)
+│[5.0s]│[5.0s]        │[25.0s]   │[25.0s]     │
+└──────┴──────────────┴──────────┴────────────┘
+   ↑
+Height = call stack depth
+</pre></div>
+</div>
+<p><strong>Interpretation:</strong></p>
+<ul class="simple">
+<li><p><strong>Wide plateaus at top</strong> = Functions doing actual work (optimization targets)</p></li>
+<li><p><strong>Thin spikes</strong> = Quick function calls (usually not worth optimizing)</p></li>
+<li><p><strong>Many horizontal slices</strong> = Deep call stacks (potential for inlining)</p></li>
+<li><p><strong>Uneven widths</strong> = Branching logic or different code paths</p></li>
+</ul>
+</section>
+<section id="common-patterns-to-identify">
+<h3>Common Patterns to Identify<a class="headerlink" href="#common-patterns-to-identify" title="Link to this heading"></a></h3>
+<section id="pattern-1-busy-wait-loop">
+<h4>Pattern 1: Busy-Wait Loop<a class="headerlink" href="#pattern-1-busy-wait-loop" title="Link to this heading"></a></h4>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Flame graph shows:
+  while_loop() ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100%
+    └─ check_condition() ━━━━━━━━━━━━━━━━━━ 98%
+
+Fix: Add sleep() or use event-based waiting
+</pre></div>
+</div>
+</section>
+<section id="pattern-2-excessive-polling">
+<h4>Pattern 2: Excessive Polling<a class="headerlink" href="#pattern-2-excessive-polling" title="Link to this heading"></a></h4>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Speedscope timeline shows:
+  Repeated calls to poll_status() every few milliseconds
+  Function dominates thread CPU time
+
+Fix: Increase poll interval or use change notifications
+</pre></div>
+</div>
+</section>
+<section id="pattern-3-synchronous-i-o-in-async-context">
+<h4>Pattern 3: Synchronous I/O in Async Context<a class="headerlink" href="#pattern-3-synchronous-i-o-in-async-context" title="Link to this heading"></a></h4>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Timeline shows long plateau:
+  async_handler() ━━━━━━━━━━━━━━━━━━━━━
+    └─ requests.get() ━━━━━━━━━━━━━━━━  (blocking!)
+
+Fix: Use aiohttp.ClientSession() instead
+</pre></div>
+</div>
+</section>
+<section id="pattern-4-redundant-serialization">
+<h4>Pattern 4: Redundant Serialization<a class="headerlink" href="#pattern-4-redundant-serialization" title="Link to this heading"></a></h4>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Flame graph shows:
+  send_message() ━━━━━━━━━━━━━
+    ├─ json.dumps() ━━━━━ 40%
+    ├─ json.loads() ━━━━━ 40%
+    └─ actual_work() ━ 20%
+
+Fix: Cache serialized data or reduce serialize/deserialize cycles
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<section id="environment-issues">
+<h3>Environment Issues<a class="headerlink" href="#environment-issues" title="Link to this heading"></a></h3>
+<p><strong>Q: ``Command not found: python`` or ``pip``</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check if venv is activated</span>
+<span class="nb">echo</span><span class="w"> </span><span class="nv">$VIRTUAL_ENV</span><span class="w">  </span><span class="c1"># Should show .venv path</span>
+
+<span class="c1"># Activate venv</span>
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+
+<span class="c1"># Verify prompt shows (petal-app-manager-3.11)</span>
+</pre></div>
+</div>
+<p><strong>Q: ``ModuleNotFoundError: No module named ‘petal_app_manager’``</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Ensure you&#39;re in the right directory</span>
+<span class="nb">pwd</span><span class="w">  </span><span class="c1"># Should be .../petal-app-manager</span>
+
+<span class="c1"># Verify PYTHONPATH (profiler sets this automatically)</span>
+<span class="nb">echo</span><span class="w"> </span><span class="nv">$PYTHONPATH</span>
+
+<span class="c1"># Check if PAM is installed in editable mode</span>
+pip<span class="w"> </span>show<span class="w"> </span>petal-app-manager
+</pre></div>
+</div>
+<p><strong>Q: Wrong Python version</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check version</span>
+python<span class="w"> </span>--version<span class="w">  </span><span class="c1"># Should be 3.11.x</span>
+
+<span class="c1"># If wrong, recreate venv</span>
+rm<span class="w"> </span>-rf<span class="w"> </span>.venv
+python3.11<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+</pre></div>
+</div>
+</section>
+<section id="profiler-issues">
+<h3>Profiler Issues<a class="headerlink" href="#profiler-issues" title="Link to this heading"></a></h3>
+<p><strong>Q: py-spy error: “Permission denied” or “Operation not permitted”</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Option 1: Run with sudo (not recommended)</span>
+sudo<span class="w"> </span><span class="k">$(</span>which<span class="w"> </span>python<span class="k">)</span><span class="w"> </span>tools/profiling/profile_pam_pyspy.py<span class="w"> </span>...
+
+<span class="c1"># Option 2: Grant ptrace capability (Linux)</span>
+sudo<span class="w"> </span>setcap<span class="w"> </span><span class="nv">cap_sys_ptrace</span><span class="o">=</span>eip<span class="w"> </span><span class="k">$(</span>which<span class="w"> </span>py-spy<span class="k">)</span>
+
+<span class="c1"># Option 3: Adjust ptrace_scope (temporary, less secure)</span>
+<span class="nb">echo</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/proc/sys/kernel/yama/ptrace_scope
+</pre></div>
+</div>
+<p><strong>Q: py-spy error: “No python processes found”</strong></p>
+<ul class="simple">
+<li><p>This was fixed by having py-spy launch uvicorn directly (not attach to existing process)</p></li>
+<li><p>Ensure you’re using the updated <code class="docutils literal notranslate"><span class="pre">profile_pam_pyspy.py</span></code></p></li>
+<li><p>Check that uvicorn is installed: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">show</span> <span class="pre">uvicorn</span></code></p></li>
+</ul>
+<p><strong>Q: PAM fails to start during profiling</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check dependencies are running</span>
+systemctl<span class="w"> </span>status<span class="w"> </span>redis
+systemctl<span class="w"> </span>status<span class="w"> </span>mosquitto
+
+<span class="c1"># Check port 9000 is available</span>
+lsof<span class="w"> </span>-i<span class="w"> </span>:9000<span class="w">  </span><span class="c1"># Should be empty</span>
+
+<span class="c1"># Check PAM can start normally</span>
+python<span class="w"> </span>-m<span class="w"> </span>uvicorn<span class="w"> </span>petal_app_manager.main:app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--log-level<span class="w"> </span>info<span class="w"> </span>--no-access-log<span class="w"> </span>--http<span class="w"> </span>h11
+<span class="c1"># Then Ctrl+C and try profiler again</span>
+</pre></div>
+</div>
+<p><strong>Q: Profiling terminates early</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check for errors in output</span>
+python<span class="w"> </span>tools/profiling/profile_pam_pyspy.py<span class="w"> </span>--scenario<span class="w"> </span>idle-no-leaffc<span class="w"> </span>--duration<span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tee<span class="w"> </span>profile.log
+
+<span class="c1"># Look for common issues:</span>
+<span class="c1"># - Import errors</span>
+<span class="c1"># - Configuration file missing</span>
+<span class="c1"># - Dependency connection failures</span>
+</pre></div>
+</div>
+</section>
+<section id="visualization-issues">
+<h3>Visualization Issues<a class="headerlink" href="#visualization-issues" title="Link to this heading"></a></h3>
+<p><strong>Q: Speedscope won’t load JSON file</strong></p>
+<ul class="simple">
+<li><p>Verify file exists and is not empty: <code class="docutils literal notranslate"><span class="pre">ls</span> <span class="pre">-lh</span> <span class="pre">tools/profiling/profiles/*.speedscope.json</span></code></p></li>
+<li><p>Check file is valid JSON: <code class="docutils literal notranslate"><span class="pre">jq</span> <span class="pre">.</span> <span class="pre">&lt;file&gt;.speedscope.json</span> <span class="pre">|</span> <span class="pre">head</span></code></p></li>
+<li><p>Try uploading to alternative Speedscope instance</p></li>
+<li><p>Check browser console for errors (F12)</p></li>
+</ul>
+</section>
+<section id="performance-issues">
+<h3>Performance Issues<a class="headerlink" href="#performance-issues" title="Link to this heading"></a></h3>
+<p><strong>Q: Profile files are too large (&gt;100MB)</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reduce duration</span>
+python<span class="w"> </span>tools/profiling/profile_pam.py<span class="w"> </span>--scenario<span class="w"> </span>idle-no-leaffc<span class="w"> </span>--duration<span class="w"> </span><span class="m">30</span>
+
+<span class="c1"># Reduce sampling rate (edit profile_pam.py, change --rate 100 to --rate 50)</span>
+</pre></div>
+</div>
+<p><strong>Q: Profiling takes too long</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reduce duration for quick tests</span>
+python<span class="w"> </span>tools/profiling/profile_pam.py<span class="w"> </span>--scenario<span class="w"> </span>idle-no-leaffc<span class="w"> </span>--duration<span class="w"> </span><span class="m">30</span>
+</pre></div>
+</div>
+</section>
+<section id="results-interpretation-issues">
+<h3>Results Interpretation Issues<a class="headerlink" href="#results-interpretation-issues" title="Link to this heading"></a></h3>
+<p><strong>Q: Profile shows 97% time.sleep(), can’t see actual work</strong></p>
+<p>Use Speedscope’s thread filter to isolate worker threads:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>1. Upload to speedscope.app
+2. Click &quot;Thread&quot; dropdown at top
+3. Select individual worker threads (e.g., MAVLinkWorker, RedisWorker, MQTTWorker)
+4. Now you&#39;ll see actual work in each thread (sleep will be much less dominant)
+</pre></div>
+</div>
+<p>In idle scenarios, sleep dominating is expected. The key is looking at the non-sleep portions to understand overhead.</p>
+<p><strong>Q: Can’t find specific function in flame graph</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Use Speedscope search:
+1. Upload to speedscope.app
+2. Press Ctrl+F or Cmd+F
+3. Type function name
+4. Click through matches to see all occurrences
+</pre></div>
+</div>
+<p><strong>Q: Don’t understand thread names</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Common thread naming patterns in PAM:
+- MainThread: Main event loop, PAM startup
+- ThreadPoolExecutor-*: Async executor threads
+- MAVLinkWorker-*: MAVLink message processing
+- RedisWorker-*: Redis pub/sub handlers
+- MQTTWorker-*: MQTT message handlers
+- asyncio_*: Asyncio internal threads
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="quick-reference">
+<h2>Quick Reference<a class="headerlink" href="#quick-reference" title="Link to this heading"></a></h2>
+<section id="command-cheatsheet">
+<h3>Command Cheatsheet<a class="headerlink" href="#command-cheatsheet" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># SETUP</span>
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>tools/profiling/requirements-profiling.txt
+
+<span class="c1"># START PAM (Required first!)</span>
+uvicorn<span class="w"> </span>petal_app_manager.main:app<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span>
+
+<span class="c1"># PROFILE (in separate terminal)</span>
+python<span class="w"> </span>tools/profiling/profile_pam.py<span class="w"> </span>--scenario<span class="w"> </span>idle-no-leaffc
+<span class="c1"># Press Ctrl+C to stop and save</span>
+
+<span class="c1"># MONITOR CPU (in separate terminal)</span>
+python<span class="w"> </span>tools/profiling/monitor_cpu.py<span class="w"> </span>--scenario<span class="w"> </span>idle-no-leaffc<span class="w"> </span>--interval<span class="w"> </span><span class="m">1</span><span class="w"> </span>--plot
+<span class="c1"># Press Ctrl+C to stop and save</span>
+
+<span class="c1"># VISUALIZE</span>
+<span class="c1"># Upload .speedscope.json to https://www.speedscope.app/</span>
+<span class="c1"># Or: speedscope tools/profiling/profiles/*.speedscope.json</span>
+<span class="c1"># Open .png files to view CPU/memory plots</span>
+</pre></div>
+</div>
+</section>
+<section id="file-naming-conventions">
+<h3>File Naming Conventions<a class="headerlink" href="#file-naming-conventions" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Profile output:
+  pam_&lt;scenario&gt;_&lt;YYYYMMDD_HHMMSS&gt;_profile.speedscope.json
+
+CPU monitor output:
+  pam_&lt;scenario&gt;_&lt;YYYYMMDD_HHMMSS&gt;_cpu.csv
+  pam_&lt;scenario&gt;_&lt;YYYYMMDD_HHMMSS&gt;_cpu.png
+
+Examples:
+  pam_idle-no-leaffc_20260211_143022_profile.speedscope.json
+  pam_idle-no-leaffc_20260211_143022_cpu.csv
+  pam_idle-no-leaffc_20260211_143022_cpu.png
+  pam_mission-execution_20260211_150145_profile.speedscope.json
+  pam_mission-execution_20260211_150145_cpu.csv
+  pam_mission-execution_20260211_150145_cpu.png
+</pre></div>
+</div>
+</section>
+<section id="keyboard-shortcuts-speedscope">
+<h3>Keyboard Shortcuts (Speedscope)<a class="headerlink" href="#keyboard-shortcuts-speedscope" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Ctrl/Cmd + F    Search for function
+Ctrl/Cmd + +/-  Zoom in/out
+W/A/S/D         Navigate flamegraph
+T               Toggle thread view
+V               Toggle view (flame/icicle/timeline)
+0               Reset zoom
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="getting-help">
+<h2>Getting Help<a class="headerlink" href="#getting-help" title="Link to this heading"></a></h2>
+<p>If you encounter issues not covered here:</p>
+<ol class="arabic simple">
+<li><p><strong>Start PAM first</strong> - profiler and monitor attach to running process</p></li>
+<li><p><strong>Use separate terminals</strong> for PAM, profiling, and monitoring</p></li>
+<li><p><strong>Use matching scenario labels</strong> to keep related files together</p></li>
+<li><p><strong>Press Ctrl+C to stop</strong> - data is saved automatically via signal handlers</p></li>
+<li><p><strong>Check terminal output</strong> for error messages</p></li>
+<li><p><strong>Verify setup</strong> using commands in Quick Reference</p></li>
+<li><p><strong>Review profile files</strong> exist and have content: <code class="docutils literal notranslate"><span class="pre">ls</span> <span class="pre">-lh</span> <span class="pre">tools/profiling/profiles/</span></code></p></li>
+</ol>
+<p><strong>Common first steps:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Full environment check</span>
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+python<span class="w"> </span>--version<span class="w">  </span><span class="c1"># Should be 3.11.x</span>
+which<span class="w"> </span>py-spy<span class="w">  </span><span class="c1"># Should show .venv/bin/py-spy</span>
+which<span class="w"> </span>psutil<span class="w">  </span><span class="c1"># For monitor_cpu.py</span>
+<span class="nb">pwd</span><span class="w">  </span><span class="c1"># Should be .../petal-app-manager</span>
+
+<span class="c1"># Verify PAM is running (required for profiling/monitoring)</span>
+pgrep<span class="w"> </span>-f<span class="w"> </span><span class="s1">&#39;uvicorn.*petal_app_manager&#39;</span><span class="w">  </span><span class="c1"># Should show a PID</span>
+curl<span class="w"> </span>http://localhost:9000/health<span class="w">  </span><span class="c1"># Should return OK</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><strong>Use</strong> <code class="docutils literal notranslate"><span class="pre">profile_pam.py</span></code> - py-spy profiler (sees all threads/async tasks)</p></li>
+<li><p><strong>Use</strong> <code class="docutils literal notranslate"><span class="pre">monitor_cpu.py</span></code> - simple CPU and memory tracking</p></li>
+<li><p><strong>Start with Speedscope web viewer</strong> - no installation needed, just upload JSON</p></li>
+<li><p><strong>Profile all 5 scenarios</strong> to identify state-specific bottlenecks</p></li>
+<li><p><strong>Focus on thread-level analysis</strong> in idle scenarios (should be &gt;95% sleep)</p></li>
+<li><p><strong>Look for</strong>:</p>
+<ul class="simple">
+<li><p>Excessive polling (check individual worker threads)</p></li>
+<li><p>Blocking I/O in async context (long plateaus in timeline view)</p></li>
+<li><p>Redundant work (wide bars in flame graph)</p></li>
+<li><p>Worker thread overhead (filter by thread in Speedscope)</p></li>
+<li><p>CPU/memory spikes in monitor plots</p></li>
+</ul>
+</li>
+</ol>
+<p><strong>Expected idle behavior:</strong></p>
+<ul class="simple">
+<li><p>Worker threads: 95%+ in <code class="docutils literal notranslate"><span class="pre">time.sleep()</span></code></p></li>
+<li><p>Periodic tasks: Health publishing, file monitoring, etc.</p></li>
+<li><p>Total CPU: &lt;5% on idle</p></li>
+<li><p>Memory: Stable (no leaks)</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="advanced_debugging.html" class="btn btn-neutral float-left" title="Advanced Debugging and Logging" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../petal_documentation/index.html" class="btn btn-neutral float-right" title="Petal Documentation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DroneLeaf.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

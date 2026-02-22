@@ -1,0 +1,1415 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>petal_app_manager.proxies.redis &mdash; Petal App Manager 0.2.2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=ba7fdd6d" />
+
+  
+    <link rel="shortcut icon" href="../../../_static/cropped-site-icon.png"/>
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=000c92bf"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../_static/copybutton.js?v=f281be69"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Petal App Manager
+              <img src="../../../_static/White logo-vertical.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../introduction.html#what-is-petal-app-manager">What is Petal App Manager?</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../introduction.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../introduction.html#key-features">Key Features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../introduction.html#architecture">Architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../introduction.html#system-architecture-diagram">System Architecture Diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../introduction.html#architecture-components">Architecture Components</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../introduction.html#data-flow">Data Flow</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../introduction.html#use-cases">Use Cases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../introduction.html#why-petal-app-manager">Why Petal App Manager?</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../getting_started/dependencies.html">Dependencies Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/dependencies.html#system-requirements">System Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/dependencies.html#python-3-11-installation">Python 3.11 Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/dependencies.html#pdm-installation">PDM Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/dependencies.html#redis-installation-and-configuration">Redis Installation and Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/dependencies.html#redis-development-tools">Redis Development Tools</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/dependencies.html#controller-dashboard">Controller Dashboard</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../getting_started/quickstart.html">Quick Start Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#development-installation">Development Installation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting_started/quickstart.html#using-hear-cli-recommended">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting_started/quickstart.html#manual-development-setup">Manual Development Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#production-installation">Production Installation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting_started/quickstart.html#id1">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting_started/quickstart.html#custom-version-installation-field-testing">Custom Version Installation (Field Testing)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting_started/quickstart.html#manual-production-installation">Manual Production Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#environment-configuration">Environment Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#running-the-application">Running the Application</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#verifying-the-installation">Verifying the Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#quick-development-workflow">Quick Development Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../how_to_use/index.html">How to Use</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../how_to_use/making_requests.html">Making Requests</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/making_requests.html#using-the-postman-collection">Using the Postman Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/making_requests.html#using-the-docs-interface">Using the /docs Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/making_requests.html#accessing-swagger-ui">Accessing Swagger UI</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/making_requests.html#interactive-api-testing">Interactive API Testing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/making_requests.html#using-redoc">Using ReDoc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/making_requests.html#example-api-calls">Example API Calls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/making_requests.html#quick-testing-workflow">Quick Testing Workflow</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../how_to_use/service_management.html">The Petal App Manager Service</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/service_management.html#admin-dashboard-interface">Admin Dashboard Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/service_management.html#accessing-the-admin-dashboard">Accessing the Admin Dashboard</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/service_management.html#dashboard-features">Dashboard Features</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/service_management.html#using-the-admin-dashboard">Using the Admin Dashboard</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/service_management.html#alternative-access-methods">Alternative Access Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/service_management.html#managing-petals-and-proxies-via-api">Managing Petals and Proxies via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/service_management.html#checking-what-s-running">Checking What’s Running</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/service_management.html#viewing-all-available-components">Viewing All Available Components</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/service_management.html#petal-control-via-api">Petal Control via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/service_management.html#enabling-petals">Enabling Petals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/service_management.html#disabling-petals">Disabling Petals</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/service_management.html#proxy-control-via-api">Proxy Control via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/service_management.html#enabling-proxies">Enabling Proxies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/service_management.html#disabling-proxies">Disabling Proxies</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/service_management.html#common-use-cases">Common Use Cases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/service_management.html#restart-management">Restart Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/service_management.html#service-files-and-locations">Service Files and Locations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../how_to_use/configuration.html">Configuration Changes in .env</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/configuration.html#environment-variables-overview">Environment Variables Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/configuration.html#general-configuration">General Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/configuration.html#petal-log-level">PETAL_LOG_LEVEL</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/configuration.html#petal-log-to-file">PETAL_LOG_TO_FILE</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/configuration.html#petal-log-dir">PETAL_LOG_DIR</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/configuration.html#mavlink-configuration">MAVLink Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/configuration.html#petal-mavlink-endpoint">PETAL_MAVLINK_ENDPOINT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/configuration.html#petal-mavlink-baud">PETAL_MAVLINK_BAUD</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/configuration.html#other-mavlink-settings">Other MAVLink Settings</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/configuration.html#cloud-configuration">Cloud Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/configuration.html#redis-configuration">Redis Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/configuration.html#petal-redis-host-and-petal-redis-port">PETAL_REDIS_HOST and PETAL_REDIS_PORT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/configuration.html#petal-redis-unix-socket-path">PETAL_REDIS_UNIX_SOCKET_PATH</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../how_to_use/configuration.html#petal-redis-health-message-rate">PETAL_REDIS_HEALTH_MESSAGE_RATE</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/configuration.html#database-configuration">Database Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/configuration.html#data-operations-urls">Data Operations URLs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/configuration.html#mqtt-configuration">MQTT Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/configuration.html#proxy-connection-retry-configuration">Proxy Connection Retry Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/configuration.html#petal-specific-configuration">Petal-Specific Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/configuration.html#applying-configuration-changes">Applying Configuration Changes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../how_to_use/configuration.html#configuration-examples">Configuration Examples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../development_contribution/index.html">Development and Contribution Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../development_contribution/adding_petals.html">Adding a New Petal Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/adding_petals.html#what-is-a-petal">What is a Petal?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/adding_petals.html#creating-a-new-petal">Creating a New Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#using-hear-cli-recommended">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#manual-setup">Manual Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#petal-structure">Petal Structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#key-components">Key Components</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/adding_petals.html#mqtt-command-handlers-mqtt-action">MQTT Command Handlers (<code class="docutils literal notranslate"><span class="pre">&#64;mqtt_action</span></code>)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#handler-signature">Handler Signature</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#the-cpu-heavy-parameter">The <code class="docutils literal notranslate"><span class="pre">cpu_heavy</span></code> Parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#how-it-works-under-the-hood">How It Works Under the Hood</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#dynamic-factory-handlers">Dynamic / Factory Handlers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#migration-from-legacy-pattern">Migration from Legacy Pattern</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/adding_petals.html#registering-the-petal">Registering the Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#adding-to-proxies-yaml">Adding to proxies.yaml</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#adding-to-pyproject-toml-for-production">Adding to pyproject.toml (for Production)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/adding_petals.html#installing-your-petal">Installing Your Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#development-installation-editable">Development Installation (Editable)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#production-installation-git-tag">Production Installation (Git Tag)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/adding_petals.html#testing-your-petal">Testing Your Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#unit-tests">Unit Tests</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#integration-testing">Integration Testing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#debugging">Debugging</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/adding_petals.html#best-practices">Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#naming-conventions">Naming Conventions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#proxy-management">Proxy Management</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#logging">Logging</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#versioning">Versioning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#documentation">Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/adding_petals.html#common-pitfalls">Common Pitfalls</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#petal-name-must-start-with-petal">Petal Name Must Start with <code class="docutils literal notranslate"><span class="pre">petal-*</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#petal-not-loading">Petal Not Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/adding_petals.html#entry-point-errors">Entry Point Errors</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/adding_petals.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html">Inter-Petal Communication Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#goal">Goal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#overview">Overview</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#benefits">Benefits</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#implementation-guide">Implementation Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#for-sink-petal-developers-message-receivers">For Sink Petal Developers (Message Receivers)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#for-source-petal-developers-message-senders">For Source Petal Developers (Message Senders)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#best-practices">Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#data-model-design">Data Model Design</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#channel-naming-convention">Channel Naming Convention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#versioning">Versioning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#testing">Testing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#example-complete-implementation">Example: Complete Implementation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#sink-petal-petal-leafsdk">Sink Petal (petal-leafsdk)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#source-petal-petal-qgc-mission-adapter">Source Petal (petal-qgc-mission-adapter)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#acceptance-criteria">Acceptance Criteria</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#reference-implementation">Reference Implementation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#migration-path">Migration Path</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#for-existing-petals">For Existing Petals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#deprecation-strategy">Deprecation Strategy</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#additional-resources">Additional Resources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#common-issues">Common Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/inter-petal_communications.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../development_contribution/contribution_guidelines.html">Contribution Guidelines</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/contribution_guidelines.html#dependency-architecture">Dependency Architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/contribution_guidelines.html#understanding-the-petal-stack-dependencies">Understanding the Petal Stack Dependencies</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/contribution_guidelines.html#version-management-by-repository">Version Management by Repository</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/contribution_guidelines.html#petal-app-manager">Petal App Manager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/contribution_guidelines.html#individual-petals">Individual Petals</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/contribution_guidelines.html#non-petal-packages">Non-Petal Packages</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/contribution_guidelines.html#leafsdk">LeafSDK</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/contribution_guidelines.html#mavlink-pymavlink-very-special-case">mavlink/pymavlink (Very Special Case)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/contribution_guidelines.html#version-summary-table">Version Summary Table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/contribution_guidelines.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../development_contribution/using_proxies.html">Using Proxies in Petals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/using_proxies.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/using_proxies.html#available-proxy-types">Available Proxy Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/using_proxies.html#accessing-proxies-in-your-petal">Accessing Proxies in Your Petal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/using_proxies.html#redisproxy">RedisProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/using_proxies.html#mavlinkexternalproxy">MavlinkExternalProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/using_proxies.html#clouddbproxy">CloudDBProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/using_proxies.html#localdbproxy">LocalDBProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/using_proxies.html#s3bucketproxy">S3BucketProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/using_proxies.html#mqttproxy">MQTTProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/using_proxies.html#error-handling-and-best-practices">Error Handling and Best Practices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/using_proxies.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html">Advanced Debugging and Logging</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#available-logging-tools">Available Logging Tools</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#per-level-logging-configuration">Per-Level Logging Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#configuration-methods">Configuration Methods</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#output-options">Output Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#common-configuration-scenarios">Common Configuration Scenarios</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#legacy-format-support">Legacy Format Support</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#csv-signal-logging-tool">CSV Signal Logging Tool</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#advanced-configuration">Advanced Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#complete-petal-example">Complete Petal Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#api-reference">API Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#debugging-best-practices">Debugging Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#environment-specific-configuration">Environment-Specific Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#performance-considerations">Performance Considerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#error-handling-and-recovery">Error Handling and Recovery</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#integration-with-admin-dashboard">Integration with Admin Dashboard</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#testing-and-validation">Testing and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#file-management">File Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/advanced_debugging.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../development_contribution/profiling.html">Petal App Manager Profiling Tools</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/profiling.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/profiling.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/profiling.html#quick-start">Quick Start</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#prerequisites">1. Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#install-dependencies">2. Install Dependencies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#start-pam">3. Start PAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#run-profiling-and-or-monitoring">4. Run Profiling and/or Monitoring</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#view-results">5. View Results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#command-line-flags">6. Command-Line Flags</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/profiling.html#profiling-scenarios">Profiling Scenarios</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#workflow-for-profiling-different-scenarios">Workflow for Profiling Different Scenarios</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#example-sitl-mission-for-profiling">Example SITL Mission for Profiling</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/profiling.html#output-formats-visualizations">Output Formats &amp; Visualizations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#speedscope-json-interactive">Speedscope JSON (Interactive) ⭐</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#monitor-output-cpu-and-memory-usage">Monitor Output: CPU and Memory Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/profiling.html#interpretation-guide">Interpretation Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#what-to-look-for">What to Look For</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#reading-flame-graphs">Reading Flame Graphs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#common-patterns-to-identify">Common Patterns to Identify</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/profiling.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#environment-issues">Environment Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#profiler-issues">Profiler Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#visualization-issues">Visualization Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#performance-issues">Performance Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#results-interpretation-issues">Results Interpretation Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/profiling.html#quick-reference">Quick Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#command-cheatsheet">Command Cheatsheet</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#file-naming-conventions">File Naming Conventions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../development_contribution/profiling.html#keyboard-shortcuts-speedscope">Keyboard Shortcuts (Speedscope)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/profiling.html#getting-help">Getting Help</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../development_contribution/profiling.html#summary">Summary</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../petal_documentation/index.html">Petal Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html">Petal User Journey Coordinator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#required-proxies">Required Proxies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#command-categories">Command Categories</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#esc-calibration-commands">ESC Calibration Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#esc-calibration">esc_calibration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#esc-force-run-all">esc_force_run_all</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#esc-force-run-single">esc_force_run_single</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#esc-calibration-single">esc_calibration_single</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#parameter-configuration-commands">Parameter Configuration Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#geometry">geometry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#gps-module">gps_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#dist-module">dist_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#oflow-module">oflow_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#gps-spatial-offset">gps_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#distance-spatial-offset">distance_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#optical-flow-spatial-offset">optical_flow_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#esc-update-calibration-limits">esc_update_calibration_limits</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#bulk-parameter-operations">Bulk Parameter Operations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#bulk-set-parameters">bulk_set_parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#bulk-get-parameters">bulk_get_parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#real-time-telemetry-streams">Real-Time Telemetry Streams</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#subscribe-rc-value-stream">subscribe_rc_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#unsubscribe-rc-value-stream">unsubscribe_rc_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#subscribe-pose-value-stream">subscribe_pose_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#unsubscribe-pose-value-stream">unsubscribe_pose_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#subscribe-ks-status-stream">subscribe_ks_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#unsubscribe-ks-status-stream">unsubscribe_ks_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#subscribe-mfs-a-status-stream-subscribe-mfs-b-status-stream">subscribe_mfs_a_status_stream / subscribe_mfs_b_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#unsubscribeall">unsubscribeall</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#trajectory-verification-commands">Trajectory Verification Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#verify-pos-yaw-directions">verify_pos_yaw_directions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#verify-pos-yaw-directions-complete">verify_pos_yaw_directions_complete</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#wifi-optitrack-commands">WiFi &amp; OptiTrack Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#connect-to-wifi-and-verify-optitrack">connect_to_wifi_and_verify_optitrack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#set-static-ip-address">set_static_ip_address</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#system-commands">System Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#reboot-px4">reboot_px4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#format-sd-card">format_sd_card</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#get-log-entries">get_log_entries</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#complete-usage-example">Complete Usage Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#error-handling">Error Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#mqtt-topics-reference">MQTT Topics Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#commands-received-on-command-edge">Commands (Received on <code class="docutils literal notranslate"><span class="pre">command/edge</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#published-topics-sent-to-command-web">Published Topics (Sent to <code class="docutils literal notranslate"><span class="pre">command/web</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_user_journey_coordinator.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html">Petal Flight Log</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#required-proxies">Required Proxies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#command-categories">Command Categories</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#flight-record-fetch-commands">Flight Record Fetch Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#fetch-flight-records">fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#subscribe-fetch-flight-records">subscribe_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#unsubscribe-fetch-flight-records">unsubscribe_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#cancel-fetch-flight-records">cancel_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#fetch-existing-flight-records">fetch_existing_flight_records</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#flight-record-sync-commands">Flight Record Sync Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#start-sync-flight-record">start_sync_flight_record</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#subscribe-sync-job-value-stream">subscribe_sync_job_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#unsubscribe-sync-job-value-stream">unsubscribe_sync_job_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#cancel-sync-job">cancel_sync_job</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#flight-record-management-commands">Flight Record Management Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#delete-flight-record">delete_flight_record</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#bulk-delete-flight-records-commands">Bulk Delete Flight Records Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#bulk-delete-flight-records">bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#subscribe-bulk-delete-flight-records">subscribe_bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#unsubscribe-bulk-delete-flight-records">unsubscribe_bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#cancel-bulk-delete-flight-records">cancel_bulk_delete_flight_records</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#clear-error-logs-commands">Clear Error Logs Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#detect-error-logs">detect_error_logs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#clear-error-logs">clear_error_logs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#clear-all-ulogs-commands">Clear All ULogs Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#clear-all-ulogs">clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#subscribe-clear-all-ulogs">subscribe_clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#unsubscribe-clear-all-ulogs">unsubscribe_clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#cancel-clear-all-ulogs">cancel_clear_all_ulogs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#job-status-values">Job Status Values</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#mqtt-topics-reference">MQTT Topics Reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#data-models">Data Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#flightrecordmatch">FlightRecordMatch</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#error-handling">Error Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#id1">MQTT Topics Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#commands-received-on-command-edge">Commands (Received on <code class="docutils literal notranslate"><span class="pre">command/edge</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#published-topics-sent-to-command-web">Published Topics (Sent to <code class="docutils literal notranslate"><span class="pre">command/web</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../petal_documentation/petal_flight_log.html#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-2-2-2026-02-22">Version 0.2.2 (2026-02-22)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-2-1-2026-02-12">Version 0.2.1 (2026-02-12)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-2-0-2026-02-12">Version 0.2.0 (2026-02-12)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-62-2026-02-06">Version 0.1.62 (2026-02-06)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-61-2026-02-03">Version 0.1.61 (2026-02-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-60-2026-01-30">Version 0.1.60 (2026-01-30)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-59-2026-01-27">Version 0.1.59 (2026-01-27)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-57-2026-01-18">Version 0.1.57 (2026-01-18)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-56-2026-01-17">Version 0.1.56 (2026-01-17)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-54-2026-01-15">Version 0.1.54 (2026-01-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-53-2026-01-15">Version 0.1.53 (2026-01-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-52-2026-01-14">Version 0.1.52 (2026-01-14)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-51-2026-01-08">Version 0.1.51 (2026-01-08)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-50-2026-01-05">Version 0.1.50 (2026-01-05)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-49-2025-01-05">Version 0.1.49 (2025-01-05)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-48-2025-12-31">Version 0.1.48 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-47-2025-12-31">Version 0.1.47 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-46-2025-12-31">Version 0.1.46 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-45-2025-11-23">Version 0.1.45 (2025-11-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-44-2025-11-07">Version 0.1.44 (2025-11-07)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-43-2025-11-05-hotfix">Version 0.1.43 (2025-11-05) - Hotfix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-42-2025-11-03">Version 0.1.42 (2025-11-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-41-2025-11-02">Version 0.1.41 (2025-11-02)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-39-2025-10-23">Version 0.1.39 (2025-10-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-38-2025-10-23">Version 0.1.38 (2025-10-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-37-2025-10-22">Version 0.1.37 (2025-10-22)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-31-2025-09-25">Version 0.1.31 (2025-09-25)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-29-2025-08-28">Version 0.1.29 (2025-08-28)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-28-2025-08-17">Version 0.1.28 (2025-08-17)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-23-2025-07-31">Version 0.1.23 (2025-07-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-18-2025-07-29">Version 0.1.18 (2025-07-29)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-5-2025-07-03-first-stable-release">Version 0.1.5 (2025-07-03) - First Stable Release</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../changelog.html#version-0-1-0-2025-06-22-initial-release">Version 0.1.0 (2025-06-22) - Initial Release</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_reference/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api_reference/core_api.html">Core API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/core_api.html#module-petal_app_manager.api.admin_ui">Admin UI</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.admin_ui.admin_dashboard"><code class="docutils literal notranslate"><span class="pre">admin_dashboard()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.admin_ui.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/core_api.html#module-petal_app_manager.api.health">Health Endpoints</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.health.detailed_health_check"><code class="docutils literal notranslate"><span class="pre">detailed_health_check()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.health.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.health.health_check"><code class="docutils literal notranslate"><span class="pre">health_check()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.health.organization_health_check"><code class="docutils literal notranslate"><span class="pre">organization_health_check()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/core_api.html#module-petal_app_manager.api.config_api">Configuration API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.config_api.AllComponentsResponse"><code class="docutils literal notranslate"><span class="pre">AllComponentsResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.config_api.ConfigResponse"><code class="docutils literal notranslate"><span class="pre">ConfigResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.config_api.PetalControlRequest"><code class="docutils literal notranslate"><span class="pre">PetalControlRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.config_api.PetalInfo"><code class="docutils literal notranslate"><span class="pre">PetalInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.config_api.ProxyInfo"><code class="docutils literal notranslate"><span class="pre">ProxyInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.config_api.control_petals"><code class="docutils literal notranslate"><span class="pre">control_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.config_api.control_proxies"><code class="docutils literal notranslate"><span class="pre">control_proxies()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.config_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.config_api.get_status"><code class="docutils literal notranslate"><span class="pre">get_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.config_api.list_all_components"><code class="docutils literal notranslate"><span class="pre">list_all_components()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/core_api.html#module-petal_app_manager.api.cloud_api">Cloud API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.cloud_api.GetItemRequest"><code class="docutils literal notranslate"><span class="pre">GetItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.cloud_api.ScanTableRequest"><code class="docutils literal notranslate"><span class="pre">ScanTableRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.cloud_api.SetItemRequest"><code class="docutils literal notranslate"><span class="pre">SetItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.cloud_api.UpdateItemRequest"><code class="docutils literal notranslate"><span class="pre">UpdateItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.cloud_api.delete_item"><code class="docutils literal notranslate"><span class="pre">delete_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.cloud_api.get_item"><code class="docutils literal notranslate"><span class="pre">get_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.cloud_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.cloud_api.scan_table"><code class="docutils literal notranslate"><span class="pre">scan_table()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.cloud_api.set_item"><code class="docutils literal notranslate"><span class="pre">set_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.cloud_api.update_item"><code class="docutils literal notranslate"><span class="pre">update_item()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/core_api.html#module-petal_app_manager.api.bucket_api">Bucket API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.bucket_api.delete_file_test"><code class="docutils literal notranslate"><span class="pre">delete_file_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.bucket_api.download_file_test"><code class="docutils literal notranslate"><span class="pre">download_file_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.bucket_api.get_info"><code class="docutils literal notranslate"><span class="pre">get_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.bucket_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.bucket_api.list_files_test"><code class="docutils literal notranslate"><span class="pre">list_files_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.bucket_api.upload_file_test"><code class="docutils literal notranslate"><span class="pre">upload_file_test()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/core_api.html#module-petal_app_manager.api.mavftp_api">MAVLink FTP API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mavftp_api.ClearFailLogsRequest"><code class="docutils literal notranslate"><span class="pre">ClearFailLogsRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mavftp_api.clear_fail_logs"><code class="docutils literal notranslate"><span class="pre">clear_fail_logs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mavftp_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mavftp_api.list_directory"><code class="docutils literal notranslate"><span class="pre">list_directory()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/core_api.html#module-petal_app_manager.api.mqtt_api">MQTT API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mqtt_api.MQTTResponse"><code class="docutils literal notranslate"><span class="pre">MQTTResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mqtt_api.PublishMessageRequest"><code class="docutils literal notranslate"><span class="pre">PublishMessageRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mqtt_api.SubscribePatternRequest"><code class="docutils literal notranslate"><span class="pre">SubscribePatternRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mqtt_api.SubscribeTopicRequest"><code class="docutils literal notranslate"><span class="pre">SubscribeTopicRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mqtt_api.UnsubscribeTopicRequest"><code class="docutils literal notranslate"><span class="pre">UnsubscribeTopicRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mqtt_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mqtt_api.get_mqtt_status"><code class="docutils literal notranslate"><span class="pre">get_mqtt_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mqtt_api.list_subscriptions"><code class="docutils literal notranslate"><span class="pre">list_subscriptions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mqtt_api.publish_message"><code class="docutils literal notranslate"><span class="pre">publish_message()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mqtt_api.subscribe_topic"><code class="docutils literal notranslate"><span class="pre">subscribe_topic()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.mqtt_api.unsubscribe_topic"><code class="docutils literal notranslate"><span class="pre">unsubscribe_topic()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/core_api.html#module-petal_app_manager.api.proxy_info">Proxy Info</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.proxy_info.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/core_api.html#petal_app_manager.api.proxy_info.list_proxies"><code class="docutils literal notranslate"><span class="pre">list_proxies()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api_reference/proxies.html">Proxies</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/proxies.html#module-petal_app_manager.proxies.base">Base Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.base.BaseProxy"><code class="docutils literal notranslate"><span class="pre">BaseProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/proxies.html#module-petal_app_manager.proxies.redis">Redis Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#redisproxy">RedisProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy"><code class="docutils literal notranslate"><span class="pre">RedisProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/proxies.html#module-petal_app_manager.proxies.external">External MAVLink Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petalappmanager-proxies-external">petalappmanager.proxies.external</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.external.DownloadCancelledException"><code class="docutils literal notranslate"><span class="pre">DownloadCancelledException</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.external.ExternalProxy"><code class="docutils literal notranslate"><span class="pre">ExternalProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.external.FTPDeleteError"><code class="docutils literal notranslate"><span class="pre">FTPDeleteError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.external.MavLinkExternalProxy"><code class="docutils literal notranslate"><span class="pre">MavLinkExternalProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.external.MavLinkFTPProxy"><code class="docutils literal notranslate"><span class="pre">MavLinkFTPProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.external.ULogInfo"><code class="docutils literal notranslate"><span class="pre">ULogInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.external.setup_file_only_logger"><code class="docutils literal notranslate"><span class="pre">setup_file_only_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/proxies.html#module-petal_app_manager.proxies.localdb">Local Database Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#localdbproxy">LocalDBProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.localdb.LocalDBProxy"><code class="docutils literal notranslate"><span class="pre">LocalDBProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/proxies.html#module-petal_app_manager.proxies.cloud">Cloud Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#clouddbproxy">CloudDBProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.cloud.CloudDBProxy"><code class="docutils literal notranslate"><span class="pre">CloudDBProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/proxies.html#module-petal_app_manager.proxies.bucket">Bucket Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.bucket.S3BucketProxy"><code class="docutils literal notranslate"><span class="pre">S3BucketProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/proxies.html#module-petal_app_manager.proxies.mqtt">MQTT Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#mqttproxy">MQTTProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.mqtt.MQTTProxy"><code class="docutils literal notranslate"><span class="pre">MQTTProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/proxies.html#petal_app_manager.proxies.mqtt.MessageCallback"><code class="docutils literal notranslate"><span class="pre">MessageCallback</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api_reference/plugins.html">Plugins System</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/plugins.html#module-petal_app_manager.plugins.base">Base Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/plugins.html#petal_app_manager.plugins.base.Petal"><code class="docutils literal notranslate"><span class="pre">Petal</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/plugins.html#module-petal_app_manager.plugins.decorators">Decorators</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/plugins.html#petal_app_manager.plugins.decorators.http_action"><code class="docutils literal notranslate"><span class="pre">http_action()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/plugins.html#petal_app_manager.plugins.decorators.mqtt_action"><code class="docutils literal notranslate"><span class="pre">mqtt_action()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/plugins.html#petal_app_manager.plugins.decorators.websocket_action"><code class="docutils literal notranslate"><span class="pre">websocket_action()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/plugins.html#module-petal_app_manager.plugins.loader">Loader</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/plugins.html#petal_app_manager.plugins.loader.initialize_petals"><code class="docutils literal notranslate"><span class="pre">initialize_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/plugins.html#petal_app_manager.plugins.loader.load_petals"><code class="docutils literal notranslate"><span class="pre">load_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/plugins.html#petal_app_manager.plugins.loader.startup_petals"><code class="docutils literal notranslate"><span class="pre">startup_petals()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api_reference/petals.html">Available Petals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/petals.html#production-petals">Production Petals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/petals.html#petal-flight-log">petal-flight-log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/petals.html#petal-warehouse">petal-warehouse</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/petals.html#petal-leafsdk">petal-leafsdk</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/petals.html#petal-user-journey-coordinator">petal-user-journey-coordinator</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api_reference/petals.html#development-petals">Development Petals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api_reference/petals.html#petal-qgc-mission-server">petal-qgc-mission-server</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api_reference/index.html#core-modules">Core Modules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../known_issues.html">Known Issues</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../known_issues.html#petal-issues">Petal Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../known_issues.html#petal-name-must-start-with-petal">Petal Name Must Start with <code class="docutils literal notranslate"><span class="pre">petal-*</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../known_issues.html#petal-not-getting-loaded">Petal Not Getting Loaded</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../known_issues.html#python-3-11-issues">Python 3.11 Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../known_issues.html#python-3-11-not-found">Python 3.11 Not Found</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../known_issues.html#pdm-issues">PDM Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../known_issues.html#pdm-installation-fails">PDM Installation Fails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../known_issues.html#pdm-lock-file-issues">PDM Lock File Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../known_issues.html#redis-issues">Redis Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../known_issues.html#redis-connection-errors">Redis Connection Errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../known_issues.html#redis-configuration-issues">Redis Configuration Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../known_issues.html#mavlink-issues">MAVLink Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../known_issues.html#mavlink-connection-issues">MAVLink Connection Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../known_issues.html#mavlink-submodule-branch-issues-sitl">MAVLink Submodule Branch Issues (SITL)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../known_issues.html#mqtt-issues">MQTT Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../known_issues.html#mqtt-proxy-fails-on-fresh-installation">MQTT Proxy Fails on Fresh Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../known_issues.html#port-conflicts">Port Conflicts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../known_issues.html#port-9000-already-in-use">Port 9000 Already in Use</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../known_issues.html#reporting-issues">Reporting Issues</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Petal App Manager</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">petal_app_manager.proxies.redis</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for petal_app_manager.proxies.redis</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">RedisProxy</span>
+<span class="sd">==========</span>
+
+<span class="sd">Simple Redis proxy for basic pub/sub messaging and key-value operations.</span>
+<span class="sd">Supports Unix socket connections.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">concurrent.futures</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">redis</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseProxy</span>
+
+
+<div class="viewcode-block" id="RedisProxy">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RedisProxy</span><span class="p">(</span><span class="n">BaseProxy</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Simple Redis proxy for pub/sub messaging and key-value operations.</span>
+<span class="sd">    Supports Unix socket connections.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">host</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;localhost&quot;</span><span class="p">,</span>
+        <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6379</span><span class="p">,</span>
+        <span class="n">db</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">password</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">unix_socket_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="n">host</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="n">port</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="n">db</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="n">password</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">=</span> <span class="n">debug</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">unix_socket_path</span> <span class="o">=</span> <span class="n">unix_socket_path</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_client</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_pattern</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Executor for blocking Redis I/O (listen loops + Redis commands)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span> <span class="o">=</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">thread_name_prefix</span><span class="o">=</span><span class="s2">&quot;RedisProxy&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;RedisProxy&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Communication and health check attributes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app_id</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;redis-proxy-</span><span class="si">{</span><span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>  <span class="c1"># Unique app identifier</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_listening</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Whether actively listening for messages</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_message_handlers</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Active message handlers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_tasks</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Active subscription tasks</span>
+        
+        <span class="c1"># Store active subscriptions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subscriptions</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># normal channel subscriptions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_task</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Pattern subscription state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_callbacks</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># channel: callback for pattern subpub</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_subscription_task</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_current_pattern</span> <span class="o">=</span> <span class="kc">None</span>
+        
+        <span class="c1"># CPU-heavy offloading flags per handler</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_handler_cpu_heavy</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># channel -&gt; cpu_heavy flag</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_cpu_heavy</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># channel -&gt; cpu_heavy flag</span>
+        
+        <span class="c1"># Shutdown flag to control infinite loops</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_flag</span> <span class="o">=</span> <span class="kc">False</span>
+        
+<div class="viewcode-block" id="RedisProxy.start">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.start">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the connection to Redis.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_running_loop</span><span class="p">()</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Create Redis client - prioritize Unix socket</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">unix_socket_path</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing Redis connection via Unix socket: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">unix_socket_path</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span>
+                    <span class="k">lambda</span><span class="p">:</span> <span class="n">redis</span><span class="o">.</span><span class="n">Redis</span><span class="p">(</span>
+                        <span class="n">unix_socket_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">unix_socket_path</span><span class="p">,</span>
+                        <span class="n">db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="p">,</span>
+                        <span class="n">password</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">password</span><span class="p">,</span>
+                        <span class="n">decode_responses</span><span class="o">=</span><span class="kc">True</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                
+                <span class="c1"># Create separate client for pub/sub operations</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_client</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span>
+                    <span class="k">lambda</span><span class="p">:</span> <span class="n">redis</span><span class="o">.</span><span class="n">Redis</span><span class="p">(</span>
+                        <span class="n">unix_socket_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">unix_socket_path</span><span class="p">,</span>
+                        <span class="n">db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="p">,</span>
+                        <span class="n">password</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">password</span><span class="p">,</span>
+                        <span class="n">decode_responses</span><span class="o">=</span><span class="kc">True</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing Redis connection to </span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2"> db=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span>
+                    <span class="k">lambda</span><span class="p">:</span> <span class="n">redis</span><span class="o">.</span><span class="n">Redis</span><span class="p">(</span>
+                        <span class="n">host</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="p">,</span>
+                        <span class="n">port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">,</span>
+                        <span class="n">db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="p">,</span>
+                        <span class="n">password</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">password</span><span class="p">,</span>
+                        <span class="n">decode_responses</span><span class="o">=</span><span class="kc">True</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                
+                <span class="c1"># Create separate client for pub/sub operations</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_client</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span>
+                    <span class="k">lambda</span><span class="p">:</span> <span class="n">redis</span><span class="o">.</span><span class="n">Redis</span><span class="p">(</span>
+                        <span class="n">host</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="p">,</span>
+                        <span class="n">port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">,</span>
+                        <span class="n">db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="p">,</span>
+                        <span class="n">password</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">password</span><span class="p">,</span>
+                        <span class="n">decode_responses</span><span class="o">=</span><span class="kc">True</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to create Redis clients: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        
+        <span class="c1"># Test connection</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ping_result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">ping</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">ping_result</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Redis connection established successfully&quot;</span><span class="p">)</span>
+                <span class="c1"># Initialize pub/sub</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_client</span><span class="o">.</span><span class="n">pubsub</span><span class="p">()</span>
+                <span class="c1"># Initialize pattern pub/sub (separate client for patterns)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_pattern</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_client</span><span class="o">.</span><span class="n">pubsub</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_subscribe_pattern</span><span class="p">(</span><span class="s2">&quot;/petal-*&quot;</span><span class="p">)</span>  <span class="c1"># Default pattern</span>
+                
+                <span class="c1"># Set listening state to True after successful connection and pub/sub setup</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_is_listening</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RedisProxy </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">app_id</span><span class="si">}</span><span class="s2"> is now listening for messages&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Redis ping returned unexpected result&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to connect to Redis: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+            
+<div class="viewcode-block" id="RedisProxy.stop">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.stop">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Close the Redis connection and clean up resources.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Stopping RedisProxy...&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Set shutdown flag to stop infinite loops</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_flag</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="c1"># Stop listening state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_listening</span> <span class="o">=</span> <span class="kc">False</span>
+        
+        <span class="c1"># Stop subscription tasks</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_task</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_task</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_task</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_task</span>
+            <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+                <span class="k">pass</span>
+                
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_subscription_task</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_subscription_task</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_subscription_task</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_subscription_task</span>
+            <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+                <span class="k">pass</span>
+        
+        <span class="c1"># Clear handlers and tasks</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_message_handlers</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_tasks</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        
+        <span class="c1"># Close pub/sub</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub</span><span class="o">.</span><span class="n">close</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error closing Redis pub/sub: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_pattern</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_pattern</span><span class="o">.</span><span class="n">close</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error closing Redis pattern pub/sub: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Close Redis connections</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">close</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error closing Redis connection: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_client</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_client</span><span class="o">.</span><span class="n">close</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error closing Redis pub/sub connection: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Shutdown the executor with a timeout</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="o">.</span><span class="n">shutdown</span><span class="p">(</span><span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># Don&#39;t wait for infinite loops</span>
+            
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;RedisProxy stopped&quot;</span><span class="p">)</span></div>
+
+        
+    <span class="c1"># ------ Key-Value Operations ------ #</span>
+    
+<div class="viewcode-block" id="RedisProxy.get">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.get">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a value from Redis.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Redis client not initialized&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+            
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span> 
+                <span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="c1"># 📥 Log key reads</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;📥 Redis GET: </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error getting key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
+
+    
+<div class="viewcode-block" id="RedisProxy.set">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.set">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ex</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set a value in Redis.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Redis client not initialized&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+            
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span> 
+                <span class="k">lambda</span><span class="p">:</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">ex</span><span class="o">=</span><span class="n">ex</span><span class="p">))</span>
+            <span class="p">)</span>
+            <span class="c1"># 📤 Log key writes</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;📤 Redis SET: </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2"> (ex=</span><span class="si">{</span><span class="n">ex</span><span class="si">}</span><span class="s2">) -&gt; </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error setting key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span></div>
+
+    
+<div class="viewcode-block" id="RedisProxy.delete">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.delete">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Delete a key from Redis.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Redis client not initialized&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mi">0</span>
+            
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span> 
+                <span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error deleting key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mi">0</span></div>
+
+    
+<div class="viewcode-block" id="RedisProxy.exists">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.exists">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if a key exists in Redis.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Redis client not initialized&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+            
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span> 
+                <span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error checking existence of key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span></div>
+
+    
+<div class="viewcode-block" id="RedisProxy.scan_keys">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.scan_keys">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">scan_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Scan Redis keys matching a pattern.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            pattern: Key pattern to match (e.g., ``job:*``)</span>
+<span class="sd">            count: Number of keys to return per scan iteration</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            List of matching keys</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Redis client not initialized&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[]</span>
+            
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">_scan</span><span class="p">():</span>
+                <span class="n">keys</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">cursor</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                    <span class="n">cursor</span><span class="p">,</span> <span class="n">partial_keys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">cursor</span><span class="o">=</span><span class="n">cursor</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="n">pattern</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">count</span><span class="p">)</span>
+                    <span class="n">keys</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">partial_keys</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">cursor</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">break</span>
+                <span class="k">return</span> <span class="n">keys</span>
+            
+            <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span> <span class="n">_scan</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error scanning keys with pattern </span><span class="si">{</span><span class="n">pattern</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[]</span></div>
+
+    
+<div class="viewcode-block" id="RedisProxy.list_online_applications">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.list_online_applications">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">list_online_applications</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List online applications by checking Redis keys for app registrations.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Redis client not initialized&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[]</span>
+            
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Look for keys that match application registration pattern</span>
+            <span class="c1"># This is a simple implementation - can be customized based on your app registration pattern</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span> 
+                <span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">keys</span><span class="p">(</span><span class="s2">&quot;app:*:online&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="c1"># Extract app names from keys like &quot;app:myapp:online&quot;</span>
+            <span class="n">apps</span> <span class="o">=</span> <span class="p">[</span><span class="n">key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">result</span> <span class="k">if</span> <span class="s1">&#39;:&#39;</span> <span class="ow">in</span> <span class="n">key</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">apps</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error listing online applications: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[]</span></div>
+
+    
+    <span class="c1"># ------ Pub/Sub Operations ------ #</span>
+    
+<div class="viewcode-block" id="RedisProxy.publish">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.publish">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">publish</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Publish a message to a channel (async, non-blocking).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Redis client not initialized&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mi">0</span>
+            
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span>
+                <span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error publishing to channel </span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mi">0</span></div>
+
+    
+<div class="viewcode-block" id="RedisProxy.subscribe">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.subscribe">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subscribe</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">channel</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]],</span>
+        <span class="n">cpu_heavy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subscribe to a channel with an async callback function.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            channel: The Redis channel to subscribe to</span>
+<span class="sd">            callback: Async callback function that receives (channel, data)</span>
+<span class="sd">            cpu_heavy: If True, the callback&#39;s CPU-bound work will be offloaded</span>
+<span class="sd">                to a thread-pool executor managed by the proxy.</span>
+<span class="sd">            </span>
+<span class="sd">        Raises:</span>
+<span class="sd">            TypeError: If callback is not an async function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">iscoroutinefunction</span><span class="p">(</span><span class="n">callback</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Callback must be an async function (coroutine). &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">callback</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> instead. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Define your callback with &#39;async def&#39; instead of &#39;def&#39;.&quot;</span>
+            <span class="p">)</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Redis pub/sub not initialized&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        
+        <span class="c1"># Store the callback and its config in tracking dictionaries</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subscriptions</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span> <span class="o">=</span> <span class="n">callback</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_message_handlers</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span> <span class="o">=</span> <span class="n">callback</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_handler_cpu_heavy</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span> <span class="o">=</span> <span class="n">cpu_heavy</span>
+        
+        <span class="c1"># Subscribe to the channel</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># await self._loop.run_in_executor(</span>
+            <span class="c1">#     self._exe,</span>
+            <span class="c1">#     lambda: self._pubsub.subscribe(channel)</span>
+            <span class="c1"># )</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span>
+            <span class="c1"># Start listening if not already started</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_task</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_listen_for_messages</span><span class="p">())</span>
+                <span class="c1"># Track this task</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_tasks</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_task</span>
+                
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Subscribed to channel: </span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error subscribing to channel </span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="RedisProxy.unsubscribe">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.unsubscribe">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unsubscribe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unsubscribe from a channel.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Redis pub/sub not initialized&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub</span><span class="o">.</span><span class="n">unsubscribe</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span>
+            <span class="c1"># Remove callback from both tracking dictionaries</span>
+            <span class="k">if</span> <span class="n">channel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscriptions</span><span class="p">:</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscriptions</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">channel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_message_handlers</span><span class="p">:</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_message_handlers</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">channel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_tasks</span><span class="p">:</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscription_tasks</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">channel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handler_cpu_heavy</span><span class="p">:</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handler_cpu_heavy</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span>
+                
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsubscribed from channel: </span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error unsubscribing from channel </span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_subscribe_pattern</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;/petal-*&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subscribe to channels matching a pattern. Only one pattern at a time.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_pattern</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Redis pattern pub/sub not initialized&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="c1"># Only support one pattern at a time</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_pattern</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_pattern</span> <span class="o">!=</span> <span class="n">pattern</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Switching from pattern &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_pattern</span><span class="si">}</span><span class="s2">&#39; to &#39;</span><span class="si">{</span><span class="n">pattern</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_unsubscribe_pattern</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_pattern</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_current_pattern</span> <span class="o">=</span> <span class="n">pattern</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_pattern</span><span class="o">.</span><span class="n">psubscribe</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span>
+            <span class="c1"># Start listening if not already started</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_subscription_task</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_subscription_task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_listen_for_pattern_messages</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Subscribed to pattern: </span><span class="si">{</span><span class="n">pattern</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error subscribing to pattern </span><span class="si">{</span><span class="n">pattern</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RedisProxy.register_pattern_channel_callback">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.register_pattern_channel_callback">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_pattern_channel_callback</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">channel</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]],</span>
+        <span class="n">cpu_heavy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Register a callback for a specific channel for pattern subscriptions.</span>
+<span class="sd">        </span>
+<span class="sd">        The callback must be an async function (coroutine).</span>
+<span class="sd">        Sync callbacks are not supported and will raise TypeError.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            channel: The channel to register the callback for</span>
+<span class="sd">            callback: Async callback function that receives (channel, data)</span>
+<span class="sd">            cpu_heavy: If True, the callback&#39;s CPU-bound work will be offloaded</span>
+<span class="sd">                to a thread-pool executor managed by the proxy.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">iscoroutinefunction</span><span class="p">(</span><span class="n">callback</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Callback for channel &#39;</span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">&#39; must be an async function (coroutine). &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">callback</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">. Use &#39;async def&#39; to define your callback.&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_callbacks</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span> <span class="o">=</span> <span class="n">callback</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_cpu_heavy</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span> <span class="o">=</span> <span class="n">cpu_heavy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Registered pattern callback for channel: </span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RedisProxy.unregister_pattern_channel_callback">
+<a class="viewcode-back" href="../../../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy.unregister_pattern_channel_callback">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unregister_pattern_channel_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unregister a callback for a specific channel for pattern subscriptions.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">channel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_callbacks</span><span class="p">:</span>
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_callbacks</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unregistered pattern callback for channel: </span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No pattern callback registered for channel: </span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_unsubscribe_pattern</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unsubscribe from the current pattern.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_pattern</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Redis pattern pub/sub not initialized&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="c1"># Use current pattern if none specified</span>
+        <span class="k">if</span> <span class="n">pattern</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">pattern</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_pattern</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pattern</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No pattern to unsubscribe from&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_pattern</span><span class="o">.</span><span class="n">punsubscribe</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">pattern</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_pattern</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_current_pattern</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_callbacks</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsubscribed from pattern: </span><span class="si">{</span><span class="n">pattern</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error unsubscribing from pattern </span><span class="si">{</span><span class="n">pattern</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_listen_for_pattern_messages</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Listen for messages from pattern subscriptions and dispatch directly.&quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_flag</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">message</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span>
+                    <span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub_pattern</span><span class="o">.</span><span class="n">get_message</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">message</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;pmessage&#39;</span><span class="p">:</span>
+                    <span class="n">channel</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s1">&#39;channel&#39;</span><span class="p">]</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Received pattern message at channel: </span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    
+                    <span class="c1"># Dispatch directly to registered callback</span>
+                    <span class="n">callback</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_callbacks</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">callback</span><span class="p">:</span>
+                        <span class="n">is_cpu_heavy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pattern_cpu_heavy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_invoke_callback_safely</span><span class="p">(</span><span class="n">callback</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">cpu_heavy</span><span class="o">=</span><span class="n">is_cpu_heavy</span><span class="p">)</span>
+                    
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s2">&quot;timeout&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_flag</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error listening for pattern messages: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_listen_for_messages</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Listen for PubSub messages and auto-reconnect on errors.&quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_flag</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">message</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span>
+                    <span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pubsub</span><span class="o">.</span><span class="n">get_message</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="c1"># Only care about real published messages</span>
+                <span class="k">if</span> <span class="n">message</span> <span class="ow">and</span> <span class="n">message</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;message&#39;</span><span class="p">:</span>
+                    <span class="c1"># Decode bytes to str if needed</span>
+                    <span class="n">channel</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s1">&#39;channel&#39;</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+                        <span class="n">channel</span> <span class="o">=</span> <span class="n">channel</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">,</span> <span class="s1">&#39;ignore&#39;</span><span class="p">)</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+                        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">,</span> <span class="s1">&#39;ignore&#39;</span><span class="p">)</span>
+
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Received at channel: </span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                    <span class="c1"># Dispatch directly to registered callback</span>
+                    <span class="n">callback</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscriptions</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">callback</span><span class="p">:</span>
+                        <span class="n">is_cpu_heavy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handler_cpu_heavy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_invoke_callback_safely</span><span class="p">(</span><span class="n">callback</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">cpu_heavy</span><span class="o">=</span><span class="n">is_cpu_heavy</span><span class="p">)</span>
+
+            <span class="k">except</span> <span class="n">redis</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ConnectionError</span> <span class="k">as</span> <span class="n">conn_err</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_flag</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Connection lost: </span><span class="si">{</span><span class="n">conn_err</span><span class="si">!r}</span><span class="s2">; reconnecting in 1s&quot;</span><span class="p">)</span>
+                    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reconnect_pubsub</span><span class="p">()</span>
+
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">)</span> <span class="k">as</span> <span class="n">io_err</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_flag</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;I/O error on PubSub socket: </span><span class="si">{</span><span class="n">io_err</span><span class="si">!r}</span><span class="s2">; reconnecting in 1s&quot;</span><span class="p">)</span>
+                    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reconnect_pubsub</span><span class="p">()</span>
+
+            <span class="k">except</span> <span class="ne">IndexError</span> <span class="k">as</span> <span class="n">idx_err</span><span class="p">:</span>
+                <span class="c1"># Defensive: swallow stray indexing bugs and keep going</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected indexing error: </span><span class="si">{</span><span class="n">idx_err</span><span class="si">!r}</span><span class="s2">; continuing&quot;</span><span class="p">)</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># Anything else that isn’t just a timeout</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+                <span class="k">if</span> <span class="s2">&quot;timeout&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">msg</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error listening for messages: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_invoke_callback_safely</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">cpu_heavy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Safely invoke an async callback by scheduling it on the main event loop.</span>
+<span class="sd">        </span>
+<span class="sd">        All callbacks are required to be async functions.</span>
+<span class="sd">        When *cpu_heavy* is ``True`` the coroutine body is executed inside</span>
+<span class="sd">        ``loop.run_in_executor`` to avoid blocking the event loop.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">is_closed</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">cpu_heavy</span><span class="p">:</span>
+                    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_offloaded</span><span class="p">():</span>
+                        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_exe</span><span class="p">,</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">callback</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">data</span><span class="p">))</span>
+                        <span class="p">)</span>
+                    <span class="n">asyncio</span><span class="o">.</span><span class="n">run_coroutine_threadsafe</span><span class="p">(</span><span class="n">_offloaded</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">asyncio</span><span class="o">.</span><span class="n">run_coroutine_threadsafe</span><span class="p">(</span><span class="n">callback</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">data</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot invoke async callback for </span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">: event loop not available&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error in callback for channel </span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reconnect_pubsub</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Tear down the old PubSub and re-subscribe to all channels.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;_reconnect_pubsub method is deprecated - Redis connections should be properly managed&quot;</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DroneLeaf.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,1579 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Using Proxies in Petals &mdash; Petal App Manager 0.2.2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ba7fdd6d" />
+
+  
+    <link rel="shortcut icon" href="../_static/cropped-site-icon.png"/>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=000c92bf"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Advanced Debugging and Logging" href="advanced_debugging.html" />
+    <link rel="prev" title="Contribution Guidelines" href="contribution_guidelines.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Petal App Manager
+              <img src="../_static/White logo-vertical.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../introduction.html#what-is-petal-app-manager">What is Petal App Manager?</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#key-features">Key Features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#architecture">Architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../introduction.html#system-architecture-diagram">System Architecture Diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../introduction.html#architecture-components">Architecture Components</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../introduction.html#data-flow">Data Flow</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#use-cases">Use Cases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#why-petal-app-manager">Why Petal App Manager?</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/dependencies.html">Dependencies Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#system-requirements">System Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#python-3-11-installation">Python 3.11 Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#pdm-installation">PDM Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#redis-installation-and-configuration">Redis Installation and Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#redis-development-tools">Redis Development Tools</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#controller-dashboard">Controller Dashboard</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quick Start Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#development-installation">Development Installation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#using-hear-cli-recommended">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#manual-development-setup">Manual Development Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#production-installation">Production Installation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#id1">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#custom-version-installation-field-testing">Custom Version Installation (Field Testing)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#manual-production-installation">Manual Production Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#environment-configuration">Environment Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#running-the-application">Running the Application</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#verifying-the-installation">Verifying the Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#quick-development-workflow">Quick Development Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../how_to_use/index.html">How to Use</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../how_to_use/making_requests.html">Making Requests</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#using-the-postman-collection">Using the Postman Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#using-the-docs-interface">Using the /docs Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/making_requests.html#accessing-swagger-ui">Accessing Swagger UI</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/making_requests.html#interactive-api-testing">Interactive API Testing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#using-redoc">Using ReDoc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#example-api-calls">Example API Calls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#quick-testing-workflow">Quick Testing Workflow</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how_to_use/service_management.html">The Petal App Manager Service</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#admin-dashboard-interface">Admin Dashboard Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#accessing-the-admin-dashboard">Accessing the Admin Dashboard</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#dashboard-features">Dashboard Features</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#using-the-admin-dashboard">Using the Admin Dashboard</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#alternative-access-methods">Alternative Access Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#managing-petals-and-proxies-via-api">Managing Petals and Proxies via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#checking-what-s-running">Checking What’s Running</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#viewing-all-available-components">Viewing All Available Components</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#petal-control-via-api">Petal Control via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#enabling-petals">Enabling Petals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#disabling-petals">Disabling Petals</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#proxy-control-via-api">Proxy Control via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#enabling-proxies">Enabling Proxies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#disabling-proxies">Disabling Proxies</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#common-use-cases">Common Use Cases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#restart-management">Restart Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#service-files-and-locations">Service Files and Locations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how_to_use/configuration.html">Configuration Changes in .env</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#environment-variables-overview">Environment Variables Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#general-configuration">General Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-log-level">PETAL_LOG_LEVEL</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-log-to-file">PETAL_LOG_TO_FILE</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-log-dir">PETAL_LOG_DIR</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#mavlink-configuration">MAVLink Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-mavlink-endpoint">PETAL_MAVLINK_ENDPOINT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-mavlink-baud">PETAL_MAVLINK_BAUD</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#other-mavlink-settings">Other MAVLink Settings</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#cloud-configuration">Cloud Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#redis-configuration">Redis Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-redis-host-and-petal-redis-port">PETAL_REDIS_HOST and PETAL_REDIS_PORT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-redis-unix-socket-path">PETAL_REDIS_UNIX_SOCKET_PATH</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-redis-health-message-rate">PETAL_REDIS_HEALTH_MESSAGE_RATE</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#database-configuration">Database Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#data-operations-urls">Data Operations URLs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#mqtt-configuration">MQTT Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#proxy-connection-retry-configuration">Proxy Connection Retry Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#petal-specific-configuration">Petal-Specific Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#applying-configuration-changes">Applying Configuration Changes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#configuration-examples">Configuration Examples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Development and Contribution Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="adding_petals.html">Adding a New Petal Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#what-is-a-petal">What is a Petal?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#creating-a-new-petal">Creating a New Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#using-hear-cli-recommended">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#manual-setup">Manual Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#petal-structure">Petal Structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#key-components">Key Components</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#mqtt-command-handlers-mqtt-action">MQTT Command Handlers (<code class="docutils literal notranslate"><span class="pre">&#64;mqtt_action</span></code>)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#handler-signature">Handler Signature</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#the-cpu-heavy-parameter">The <code class="docutils literal notranslate"><span class="pre">cpu_heavy</span></code> Parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#how-it-works-under-the-hood">How It Works Under the Hood</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#dynamic-factory-handlers">Dynamic / Factory Handlers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#migration-from-legacy-pattern">Migration from Legacy Pattern</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#registering-the-petal">Registering the Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#adding-to-proxies-yaml">Adding to proxies.yaml</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#adding-to-pyproject-toml-for-production">Adding to pyproject.toml (for Production)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#installing-your-petal">Installing Your Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#development-installation-editable">Development Installation (Editable)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#production-installation-git-tag">Production Installation (Git Tag)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#testing-your-petal">Testing Your Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#unit-tests">Unit Tests</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#integration-testing">Integration Testing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#debugging">Debugging</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#best-practices">Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#naming-conventions">Naming Conventions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#proxy-management">Proxy Management</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#logging">Logging</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#versioning">Versioning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#documentation">Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#common-pitfalls">Common Pitfalls</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#petal-name-must-start-with-petal">Petal Name Must Start with <code class="docutils literal notranslate"><span class="pre">petal-*</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#petal-not-loading">Petal Not Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="adding_petals.html#entry-point-errors">Entry Point Errors</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="adding_petals.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="inter-petal_communications.html">Inter-Petal Communication Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#goal">Goal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#overview">Overview</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#benefits">Benefits</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#implementation-guide">Implementation Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#for-sink-petal-developers-message-receivers">For Sink Petal Developers (Message Receivers)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#for-source-petal-developers-message-senders">For Source Petal Developers (Message Senders)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#best-practices">Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#data-model-design">Data Model Design</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#channel-naming-convention">Channel Naming Convention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#versioning">Versioning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#testing">Testing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#example-complete-implementation">Example: Complete Implementation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#sink-petal-petal-leafsdk">Sink Petal (petal-leafsdk)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#source-petal-petal-qgc-mission-adapter">Source Petal (petal-qgc-mission-adapter)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#acceptance-criteria">Acceptance Criteria</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#reference-implementation">Reference Implementation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#migration-path">Migration Path</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#for-existing-petals">For Existing Petals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#deprecation-strategy">Deprecation Strategy</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#additional-resources">Additional Resources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inter-petal_communications.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#common-issues">Common Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="inter-petal_communications.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="contribution_guidelines.html">Contribution Guidelines</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="contribution_guidelines.html#dependency-architecture">Dependency Architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="contribution_guidelines.html#understanding-the-petal-stack-dependencies">Understanding the Petal Stack Dependencies</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="contribution_guidelines.html#version-management-by-repository">Version Management by Repository</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="contribution_guidelines.html#petal-app-manager">Petal App Manager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="contribution_guidelines.html#individual-petals">Individual Petals</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="contribution_guidelines.html#non-petal-packages">Non-Petal Packages</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="contribution_guidelines.html#leafsdk">LeafSDK</a></li>
+<li class="toctree-l4"><a class="reference internal" href="contribution_guidelines.html#mavlink-pymavlink-very-special-case">mavlink/pymavlink (Very Special Case)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="contribution_guidelines.html#version-summary-table">Version Summary Table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="contribution_guidelines.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Using Proxies in Petals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#available-proxy-types">Available Proxy Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#accessing-proxies-in-your-petal">Accessing Proxies in Your Petal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#redisproxy">RedisProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mavlinkexternalproxy">MavlinkExternalProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#clouddbproxy">CloudDBProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#localdbproxy">LocalDBProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#s3bucketproxy">S3BucketProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mqttproxy">MQTTProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#error-handling-and-best-practices">Error Handling and Best Practices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="advanced_debugging.html">Advanced Debugging and Logging</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#available-logging-tools">Available Logging Tools</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#per-level-logging-configuration">Per-Level Logging Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#configuration-methods">Configuration Methods</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#output-options">Output Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#common-configuration-scenarios">Common Configuration Scenarios</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#legacy-format-support">Legacy Format Support</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#csv-signal-logging-tool">CSV Signal Logging Tool</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#advanced-configuration">Advanced Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#complete-petal-example">Complete Petal Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#api-reference">API Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#debugging-best-practices">Debugging Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#environment-specific-configuration">Environment-Specific Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#performance-considerations">Performance Considerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced_debugging.html#error-handling-and-recovery">Error Handling and Recovery</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#integration-with-admin-dashboard">Integration with Admin Dashboard</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#testing-and-validation">Testing and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#file-management">File Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced_debugging.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="profiling.html">Petal App Manager Profiling Tools</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="profiling.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="profiling.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="profiling.html#quick-start">Quick Start</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#prerequisites">1. Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#install-dependencies">2. Install Dependencies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#start-pam">3. Start PAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#run-profiling-and-or-monitoring">4. Run Profiling and/or Monitoring</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#view-results">5. View Results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#command-line-flags">6. Command-Line Flags</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="profiling.html#profiling-scenarios">Profiling Scenarios</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#workflow-for-profiling-different-scenarios">Workflow for Profiling Different Scenarios</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#example-sitl-mission-for-profiling">Example SITL Mission for Profiling</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="profiling.html#output-formats-visualizations">Output Formats &amp; Visualizations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#speedscope-json-interactive">Speedscope JSON (Interactive) ⭐</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#monitor-output-cpu-and-memory-usage">Monitor Output: CPU and Memory Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="profiling.html#interpretation-guide">Interpretation Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#what-to-look-for">What to Look For</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#reading-flame-graphs">Reading Flame Graphs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#common-patterns-to-identify">Common Patterns to Identify</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="profiling.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#environment-issues">Environment Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#profiler-issues">Profiler Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#visualization-issues">Visualization Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#performance-issues">Performance Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#results-interpretation-issues">Results Interpretation Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="profiling.html#quick-reference">Quick Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#command-cheatsheet">Command Cheatsheet</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#file-naming-conventions">File Naming Conventions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="profiling.html#keyboard-shortcuts-speedscope">Keyboard Shortcuts (Speedscope)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="profiling.html#getting-help">Getting Help</a></li>
+<li class="toctree-l3"><a class="reference internal" href="profiling.html#summary">Summary</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../petal_documentation/index.html">Petal Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html">Petal User Journey Coordinator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#required-proxies">Required Proxies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#command-categories">Command Categories</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-calibration-commands">ESC Calibration Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-calibration">esc_calibration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-force-run-all">esc_force_run_all</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-force-run-single">esc_force_run_single</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-calibration-single">esc_calibration_single</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#parameter-configuration-commands">Parameter Configuration Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#geometry">geometry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#gps-module">gps_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#dist-module">dist_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#oflow-module">oflow_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#gps-spatial-offset">gps_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#distance-spatial-offset">distance_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#optical-flow-spatial-offset">optical_flow_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#esc-update-calibration-limits">esc_update_calibration_limits</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#bulk-parameter-operations">Bulk Parameter Operations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#bulk-set-parameters">bulk_set_parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#bulk-get-parameters">bulk_get_parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#real-time-telemetry-streams">Real-Time Telemetry Streams</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#subscribe-rc-value-stream">subscribe_rc_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#unsubscribe-rc-value-stream">unsubscribe_rc_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#subscribe-pose-value-stream">subscribe_pose_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#unsubscribe-pose-value-stream">unsubscribe_pose_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#subscribe-ks-status-stream">subscribe_ks_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#unsubscribe-ks-status-stream">unsubscribe_ks_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#subscribe-mfs-a-status-stream-subscribe-mfs-b-status-stream">subscribe_mfs_a_status_stream / subscribe_mfs_b_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#unsubscribeall">unsubscribeall</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#trajectory-verification-commands">Trajectory Verification Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#verify-pos-yaw-directions">verify_pos_yaw_directions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#verify-pos-yaw-directions-complete">verify_pos_yaw_directions_complete</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#wifi-optitrack-commands">WiFi &amp; OptiTrack Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#connect-to-wifi-and-verify-optitrack">connect_to_wifi_and_verify_optitrack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#set-static-ip-address">set_static_ip_address</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#system-commands">System Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#reboot-px4">reboot_px4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#format-sd-card">format_sd_card</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#get-log-entries">get_log_entries</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#complete-usage-example">Complete Usage Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#error-handling">Error Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#mqtt-topics-reference">MQTT Topics Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#commands-received-on-command-edge">Commands (Received on <code class="docutils literal notranslate"><span class="pre">command/edge</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#published-topics-sent-to-command-web">Published Topics (Sent to <code class="docutils literal notranslate"><span class="pre">command/web</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_user_journey_coordinator.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../petal_documentation/petal_flight_log.html">Petal Flight Log</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#required-proxies">Required Proxies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#command-categories">Command Categories</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#flight-record-fetch-commands">Flight Record Fetch Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#fetch-flight-records">fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#subscribe-fetch-flight-records">subscribe_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#unsubscribe-fetch-flight-records">unsubscribe_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#cancel-fetch-flight-records">cancel_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#fetch-existing-flight-records">fetch_existing_flight_records</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#flight-record-sync-commands">Flight Record Sync Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#start-sync-flight-record">start_sync_flight_record</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#subscribe-sync-job-value-stream">subscribe_sync_job_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#unsubscribe-sync-job-value-stream">unsubscribe_sync_job_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#cancel-sync-job">cancel_sync_job</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#flight-record-management-commands">Flight Record Management Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#delete-flight-record">delete_flight_record</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#bulk-delete-flight-records-commands">Bulk Delete Flight Records Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#bulk-delete-flight-records">bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#subscribe-bulk-delete-flight-records">subscribe_bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#unsubscribe-bulk-delete-flight-records">unsubscribe_bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#cancel-bulk-delete-flight-records">cancel_bulk_delete_flight_records</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#clear-error-logs-commands">Clear Error Logs Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#detect-error-logs">detect_error_logs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#clear-error-logs">clear_error_logs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#clear-all-ulogs-commands">Clear All ULogs Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#clear-all-ulogs">clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#subscribe-clear-all-ulogs">subscribe_clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#unsubscribe-clear-all-ulogs">unsubscribe_clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#cancel-clear-all-ulogs">cancel_clear_all_ulogs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#job-status-values">Job Status Values</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#mqtt-topics-reference">MQTT Topics Reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#data-models">Data Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#flightrecordmatch">FlightRecordMatch</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#error-handling">Error Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#id1">MQTT Topics Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#commands-received-on-command-edge">Commands (Received on <code class="docutils literal notranslate"><span class="pre">command/edge</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#published-topics-sent-to-command-web">Published Topics (Sent to <code class="docutils literal notranslate"><span class="pre">command/web</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../petal_documentation/petal_flight_log.html#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-2-2-2026-02-22">Version 0.2.2 (2026-02-22)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-2-1-2026-02-12">Version 0.2.1 (2026-02-12)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-2-0-2026-02-12">Version 0.2.0 (2026-02-12)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-62-2026-02-06">Version 0.1.62 (2026-02-06)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-61-2026-02-03">Version 0.1.61 (2026-02-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-60-2026-01-30">Version 0.1.60 (2026-01-30)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-59-2026-01-27">Version 0.1.59 (2026-01-27)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-57-2026-01-18">Version 0.1.57 (2026-01-18)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-56-2026-01-17">Version 0.1.56 (2026-01-17)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-54-2026-01-15">Version 0.1.54 (2026-01-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-53-2026-01-15">Version 0.1.53 (2026-01-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-52-2026-01-14">Version 0.1.52 (2026-01-14)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-51-2026-01-08">Version 0.1.51 (2026-01-08)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-50-2026-01-05">Version 0.1.50 (2026-01-05)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-49-2025-01-05">Version 0.1.49 (2025-01-05)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-48-2025-12-31">Version 0.1.48 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-47-2025-12-31">Version 0.1.47 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-46-2025-12-31">Version 0.1.46 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-45-2025-11-23">Version 0.1.45 (2025-11-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-44-2025-11-07">Version 0.1.44 (2025-11-07)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-43-2025-11-05-hotfix">Version 0.1.43 (2025-11-05) - Hotfix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-42-2025-11-03">Version 0.1.42 (2025-11-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-41-2025-11-02">Version 0.1.41 (2025-11-02)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-39-2025-10-23">Version 0.1.39 (2025-10-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-38-2025-10-23">Version 0.1.38 (2025-10-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-37-2025-10-22">Version 0.1.37 (2025-10-22)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-31-2025-09-25">Version 0.1.31 (2025-09-25)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-29-2025-08-28">Version 0.1.29 (2025-08-28)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-28-2025-08-17">Version 0.1.28 (2025-08-17)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-23-2025-07-31">Version 0.1.23 (2025-07-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-18-2025-07-29">Version 0.1.18 (2025-07-29)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-5-2025-07-03-first-stable-release">Version 0.1.5 (2025-07-03) - First Stable Release</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-0-2025-06-22-initial-release">Version 0.1.0 (2025-06-22) - Initial Release</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api_reference/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/core_api.html">Core API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.admin_ui">Admin UI</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.admin_ui.admin_dashboard"><code class="docutils literal notranslate"><span class="pre">admin_dashboard()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.admin_ui.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.health">Health Endpoints</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.detailed_health_check"><code class="docutils literal notranslate"><span class="pre">detailed_health_check()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.health_check"><code class="docutils literal notranslate"><span class="pre">health_check()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.organization_health_check"><code class="docutils literal notranslate"><span class="pre">organization_health_check()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.config_api">Configuration API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.AllComponentsResponse"><code class="docutils literal notranslate"><span class="pre">AllComponentsResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.ConfigResponse"><code class="docutils literal notranslate"><span class="pre">ConfigResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.PetalControlRequest"><code class="docutils literal notranslate"><span class="pre">PetalControlRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.PetalInfo"><code class="docutils literal notranslate"><span class="pre">PetalInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.ProxyInfo"><code class="docutils literal notranslate"><span class="pre">ProxyInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.control_petals"><code class="docutils literal notranslate"><span class="pre">control_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.control_proxies"><code class="docutils literal notranslate"><span class="pre">control_proxies()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.get_status"><code class="docutils literal notranslate"><span class="pre">get_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.list_all_components"><code class="docutils literal notranslate"><span class="pre">list_all_components()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.cloud_api">Cloud API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.GetItemRequest"><code class="docutils literal notranslate"><span class="pre">GetItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.ScanTableRequest"><code class="docutils literal notranslate"><span class="pre">ScanTableRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.SetItemRequest"><code class="docutils literal notranslate"><span class="pre">SetItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.UpdateItemRequest"><code class="docutils literal notranslate"><span class="pre">UpdateItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.delete_item"><code class="docutils literal notranslate"><span class="pre">delete_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.get_item"><code class="docutils literal notranslate"><span class="pre">get_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.scan_table"><code class="docutils literal notranslate"><span class="pre">scan_table()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.set_item"><code class="docutils literal notranslate"><span class="pre">set_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.update_item"><code class="docutils literal notranslate"><span class="pre">update_item()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.bucket_api">Bucket API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.delete_file_test"><code class="docutils literal notranslate"><span class="pre">delete_file_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.download_file_test"><code class="docutils literal notranslate"><span class="pre">download_file_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.get_info"><code class="docutils literal notranslate"><span class="pre">get_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.list_files_test"><code class="docutils literal notranslate"><span class="pre">list_files_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.upload_file_test"><code class="docutils literal notranslate"><span class="pre">upload_file_test()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.mavftp_api">MAVLink FTP API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.ClearFailLogsRequest"><code class="docutils literal notranslate"><span class="pre">ClearFailLogsRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.clear_fail_logs"><code class="docutils literal notranslate"><span class="pre">clear_fail_logs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.list_directory"><code class="docutils literal notranslate"><span class="pre">list_directory()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.mqtt_api">MQTT API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.MQTTResponse"><code class="docutils literal notranslate"><span class="pre">MQTTResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.PublishMessageRequest"><code class="docutils literal notranslate"><span class="pre">PublishMessageRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.SubscribePatternRequest"><code class="docutils literal notranslate"><span class="pre">SubscribePatternRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.SubscribeTopicRequest"><code class="docutils literal notranslate"><span class="pre">SubscribeTopicRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.UnsubscribeTopicRequest"><code class="docutils literal notranslate"><span class="pre">UnsubscribeTopicRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.get_mqtt_status"><code class="docutils literal notranslate"><span class="pre">get_mqtt_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.list_subscriptions"><code class="docutils literal notranslate"><span class="pre">list_subscriptions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.publish_message"><code class="docutils literal notranslate"><span class="pre">publish_message()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.subscribe_topic"><code class="docutils literal notranslate"><span class="pre">subscribe_topic()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.unsubscribe_topic"><code class="docutils literal notranslate"><span class="pre">unsubscribe_topic()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.proxy_info">Proxy Info</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.proxy_info.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.proxy_info.list_proxies"><code class="docutils literal notranslate"><span class="pre">list_proxies()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/proxies.html">Proxies</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.base">Base Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.base.BaseProxy"><code class="docutils literal notranslate"><span class="pre">BaseProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.redis">Redis Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#redisproxy">RedisProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy"><code class="docutils literal notranslate"><span class="pre">RedisProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.external">External MAVLink Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petalappmanager-proxies-external">petalappmanager.proxies.external</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.DownloadCancelledException"><code class="docutils literal notranslate"><span class="pre">DownloadCancelledException</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.ExternalProxy"><code class="docutils literal notranslate"><span class="pre">ExternalProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.FTPDeleteError"><code class="docutils literal notranslate"><span class="pre">FTPDeleteError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.MavLinkExternalProxy"><code class="docutils literal notranslate"><span class="pre">MavLinkExternalProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.MavLinkFTPProxy"><code class="docutils literal notranslate"><span class="pre">MavLinkFTPProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.ULogInfo"><code class="docutils literal notranslate"><span class="pre">ULogInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.setup_file_only_logger"><code class="docutils literal notranslate"><span class="pre">setup_file_only_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.localdb">Local Database Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#localdbproxy">LocalDBProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.localdb.LocalDBProxy"><code class="docutils literal notranslate"><span class="pre">LocalDBProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.cloud">Cloud Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#clouddbproxy">CloudDBProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.cloud.CloudDBProxy"><code class="docutils literal notranslate"><span class="pre">CloudDBProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.bucket">Bucket Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.bucket.S3BucketProxy"><code class="docutils literal notranslate"><span class="pre">S3BucketProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.mqtt">MQTT Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#mqttproxy">MQTTProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.mqtt.MQTTProxy"><code class="docutils literal notranslate"><span class="pre">MQTTProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.mqtt.MessageCallback"><code class="docutils literal notranslate"><span class="pre">MessageCallback</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/plugins.html">Plugins System</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/plugins.html#module-petal_app_manager.plugins.base">Base Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.base.Petal"><code class="docutils literal notranslate"><span class="pre">Petal</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/plugins.html#module-petal_app_manager.plugins.decorators">Decorators</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.decorators.http_action"><code class="docutils literal notranslate"><span class="pre">http_action()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.decorators.mqtt_action"><code class="docutils literal notranslate"><span class="pre">mqtt_action()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.decorators.websocket_action"><code class="docutils literal notranslate"><span class="pre">websocket_action()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/plugins.html#module-petal_app_manager.plugins.loader">Loader</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.loader.initialize_petals"><code class="docutils literal notranslate"><span class="pre">initialize_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.loader.load_petals"><code class="docutils literal notranslate"><span class="pre">load_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.loader.startup_petals"><code class="docutils literal notranslate"><span class="pre">startup_petals()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/petals.html">Available Petals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/petals.html#production-petals">Production Petals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-flight-log">petal-flight-log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-warehouse">petal-warehouse</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-leafsdk">petal-leafsdk</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-user-journey-coordinator">petal-user-journey-coordinator</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/petals.html#development-petals">Development Petals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-qgc-mission-server">petal-qgc-mission-server</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/index.html#core-modules">Core Modules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../known_issues.html">Known Issues</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#petal-issues">Petal Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#petal-name-must-start-with-petal">Petal Name Must Start with <code class="docutils literal notranslate"><span class="pre">petal-*</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#petal-not-getting-loaded">Petal Not Getting Loaded</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#python-3-11-issues">Python 3.11 Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#python-3-11-not-found">Python 3.11 Not Found</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#pdm-issues">PDM Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#pdm-installation-fails">PDM Installation Fails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#pdm-lock-file-issues">PDM Lock File Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#redis-issues">Redis Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#redis-connection-errors">Redis Connection Errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#redis-configuration-issues">Redis Configuration Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#mavlink-issues">MAVLink Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#mavlink-connection-issues">MAVLink Connection Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#mavlink-submodule-branch-issues-sitl">MAVLink Submodule Branch Issues (SITL)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#mqtt-issues">MQTT Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#mqtt-proxy-fails-on-fresh-installation">MQTT Proxy Fails on Fresh Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#port-conflicts">Port Conflicts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#port-9000-already-in-use">Port 9000 Already in Use</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#reporting-issues">Reporting Issues</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Petal App Manager</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Development and Contribution Guide</a></li>
+      <li class="breadcrumb-item active">Using Proxies in Petals</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/development_contribution/using_proxies.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="using-proxies-in-petals">
+<h1>Using Proxies in Petals<a class="headerlink" href="#using-proxies-in-petals" title="Link to this heading"></a></h1>
+<p>Proxies provide a standardized interface for petals to access backend services like databases, message queues, cloud services, and external protocols. This guide explains how to use each available proxy type in your petal development.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>Proxies abstract complex backend integrations and provide:</p>
+<ul class="simple">
+<li><p><strong>Consistent API</strong>: Uniform interface across different services</p></li>
+<li><p><strong>Dependency Management</strong>: Automatic service availability checking</p></li>
+<li><p><strong>Error Handling</strong>: Standardized error responses and retry logic</p></li>
+<li><p><strong>Configuration</strong>: Centralized service configuration</p></li>
+<li><p><strong>Health Monitoring</strong>: Built-in health checks and status reporting</p></li>
+</ul>
+</section>
+<section id="available-proxy-types">
+<h2>Available Proxy Types<a class="headerlink" href="#available-proxy-types" title="Link to this heading"></a></h2>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Proxy Types and Use Cases</span><a class="headerlink" href="#id1" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 75.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Proxy Type</p></th>
+<th class="head"><p>Use Cases</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>RedisProxy</p></td>
+<td><p>Caching, pub/sub messaging, session storage, real-time data</p></td>
+</tr>
+<tr class="row-odd"><td><p>MavlinkExternalProxy</p></td>
+<td><p>Drone communication, telemetry, command/control, MAVLink protocol</p></td>
+</tr>
+<tr class="row-even"><td><p>CloudDBProxy</p></td>
+<td><p>Cloud database operations, persistent storage, data synchronization</p></td>
+</tr>
+<tr class="row-odd"><td><p>LocalDBProxy</p></td>
+<td><p>Local database operations, offline storage, edge computing</p></td>
+</tr>
+<tr class="row-even"><td><p>S3BucketProxy</p></td>
+<td><p>File storage, log uploads, data archiving, content delivery</p></td>
+</tr>
+<tr class="row-odd"><td><p>MQTTProxy</p></td>
+<td><p>IoT messaging, device communication, event streaming</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="accessing-proxies-in-your-petal">
+<h2>Accessing Proxies in Your Petal<a class="headerlink" href="#accessing-proxies-in-your-petal" title="Link to this heading"></a></h2>
+<p><strong>Basic Pattern:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">petal_app_manager.plugins.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Petal</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">petal_app_manager.proxies.redis</span><span class="w"> </span><span class="kn">import</span> <span class="n">RedisProxy</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">YourPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;redis&quot;</span><span class="p">,</span> <span class="s2">&quot;ext_mavlink&quot;</span><span class="p">]</span>  <span class="c1"># Declare dependencies</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">your_method</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Get proxy instance</span>
+        <span class="n">redis_proxy</span><span class="p">:</span> <span class="n">RedisProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;redis&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Use proxy methods</span>
+        <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="redisproxy">
+<h2>RedisProxy<a class="headerlink" href="#redisproxy" title="Link to this heading"></a></h2>
+<p><strong>Purpose:</strong> High-performance caching, pub/sub messaging, session management</p>
+<p><strong>Common Use Cases:</strong></p>
+<ul class="simple">
+<li><p>Caching telemetry data</p></li>
+<li><p>Real-time message passing between petals</p></li>
+<li><p>Session and state management</p></li>
+<li><p>Temporary data storage</p></li>
+<li><p>Scanning keys by pattern for job management</p></li>
+</ul>
+<p><strong>Basic Usage:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">petal_app_manager.proxies.redis</span><span class="w"> </span><span class="kn">import</span> <span class="n">RedisProxy</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">YourPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;redis&quot;</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cache_telemetry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="n">redis_proxy</span><span class="p">:</span> <span class="n">RedisProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;redis&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Store data with expiration</span>
+        <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;telemetry:latest&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="n">ex</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+
+        <span class="c1"># Retrieve data</span>
+        <span class="n">cached</span> <span class="o">=</span> <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;telemetry:latest&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Methods:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Basic key-value operations</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">ex</span><span class="o">=</span><span class="n">expiration_seconds</span><span class="p">)</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+<span class="c1"># Hash operations</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">hset</span><span class="p">(</span><span class="n">hash_key</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">hget</span><span class="p">(</span><span class="n">hash_key</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">hgetall</span><span class="p">(</span><span class="n">hash_key</span><span class="p">)</span>
+
+<span class="c1"># List operations</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">lpush</span><span class="p">(</span><span class="n">list_key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">rpush</span><span class="p">(</span><span class="n">list_key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">lrange</span><span class="p">(</span><span class="n">list_key</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+
+<span class="c1"># Pub/Sub messaging</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">callback</span><span class="p">)</span>
+
+<span class="c1"># Key scanning (useful for job management)</span>
+<span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">scan_keys</span><span class="p">(</span><span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;job:*&quot;</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Scan Keys Example (Job Management):</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">petal_app_manager.proxies.redis</span><span class="w"> </span><span class="kn">import</span> <span class="n">RedisProxy</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">JobManagerPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;redis&quot;</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">list_pending_jobs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find all pending jobs using key pattern scanning.&quot;&quot;&quot;</span>
+        <span class="n">redis_proxy</span><span class="p">:</span> <span class="n">RedisProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;redis&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Scan for all job keys matching pattern</span>
+        <span class="n">job_keys</span> <span class="o">=</span> <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">scan_keys</span><span class="p">(</span>
+            <span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;job:pending:*&quot;</span><span class="p">,</span>
+            <span class="n">count</span><span class="o">=</span><span class="mi">100</span>  <span class="c1"># Keys per scan iteration</span>
+        <span class="p">)</span>
+
+        <span class="n">jobs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">job_keys</span><span class="p">:</span>
+            <span class="n">job_data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">job_data</span><span class="p">:</span>
+                <span class="n">jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">job_data</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">jobs</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cleanup_expired_jobs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_age_hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">24</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clean up old job entries.&quot;&quot;&quot;</span>
+        <span class="n">redis_proxy</span><span class="p">:</span> <span class="n">RedisProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;redis&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Find all completed job keys</span>
+        <span class="n">completed_keys</span> <span class="o">=</span> <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">scan_keys</span><span class="p">(</span><span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;job:completed:*&quot;</span><span class="p">)</span>
+
+        <span class="n">deleted</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">completed_keys</span><span class="p">:</span>
+            <span class="n">job_data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">job_data</span><span class="p">:</span>
+                <span class="n">job</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">job_data</span><span class="p">)</span>
+                <span class="c1"># Check if job is older than max_age</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_expired</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;completed_at&quot;</span><span class="p">),</span> <span class="n">max_age_hours</span><span class="p">):</span>
+                    <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                    <span class="n">deleted</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cleaned up </span><span class="si">{</span><span class="n">deleted</span><span class="si">}</span><span class="s2"> expired jobs&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;deleted&quot;</span><span class="p">:</span> <span class="n">deleted</span><span class="p">}</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_job_statistics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get counts of jobs by status.&quot;&quot;&quot;</span>
+        <span class="n">redis_proxy</span><span class="p">:</span> <span class="n">RedisProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;redis&quot;</span><span class="p">)</span>
+
+        <span class="n">stats</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">status</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;pending&quot;</span><span class="p">,</span> <span class="s2">&quot;processing&quot;</span><span class="p">,</span> <span class="s2">&quot;completed&quot;</span><span class="p">,</span> <span class="s2">&quot;failed&quot;</span><span class="p">]:</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">scan_keys</span><span class="p">(</span><span class="n">pattern</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;job:</span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">:*&quot;</span><span class="p">)</span>
+            <span class="n">stats</span><span class="p">[</span><span class="n">status</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">stats</span>
+</pre></div>
+</div>
+<p><strong>Caching Pattern Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">TelemetryCachePetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;redis&quot;</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cache_flight_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flight_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cache flight telemetry with TTL.&quot;&quot;&quot;</span>
+        <span class="n">redis_proxy</span><span class="p">:</span> <span class="n">RedisProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;redis&quot;</span><span class="p">)</span>
+
+        <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;flight:</span><span class="si">{</span><span class="n">flight_id</span><span class="si">}</span><span class="s2">:telemetry&quot;</span>
+        <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="n">ex</span><span class="o">=</span><span class="mi">3600</span><span class="p">)</span>  <span class="c1"># 1 hour TTL</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_cached_flight_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flight_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve cached flight data.&quot;&quot;&quot;</span>
+        <span class="n">redis_proxy</span><span class="p">:</span> <span class="n">RedisProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;redis&quot;</span><span class="p">)</span>
+
+        <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;flight:</span><span class="si">{</span><span class="n">flight_id</span><span class="si">}</span><span class="s2">:telemetry&quot;</span>
+        <span class="n">cached</span> <span class="o">=</span> <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">cached</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">cached</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+</pre></div>
+</div>
+</section>
+<section id="mavlinkexternalproxy">
+<h2>MavlinkExternalProxy<a class="headerlink" href="#mavlinkexternalproxy" title="Link to this heading"></a></h2>
+<p><strong>Purpose:</strong> Communication with drones and autopilots using MAVLink protocol</p>
+<p><strong>Common Use Cases:</strong></p>
+<ul class="simple">
+<li><p>Sending commands to drone</p></li>
+<li><p>Receiving telemetry data</p></li>
+<li><p>Mission management</p></li>
+<li><p>Parameter configuration (including bulk operations over lossy links)</p></li>
+<li><p>Real-time monitoring</p></li>
+<li><p>Autopilot reboot and system control</p></li>
+</ul>
+<p><strong>Basic Usage:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">petal_app_manager.proxies.external</span><span class="w"> </span><span class="kn">import</span> <span class="n">MavLinkExternalProxy</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">YourPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;ext_mavlink&quot;</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">send_command</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mavlink_proxy</span><span class="p">:</span> <span class="n">MavLinkExternalProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;ext_mavlink&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Reboot the autopilot</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">mavlink_proxy</span><span class="o">.</span><span class="n">reboot_autopilot</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Autopilot rebooting...&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Methods:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reboot autopilot (PX4/ArduPilot)</span>
+<span class="k">await</span> <span class="n">mavlink_proxy</span><span class="o">.</span><span class="n">reboot_autopilot</span><span class="p">(</span>
+    <span class="n">reboot_onboard_computer</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Also reboot companion computer</span>
+    <span class="n">timeout</span><span class="o">=</span><span class="mf">3.0</span>                      <span class="c1"># Timeout for ACK response</span>
+<span class="p">)</span>
+<span class="c1"># Returns: RebootAutopilotResponse with success, status_code, reason</span>
+
+<span class="c1"># Bulk parameter setting over lossy links</span>
+<span class="k">await</span> <span class="n">mavlink_proxy</span><span class="o">.</span><span class="n">set_params_bulk_lossy</span><span class="p">(</span>
+    <span class="n">params_to_set</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;NAV_ACC_RAD&quot;</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span>
+        <span class="s2">&quot;MPC_XY_VEL_MAX&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">12.0</span><span class="p">,</span> <span class="s2">&quot;REAL32&quot;</span><span class="p">),</span>  <span class="c1"># With explicit type</span>
+        <span class="s2">&quot;COM_DISARM_LAND&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;INT32&quot;</span><span class="p">}</span>
+    <span class="p">},</span>
+    <span class="n">timeout_total</span><span class="o">=</span><span class="mf">8.0</span><span class="p">,</span>
+    <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">max_in_flight</span><span class="o">=</span><span class="mi">8</span>
+<span class="p">)</span>
+<span class="c1"># Returns: Dict of confirmed parameters</span>
+
+<span class="c1"># Bulk parameter retrieval over lossy links</span>
+<span class="k">await</span> <span class="n">mavlink_proxy</span><span class="o">.</span><span class="n">get_params_bulk_lossy</span><span class="p">(</span>
+    <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;NAV_ACC_RAD&quot;</span><span class="p">,</span> <span class="s2">&quot;MPC_XY_VEL_MAX&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_DISARM_LAND&quot;</span><span class="p">],</span>
+    <span class="n">timeout_total</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span>
+    <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">max_in_flight</span><span class="o">=</span><span class="mi">10</span>
+<span class="p">)</span>
+<span class="c1"># Returns: Dict with name, value, raw, type, count, index for each param</span>
+</pre></div>
+</div>
+<p><strong>Reboot Autopilot Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">petal_app_manager.proxies.external</span><span class="w"> </span><span class="kn">import</span> <span class="n">MavLinkExternalProxy</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SystemControlPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;ext_mavlink&quot;</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reboot_flight_controller</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_companion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reboot the autopilot with proper error handling.&quot;&quot;&quot;</span>
+        <span class="n">mavlink_proxy</span><span class="p">:</span> <span class="n">MavLinkExternalProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;ext_mavlink&quot;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">mavlink_proxy</span><span class="o">.</span><span class="n">reboot_autopilot</span><span class="p">(</span>
+                <span class="n">reboot_onboard_computer</span><span class="o">=</span><span class="n">include_companion</span><span class="p">,</span>
+                <span class="n">timeout</span><span class="o">=</span><span class="mf">3.0</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Autopilot reboot initiated successfully&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;rebooting&quot;</span><span class="p">,</span> <span class="s2">&quot;reason&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">reason</span><span class="p">}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reboot failed: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">reason</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;failed&quot;</span><span class="p">,</span> <span class="s2">&quot;reason&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">reason</span><span class="p">}</span>
+
+        <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;MAVLink not connected: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="s2">&quot;reason&quot;</span><span class="p">:</span> <span class="s2">&quot;MAVLink connection not established&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Bulk Parameter Operations Example (Lossy Links):</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ParameterConfigPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;ext_mavlink&quot;</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">configure_flight_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set multiple parameters efficiently over unreliable links.&quot;&quot;&quot;</span>
+        <span class="n">mavlink_proxy</span><span class="p">:</span> <span class="n">MavLinkExternalProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;ext_mavlink&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Define parameters to set with optional type hints</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="c1"># Simple value (type auto-detected)</span>
+            <span class="s2">&quot;NAV_ACC_RAD&quot;</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span>
+
+            <span class="c1"># Tuple format: (value, type_string)</span>
+            <span class="s2">&quot;MPC_XY_VEL_MAX&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">12.0</span><span class="p">,</span> <span class="s2">&quot;REAL32&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;MPC_Z_VEL_MAX_UP&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="s2">&quot;REAL32&quot;</span><span class="p">),</span>
+
+            <span class="c1"># Dict format with explicit type</span>
+            <span class="s2">&quot;COM_DISARM_LAND&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;INT32&quot;</span><span class="p">},</span>
+            <span class="s2">&quot;COM_ARM_WO_GPS&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;INT32&quot;</span><span class="p">}</span>
+        <span class="p">}</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">confirmed</span> <span class="o">=</span> <span class="k">await</span> <span class="n">mavlink_proxy</span><span class="o">.</span><span class="n">set_params_bulk_lossy</span><span class="p">(</span>
+                <span class="n">params_to_set</span><span class="o">=</span><span class="n">params</span><span class="p">,</span>
+                <span class="n">timeout_total</span><span class="o">=</span><span class="mf">8.0</span><span class="p">,</span>    <span class="c1"># Total operation timeout</span>
+                <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>        <span class="c1"># Retry count per parameter</span>
+                <span class="n">max_in_flight</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>      <span class="c1"># Concurrent requests</span>
+                <span class="n">resend_interval</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>  <span class="c1"># Time before resending unconfirmed</span>
+                <span class="n">verify_ack_value</span><span class="o">=</span><span class="kc">True</span> <span class="c1"># Verify echoed value matches</span>
+            <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Confirmed </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">confirmed</span><span class="p">)</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="p">)</span><span class="si">}</span><span class="s2"> parameters&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Check which parameters were NOT confirmed</span>
+            <span class="n">failed</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">confirmed</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">failed</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to confirm: </span><span class="si">{</span><span class="n">failed</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;confirmed&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">confirmed</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="s2">&quot;failed&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">failed</span><span class="p">)}</span>
+
+        <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)}</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">read_flight_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read multiple parameters efficiently over unreliable links.&quot;&quot;&quot;</span>
+        <span class="n">mavlink_proxy</span><span class="p">:</span> <span class="n">MavLinkExternalProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;ext_mavlink&quot;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">mavlink_proxy</span><span class="o">.</span><span class="n">get_params_bulk_lossy</span><span class="p">(</span>
+                <span class="n">names</span><span class="o">=</span><span class="n">param_names</span><span class="p">,</span>
+                <span class="n">timeout_total</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span>
+                <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                <span class="n">max_in_flight</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                <span class="n">resend_interval</span><span class="o">=</span><span class="mf">0.7</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Results contain detailed info for each parameter</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: value=</span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;type=</span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, index=</span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">results</span>
+
+        <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)}</span>
+</pre></div>
+</div>
+</section>
+<section id="clouddbproxy">
+<h2>CloudDBProxy<a class="headerlink" href="#clouddbproxy" title="Link to this heading"></a></h2>
+<p><strong>Purpose:</strong> Cloud database operations for persistent, scalable data storage</p>
+<p><strong>Common Use Cases:</strong></p>
+<ul class="simple">
+<li><p>Storing flight logs in cloud</p></li>
+<li><p>Synchronizing configuration data</p></li>
+<li><p>Multi-device data sharing</p></li>
+<li><p>Analytics and reporting</p></li>
+<li><p>Long-term data retention</p></li>
+</ul>
+<p><strong>Basic Usage:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">petal_app_manager.proxies.cloud</span><span class="w"> </span><span class="kn">import</span> <span class="n">CloudDBProxy</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">YourPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;cloud&quot;</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">store_flight_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="n">cloud_proxy</span><span class="p">:</span> <span class="n">CloudDBProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;cloud&quot;</span><span class="p">)</span>
+
+        <span class="c1"># TODO: Add CloudDBProxy methods and examples</span>
+        <span class="c1"># - Database operations</span>
+        <span class="c1"># - Table management</span>
+        <span class="c1"># - Query operations</span>
+        <span class="c1"># - Batch operations</span>
+        <span class="c1"># - Synchronization patterns</span>
+        <span class="c1"># - Authentication handling</span>
+</pre></div>
+</div>
+<p><strong>Methods:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># TODO: Document CloudDBProxy methods:</span>
+<span class="c1"># await cloud_proxy.scan_table(table_name, filters)</span>
+<span class="c1"># await cloud_proxy.get_item(table_name, key)</span>
+<span class="c1"># await cloud_proxy.put_item(table_name, item)</span>
+<span class="c1"># await cloud_proxy.update_item(table_name, key, updates)</span>
+<span class="c1"># await cloud_proxy.delete_item(table_name, key)</span>
+<span class="c1"># await cloud_proxy.batch_write(table_name, items)</span>
+</pre></div>
+</div>
+<p><strong>Example Patterns:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># TODO: Add practical cloud database usage examples:</span>
+<span class="c1"># - Flight log storage</span>
+<span class="c1"># - Configuration synchronization</span>
+<span class="c1"># - User data management</span>
+<span class="c1"># - Analytics data collection</span>
+<span class="c1"># - Backup and recovery</span>
+</pre></div>
+</div>
+</section>
+<section id="localdbproxy">
+<h2>LocalDBProxy<a class="headerlink" href="#localdbproxy" title="Link to this heading"></a></h2>
+<p><strong>Purpose:</strong> Local database operations for offline-capable, edge computing scenarios</p>
+<p><strong>Common Use Cases:</strong></p>
+<ul class="simple">
+<li><p>Offline data storage</p></li>
+<li><p>Edge computing applications</p></li>
+<li><p>Local caching with persistence</p></li>
+<li><p>Backup when cloud unavailable</p></li>
+<li><p>Real-time local queries</p></li>
+</ul>
+<p><strong>Basic Usage:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">petal_app_manager.proxies.localdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">LocalDBProxy</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">YourPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">store_local_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="n">db_proxy</span><span class="p">:</span> <span class="n">LocalDBProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;db&quot;</span><span class="p">)</span>
+
+        <span class="c1"># TODO: Add LocalDBProxy methods and examples</span>
+        <span class="c1"># - Local database operations</span>
+        <span class="c1"># - SQLite/embedded database usage</span>
+        <span class="c1"># - Offline synchronization</span>
+        <span class="c1"># - Local query patterns</span>
+        <span class="c1"># - Data migration</span>
+        <span class="c1"># - Backup strategies</span>
+</pre></div>
+</div>
+<p><strong>Methods:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># TODO: Document LocalDBProxy methods:</span>
+<span class="c1"># await db_proxy.execute_query(sql, params)</span>
+<span class="c1"># await db_proxy.fetch_one(sql, params)</span>
+<span class="c1"># await db_proxy.fetch_all(sql, params)</span>
+<span class="c1"># await db_proxy.insert(table, data)</span>
+<span class="c1"># await db_proxy.update(table, data, where)</span>
+<span class="c1"># await db_proxy.delete(table, where)</span>
+</pre></div>
+</div>
+<p><strong>Example Patterns:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># TODO: Add practical local database usage examples:</span>
+<span class="c1"># - Offline flight data storage</span>
+<span class="c1"># - Local configuration management</span>
+<span class="c1"># - Edge analytics</span>
+<span class="c1"># - Sync queue management</span>
+<span class="c1"># - Local user sessions</span>
+</pre></div>
+</div>
+</section>
+<section id="s3bucketproxy">
+<h2>S3BucketProxy<a class="headerlink" href="#s3bucketproxy" title="Link to this heading"></a></h2>
+<p><strong>Purpose:</strong> File storage, uploads, downloads, and content management using AWS S3</p>
+<p><strong>Common Use Cases:</strong></p>
+<ul class="simple">
+<li><p>Upload flight logs and media</p></li>
+<li><p>Store configuration files</p></li>
+<li><p>Archive historical data</p></li>
+<li><p>Content delivery</p></li>
+<li><p>Backup storage</p></li>
+<li><p>Moving/renaming files within buckets</p></li>
+</ul>
+<p><strong>Basic Usage:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">petal_app_manager.proxies.bucket</span><span class="w"> </span><span class="kn">import</span> <span class="n">S3BucketProxy</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">YourPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;bucket&quot;</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">upload_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">bucket_proxy</span><span class="p">:</span> <span class="n">S3BucketProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;bucket&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Upload with auto-generated S3 key</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">bucket_proxy</span><span class="o">.</span><span class="n">upload_file</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">file_path</span><span class="p">))</span>
+
+        <span class="c1"># Upload with custom S3 key</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">bucket_proxy</span><span class="o">.</span><span class="n">upload_file</span><span class="p">(</span>
+            <span class="n">Path</span><span class="p">(</span><span class="n">file_path</span><span class="p">),</span>
+            <span class="n">custom_s3_key</span><span class="o">=</span><span class="s2">&quot;custom/path/myfile.ulg&quot;</span>
+        <span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Methods:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Upload file with auto-generated key</span>
+<span class="k">await</span> <span class="n">bucket_proxy</span><span class="o">.</span><span class="n">upload_file</span><span class="p">(</span>
+    <span class="n">file_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/path/to/file.ulg&quot;</span><span class="p">),</span>
+    <span class="n">custom_filename</span><span class="o">=</span><span class="s2">&quot;renamed.ulg&quot;</span>  <span class="c1"># Optional: rename file</span>
+<span class="p">)</span>
+
+<span class="c1"># Upload file with custom S3 key (full control over path)</span>
+<span class="k">await</span> <span class="n">bucket_proxy</span><span class="o">.</span><span class="n">upload_file</span><span class="p">(</span>
+    <span class="n">file_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/path/to/file.ulg&quot;</span><span class="p">),</span>
+    <span class="n">custom_s3_key</span><span class="o">=</span><span class="s2">&quot;flights/2026/01/07/flight_001.ulg&quot;</span>
+<span class="p">)</span>
+
+<span class="c1"># Move/rename a file within the bucket</span>
+<span class="k">await</span> <span class="n">bucket_proxy</span><span class="o">.</span><span class="n">move_file</span><span class="p">(</span>
+    <span class="n">source_key</span><span class="o">=</span><span class="s2">&quot;uploads/temp/file.ulg&quot;</span><span class="p">,</span>
+    <span class="n">dest_key</span><span class="o">=</span><span class="s2">&quot;archive/2026/file.ulg&quot;</span>
+<span class="p">)</span>
+
+<span class="c1"># Delete a file</span>
+<span class="k">await</span> <span class="n">bucket_proxy</span><span class="o">.</span><span class="n">delete_file</span><span class="p">(</span><span class="n">s3_key</span><span class="o">=</span><span class="s2">&quot;path/to/file.ulg&quot;</span><span class="p">)</span>
+
+<span class="c1"># List objects in bucket</span>
+<span class="k">await</span> <span class="n">bucket_proxy</span><span class="o">.</span><span class="n">list_objects</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;flights/&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Upload with Custom S3 Key Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">petal_app_manager.proxies.bucket</span><span class="w"> </span><span class="kn">import</span> <span class="n">S3BucketProxy</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">FlightLogPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;bucket&quot;</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">upload_flight_log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">flight_date</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">flight_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Upload flight log with organized S3 path structure.&quot;&quot;&quot;</span>
+        <span class="n">bucket_proxy</span><span class="p">:</span> <span class="n">S3BucketProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;bucket&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Create organized S3 key: flights/YYYY/MM/DD/flight_id.ulg</span>
+        <span class="n">custom_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;flights/</span><span class="si">{</span><span class="n">flight_date</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">flight_id</span><span class="si">}</span><span class="s2">.ulg&quot;</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">bucket_proxy</span><span class="o">.</span><span class="n">upload_file</span><span class="p">(</span>
+            <span class="n">file_path</span><span class="o">=</span><span class="n">file_path</span><span class="p">,</span>
+            <span class="n">custom_s3_key</span><span class="o">=</span><span class="n">custom_key</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Uploaded to: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;s3_key&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;url&quot;</span><span class="p">)}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Upload failed: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="s2">&quot;reason&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">)}</span>
+</pre></div>
+</div>
+<p><strong>Move/Rename Files Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">FileOrganizerPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;bucket&quot;</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">archive_processed_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Move processed file from uploads to archive.&quot;&quot;&quot;</span>
+        <span class="n">bucket_proxy</span><span class="p">:</span> <span class="n">S3BucketProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;bucket&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Move from uploads/ to archive/</span>
+        <span class="c1"># e.g., &quot;uploads/pending/file.ulg&quot; -&gt; &quot;archive/2026/01/file.ulg&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+        <span class="n">date_path</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y/%m&quot;</span><span class="p">)</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">source_key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">dest_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;archive/</span><span class="si">{</span><span class="n">date_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">bucket_proxy</span><span class="o">.</span><span class="n">move_file</span><span class="p">(</span>
+            <span class="n">source_key</span><span class="o">=</span><span class="n">source_key</span><span class="p">,</span>
+            <span class="n">dest_key</span><span class="o">=</span><span class="n">dest_key</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Moved </span><span class="si">{</span><span class="n">source_key</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">dest_key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;archived&quot;</span><span class="p">,</span> <span class="s2">&quot;new_path&quot;</span><span class="p">:</span> <span class="n">dest_key</span><span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Move failed: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="s2">&quot;reason&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">)}</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">batch_organize_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dest_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Move all files from one prefix to another.&quot;&quot;&quot;</span>
+        <span class="n">bucket_proxy</span><span class="p">:</span> <span class="n">S3BucketProxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;bucket&quot;</span><span class="p">)</span>
+
+        <span class="c1"># List all files in source prefix</span>
+        <span class="n">objects</span> <span class="o">=</span> <span class="k">await</span> <span class="n">bucket_proxy</span><span class="o">.</span><span class="n">list_objects</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">source_prefix</span><span class="p">)</span>
+
+        <span class="n">results</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;moved&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;failed&quot;</span><span class="p">:</span> <span class="p">[]}</span>
+        <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;objects&quot;</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="n">source_key</span> <span class="o">=</span> <span class="n">obj</span><span class="p">[</span><span class="s2">&quot;key&quot;</span><span class="p">]</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">source_key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">dest_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dest_prefix</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">&quot;</span>
+
+            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">bucket_proxy</span><span class="o">.</span><span class="n">move_file</span><span class="p">(</span><span class="n">source_key</span><span class="p">,</span> <span class="n">dest_key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">):</span>
+                <span class="n">results</span><span class="p">[</span><span class="s2">&quot;moved&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dest_key</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">results</span><span class="p">[</span><span class="s2">&quot;failed&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">source_key</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">results</span>
+</pre></div>
+</div>
+</section>
+<section id="mqttproxy">
+<h2>MQTTProxy<a class="headerlink" href="#mqttproxy" title="Link to this heading"></a></h2>
+<p><strong>Purpose:</strong> IoT messaging, device communication, and MQTT command handling for web/mobile
+client communication.</p>
+<p><strong>Common Use Cases:</strong></p>
+<ul class="simple">
+<li><p>Receiving commands from web/mobile clients (via <code class="docutils literal notranslate"><span class="pre">&#64;mqtt_action</span></code>)</p></li>
+<li><p>Sending command responses back to clients</p></li>
+<li><p>Publishing status updates and telemetry to the <code class="docutils literal notranslate"><span class="pre">command/web</span></code> topic</p></li>
+<li><p>Real-time event streaming between edge device and cloud</p></li>
+</ul>
+<p><strong>Receiving Commands — the ``&#64;mqtt_action`` Decorator</strong></p>
+<p>The recommended way to handle incoming MQTT commands is the <code class="docutils literal notranslate"><span class="pre">&#64;mqtt_action</span></code>
+decorator.  You do <strong>not</strong> need to call <code class="docutils literal notranslate"><span class="pre">register_handler()</span></code> manually — the
+framework does it automatically at startup.</p>
+<p>See <a class="reference internal" href="adding_petals.html#mqtt-action-decorator"><span class="std std-ref">MQTT Command Handlers (&#64;mqtt_action)</span></a> in the <em>Adding a New Petal</em> guide for full
+details on <code class="docutils literal notranslate"><span class="pre">&#64;mqtt_action</span></code> and the <code class="docutils literal notranslate"><span class="pre">cpu_heavy</span></code> parameter.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">petal_app_manager.plugins.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">Petal</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">petal_app_manager.plugins.decorators</span><span class="w"> </span><span class="kn">import</span> <span class="n">http_action</span><span class="p">,</span> <span class="n">mqtt_action</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">YourPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;petal-example&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;mqtt&quot;</span><span class="p">]</span>
+
+    <span class="nd">@mqtt_action</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="s2">&quot;do_something&quot;</span><span class="p">)</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_do_something</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handles ``petal-example/do_something`` on ``command/edge``.&quot;&quot;&quot;</span>
+        <span class="n">msg_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;messageId&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">)</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;payload&quot;</span><span class="p">,</span> <span class="p">{})</span>
+
+        <span class="c1"># ... business logic ...</span>
+
+        <span class="n">mqtt_proxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_proxies</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mqtt&quot;</span><span class="p">)</span>
+        <span class="k">await</span> <span class="n">mqtt_proxy</span><span class="o">.</span><span class="n">send_command_response</span><span class="p">(</span>
+            <span class="n">message_id</span><span class="o">=</span><span class="n">msg_id</span><span class="p">,</span>
+            <span class="n">response_data</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;success&quot;</span><span class="p">},</span>
+        <span class="p">)</span>
+
+    <span class="nd">@mqtt_action</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="s2">&quot;heavy_compute&quot;</span><span class="p">,</span> <span class="n">cpu_heavy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_heavy_compute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;CPU-intensive handler — offloaded to a thread-pool executor.&quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">expensive_calculation</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;payload&quot;</span><span class="p">,</span> <span class="p">{}))</span>
+        <span class="n">mqtt_proxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_proxies</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mqtt&quot;</span><span class="p">)</span>
+        <span class="k">await</span> <span class="n">mqtt_proxy</span><span class="o">.</span><span class="n">send_command_response</span><span class="p">(</span>
+            <span class="n">message_id</span><span class="o">=</span><span class="n">message</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;messageId&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">),</span>
+            <span class="n">response_data</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">},</span>
+        <span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Publishing Messages — Public API Methods:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mqtt_proxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_proxies</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mqtt&quot;</span><span class="p">)</span>
+
+<span class="c1"># Publish to the ``command/web`` topic (for web/mobile clients)</span>
+<span class="k">await</span> <span class="n">mqtt_proxy</span><span class="o">.</span><span class="n">publish_message</span><span class="p">(</span>
+    <span class="n">payload</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;update&quot;</span><span class="p">},</span>
+    <span class="n">qos</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>  <span class="c1"># QoS 0, 1, or 2</span>
+<span class="p">)</span>
+
+<span class="c1"># Send a direct response to a specific command (correlates via messageId)</span>
+<span class="k">await</span> <span class="n">mqtt_proxy</span><span class="o">.</span><span class="n">send_command_response</span><span class="p">(</span>
+    <span class="n">message_id</span><span class="o">=</span><span class="s2">&quot;original-msg-id&quot;</span><span class="p">,</span>
+    <span class="n">response_data</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="p">{</span><span class="o">...</span><span class="p">}},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Method Reference:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">publish_message(payload,</span> <span class="pre">qos=1)</span></code></p></td>
+<td><p>Publish a message to the <code class="docutils literal notranslate"><span class="pre">command/web</span></code> topic for web/mobile clients.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">send_command_response(message_id,</span> <span class="pre">response_data)</span></code></p></td>
+<td><p>Send a correlated response to an incoming command (published to the
+response topic with the original <code class="docutils literal notranslate"><span class="pre">messageId</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">register_handler(handler,</span> <span class="pre">cpu_heavy=False)</span></code></p></td>
+<td><p>Register an async handler on the <code class="docutils literal notranslate"><span class="pre">command/edge</span></code> topic.
+<strong>Prefer ``&#64;mqtt_action`` instead</strong> — manual registration is only
+needed for advanced cases.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">unregister_handler(subscription_id)</span></code></p></td>
+<td><p>Unregister a previously registered handler by subscription ID.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">health_check()</span></code></p></td>
+<td><p>Return proxy health status including connection state.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>The ``cpu_heavy`` Flag:</strong></p>
+<p>Both <code class="docutils literal notranslate"><span class="pre">&#64;mqtt_action(cpu_heavy=True)</span></code> and <code class="docutils literal notranslate"><span class="pre">register_handler(handler,</span> <span class="pre">cpu_heavy=True)</span></code>
+cause the handler’s execution to be offloaded to a thread-pool executor.
+This prevents CPU-intensive work (e.g. NumPy, image processing, large JSON
+serialization) from blocking the asyncio event loop that services all other
+MQTT, HTTP, and WebSocket traffic.</p>
+<p>The default is <code class="docutils literal notranslate"><span class="pre">cpu_heavy=False</span></code> — use it for typical I/O-bound handlers
+that <code class="docutils literal notranslate"><span class="pre">await</span></code> proxy calls, database queries, or network requests.</p>
+<p><strong>Example — Status Broadcasting:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">TelemetryPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;petal-telemetry&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;mqtt&quot;</span><span class="p">,</span> <span class="s2">&quot;ext_mavlink&quot;</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">broadcast_position</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lat</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">lon</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">alt</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Publish a position update to connected web clients.&quot;&quot;&quot;</span>
+        <span class="n">mqtt_proxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_proxies</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mqtt&quot;</span><span class="p">)</span>
+        <span class="k">await</span> <span class="n">mqtt_proxy</span><span class="o">.</span><span class="n">publish_message</span><span class="p">(</span>
+            <span class="n">payload</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;position_update&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;latitude&quot;</span><span class="p">:</span> <span class="n">lat</span><span class="p">,</span>
+                <span class="s2">&quot;longitude&quot;</span><span class="p">:</span> <span class="n">lon</span><span class="p">,</span>
+                <span class="s2">&quot;altitude&quot;</span><span class="p">:</span> <span class="n">alt</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="error-handling-and-best-practices">
+<h2>Error Handling and Best Practices<a class="headerlink" href="#error-handling-and-best-practices" title="Link to this heading"></a></h2>
+<p><strong>Proxy Availability:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">YourPetal</span><span class="p">(</span><span class="n">Petal</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">safe_proxy_usage</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">redis_proxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="s2">&quot;redis&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">redis_proxy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Redis proxy not available&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+
+            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">redis_proxy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Proxy operation failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Dependency Declaration:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">get_required_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="c1"># Always declare required proxies</span>
+    <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;redis&quot;</span><span class="p">,</span> <span class="s2">&quot;ext_mavlink&quot;</span><span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_optional_proxies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="c1"># Declare optional proxies for graceful degradation</span>
+    <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;cloud&quot;</span><span class="p">,</span> <span class="s2">&quot;bucket&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p><strong>Health Checks:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">check_proxy_health</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">proxy_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_required_proxies</span><span class="p">():</span>
+        <span class="n">proxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">(</span><span class="n">proxy_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">proxy</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">proxy</span><span class="p">,</span> <span class="s1">&#39;health_check&#39;</span><span class="p">):</span>
+            <span class="n">health</span> <span class="o">=</span> <span class="k">await</span> <span class="n">proxy</span><span class="o">.</span><span class="n">health_check</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">proxy_name</span><span class="si">}</span><span class="s2"> health: </span><span class="si">{</span><span class="n">health</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Configuration Management:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Proxies automatically use configuration from .env file</span>
+<span class="c1"># PETAL_REDIS_HOST, PETAL_REDIS_PORT, PETAL_MAVLINK_ENDPOINT, etc.</span>
+<span class="c1"># No manual configuration needed in petal code</span>
+</pre></div>
+</div>
+</section>
+<section id="next-steps">
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Review the <a class="reference internal" href="adding_petals.html"><span class="doc">Adding a New Petal Guide</span></a> guide for complete petal development</p></li>
+<li><p>Check <a class="reference internal" href="contribution_guidelines.html"><span class="doc">Contribution Guidelines</span></a> for release and versioning</p></li>
+<li><p>Explore existing petals for real-world proxy usage examples</p></li>
+<li><p>Use the Admin Dashboard to monitor proxy health and status</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Documentation Status</strong>: The MavlinkExternalProxy, S3BucketProxy, RedisProxy, and MQTTProxy
+sections include comprehensive examples.
+CloudDBProxy and LocalDBProxy sections contain placeholders that will be
+populated with detailed examples in future updates.</p>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="contribution_guidelines.html" class="btn btn-neutral float-left" title="Contribution Guidelines" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="advanced_debugging.html" class="btn btn-neutral float-right" title="Advanced Debugging and Logging" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DroneLeaf.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

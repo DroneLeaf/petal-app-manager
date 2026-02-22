@@ -1,0 +1,1912 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Petal Flight Log &mdash; Petal App Manager 0.2.2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ba7fdd6d" />
+
+  
+    <link rel="shortcut icon" href="../_static/cropped-site-icon.png"/>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=000c92bf"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Changelog" href="../changelog.html" />
+    <link rel="prev" title="Petal User Journey Coordinator" href="petal_user_journey_coordinator.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Petal App Manager
+              <img src="../_static/White logo-vertical.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../introduction.html#what-is-petal-app-manager">What is Petal App Manager?</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#key-features">Key Features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#architecture">Architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../introduction.html#system-architecture-diagram">System Architecture Diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../introduction.html#architecture-components">Architecture Components</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../introduction.html#data-flow">Data Flow</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#use-cases">Use Cases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../introduction.html#why-petal-app-manager">Why Petal App Manager?</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/dependencies.html">Dependencies Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#system-requirements">System Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#python-3-11-installation">Python 3.11 Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#pdm-installation">PDM Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#redis-installation-and-configuration">Redis Installation and Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#redis-development-tools">Redis Development Tools</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/dependencies.html#controller-dashboard">Controller Dashboard</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quick Start Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#development-installation">Development Installation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#using-hear-cli-recommended">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#manual-development-setup">Manual Development Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#production-installation">Production Installation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#id1">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#custom-version-installation-field-testing">Custom Version Installation (Field Testing)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting_started/quickstart.html#manual-production-installation">Manual Production Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#environment-configuration">Environment Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#running-the-application">Running the Application</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#verifying-the-installation">Verifying the Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#quick-development-workflow">Quick Development Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../how_to_use/index.html">How to Use</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../how_to_use/making_requests.html">Making Requests</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#using-the-postman-collection">Using the Postman Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#using-the-docs-interface">Using the /docs Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/making_requests.html#accessing-swagger-ui">Accessing Swagger UI</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/making_requests.html#interactive-api-testing">Interactive API Testing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#using-redoc">Using ReDoc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#example-api-calls">Example API Calls</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/making_requests.html#quick-testing-workflow">Quick Testing Workflow</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how_to_use/service_management.html">The Petal App Manager Service</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#admin-dashboard-interface">Admin Dashboard Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#accessing-the-admin-dashboard">Accessing the Admin Dashboard</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#dashboard-features">Dashboard Features</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#using-the-admin-dashboard">Using the Admin Dashboard</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#alternative-access-methods">Alternative Access Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#managing-petals-and-proxies-via-api">Managing Petals and Proxies via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#checking-what-s-running">Checking What’s Running</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#viewing-all-available-components">Viewing All Available Components</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#petal-control-via-api">Petal Control via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#enabling-petals">Enabling Petals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#disabling-petals">Disabling Petals</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#proxy-control-via-api">Proxy Control via API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#enabling-proxies">Enabling Proxies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/service_management.html#disabling-proxies">Disabling Proxies</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#common-use-cases">Common Use Cases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#restart-management">Restart Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/service_management.html#service-files-and-locations">Service Files and Locations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how_to_use/configuration.html">Configuration Changes in .env</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#environment-variables-overview">Environment Variables Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#general-configuration">General Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-log-level">PETAL_LOG_LEVEL</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-log-to-file">PETAL_LOG_TO_FILE</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-log-dir">PETAL_LOG_DIR</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#mavlink-configuration">MAVLink Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-mavlink-endpoint">PETAL_MAVLINK_ENDPOINT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-mavlink-baud">PETAL_MAVLINK_BAUD</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#other-mavlink-settings">Other MAVLink Settings</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#cloud-configuration">Cloud Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#redis-configuration">Redis Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-redis-host-and-petal-redis-port">PETAL_REDIS_HOST and PETAL_REDIS_PORT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-redis-unix-socket-path">PETAL_REDIS_UNIX_SOCKET_PATH</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how_to_use/configuration.html#petal-redis-health-message-rate">PETAL_REDIS_HEALTH_MESSAGE_RATE</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#database-configuration">Database Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#data-operations-urls">Data Operations URLs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#mqtt-configuration">MQTT Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#proxy-connection-retry-configuration">Proxy Connection Retry Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#petal-specific-configuration">Petal-Specific Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#applying-configuration-changes">Applying Configuration Changes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how_to_use/configuration.html#configuration-examples">Configuration Examples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../development_contribution/index.html">Development and Contribution Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../development_contribution/adding_petals.html">Adding a New Petal Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#what-is-a-petal">What is a Petal?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#creating-a-new-petal">Creating a New Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#using-hear-cli-recommended">Using HEAR-CLI (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#manual-setup">Manual Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#petal-structure">Petal Structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#key-components">Key Components</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#mqtt-command-handlers-mqtt-action">MQTT Command Handlers (<code class="docutils literal notranslate"><span class="pre">&#64;mqtt_action</span></code>)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#handler-signature">Handler Signature</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#the-cpu-heavy-parameter">The <code class="docutils literal notranslate"><span class="pre">cpu_heavy</span></code> Parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#how-it-works-under-the-hood">How It Works Under the Hood</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#dynamic-factory-handlers">Dynamic / Factory Handlers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#migration-from-legacy-pattern">Migration from Legacy Pattern</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#registering-the-petal">Registering the Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#adding-to-proxies-yaml">Adding to proxies.yaml</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#adding-to-pyproject-toml-for-production">Adding to pyproject.toml (for Production)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#installing-your-petal">Installing Your Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#development-installation-editable">Development Installation (Editable)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#production-installation-git-tag">Production Installation (Git Tag)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#testing-your-petal">Testing Your Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#unit-tests">Unit Tests</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#integration-testing">Integration Testing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#debugging">Debugging</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#best-practices">Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#naming-conventions">Naming Conventions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#proxy-management">Proxy Management</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#logging">Logging</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#versioning">Versioning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#documentation">Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#common-pitfalls">Common Pitfalls</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#petal-name-must-start-with-petal">Petal Name Must Start with <code class="docutils literal notranslate"><span class="pre">petal-*</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#petal-not-loading">Petal Not Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/adding_petals.html#entry-point-errors">Entry Point Errors</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/adding_petals.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../development_contribution/inter-petal_communications.html">Inter-Petal Communication Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#goal">Goal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#overview">Overview</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#benefits">Benefits</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#implementation-guide">Implementation Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#for-sink-petal-developers-message-receivers">For Sink Petal Developers (Message Receivers)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#for-source-petal-developers-message-senders">For Source Petal Developers (Message Senders)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#best-practices">Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#data-model-design">Data Model Design</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#channel-naming-convention">Channel Naming Convention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#versioning">Versioning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#testing">Testing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#example-complete-implementation">Example: Complete Implementation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#sink-petal-petal-leafsdk">Sink Petal (petal-leafsdk)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#source-petal-petal-qgc-mission-adapter">Source Petal (petal-qgc-mission-adapter)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#acceptance-criteria">Acceptance Criteria</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#reference-implementation">Reference Implementation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#migration-path">Migration Path</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#for-existing-petals">For Existing Petals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#deprecation-strategy">Deprecation Strategy</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#additional-resources">Additional Resources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#common-issues">Common Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/inter-petal_communications.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../development_contribution/contribution_guidelines.html">Contribution Guidelines</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#dependency-architecture">Dependency Architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#understanding-the-petal-stack-dependencies">Understanding the Petal Stack Dependencies</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#version-management-by-repository">Version Management by Repository</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#petal-app-manager">Petal App Manager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#individual-petals">Individual Petals</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#non-petal-packages">Non-Petal Packages</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#leafsdk">LeafSDK</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#mavlink-pymavlink-very-special-case">mavlink/pymavlink (Very Special Case)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#version-summary-table">Version Summary Table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/contribution_guidelines.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../development_contribution/using_proxies.html">Using Proxies in Petals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#available-proxy-types">Available Proxy Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#accessing-proxies-in-your-petal">Accessing Proxies in Your Petal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#redisproxy">RedisProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#mavlinkexternalproxy">MavlinkExternalProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#clouddbproxy">CloudDBProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#localdbproxy">LocalDBProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#s3bucketproxy">S3BucketProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#mqttproxy">MQTTProxy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#error-handling-and-best-practices">Error Handling and Best Practices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/using_proxies.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../development_contribution/advanced_debugging.html">Advanced Debugging and Logging</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#available-logging-tools">Available Logging Tools</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#per-level-logging-configuration">Per-Level Logging Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#configuration-methods">Configuration Methods</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#output-options">Output Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#common-configuration-scenarios">Common Configuration Scenarios</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#legacy-format-support">Legacy Format Support</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#csv-signal-logging-tool">CSV Signal Logging Tool</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#advanced-configuration">Advanced Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#complete-petal-example">Complete Petal Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#api-reference">API Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#debugging-best-practices">Debugging Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#environment-specific-configuration">Environment-Specific Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#performance-considerations">Performance Considerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/advanced_debugging.html#error-handling-and-recovery">Error Handling and Recovery</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#integration-with-admin-dashboard">Integration with Admin Dashboard</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#testing-and-validation">Testing and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#file-management">File Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/advanced_debugging.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../development_contribution/profiling.html">Petal App Manager Profiling Tools</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#quick-start">Quick Start</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#prerequisites">1. Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#install-dependencies">2. Install Dependencies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#start-pam">3. Start PAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#run-profiling-and-or-monitoring">4. Run Profiling and/or Monitoring</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#view-results">5. View Results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#command-line-flags">6. Command-Line Flags</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#profiling-scenarios">Profiling Scenarios</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#workflow-for-profiling-different-scenarios">Workflow for Profiling Different Scenarios</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#example-sitl-mission-for-profiling">Example SITL Mission for Profiling</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#output-formats-visualizations">Output Formats &amp; Visualizations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#speedscope-json-interactive">Speedscope JSON (Interactive) ⭐</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#monitor-output-cpu-and-memory-usage">Monitor Output: CPU and Memory Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#interpretation-guide">Interpretation Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#what-to-look-for">What to Look For</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#reading-flame-graphs">Reading Flame Graphs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#common-patterns-to-identify">Common Patterns to Identify</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#environment-issues">Environment Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#profiler-issues">Profiler Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#visualization-issues">Visualization Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#performance-issues">Performance Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#results-interpretation-issues">Results Interpretation Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#quick-reference">Quick Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#command-cheatsheet">Command Cheatsheet</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#file-naming-conventions">File Naming Conventions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../development_contribution/profiling.html#keyboard-shortcuts-speedscope">Keyboard Shortcuts (Speedscope)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#getting-help">Getting Help</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../development_contribution/profiling.html#summary">Summary</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Petal Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="petal_user_journey_coordinator.html">Petal User Journey Coordinator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#required-proxies">Required Proxies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#command-categories">Command Categories</a></li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#esc-calibration-commands">ESC Calibration Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#esc-calibration">esc_calibration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#esc-force-run-all">esc_force_run_all</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#esc-force-run-single">esc_force_run_single</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#esc-calibration-single">esc_calibration_single</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#parameter-configuration-commands">Parameter Configuration Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#geometry">geometry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#gps-module">gps_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#dist-module">dist_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#oflow-module">oflow_module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#gps-spatial-offset">gps_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#distance-spatial-offset">distance_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#optical-flow-spatial-offset">optical_flow_spatial_offset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#esc-update-calibration-limits">esc_update_calibration_limits</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#bulk-parameter-operations">Bulk Parameter Operations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#bulk-set-parameters">bulk_set_parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#bulk-get-parameters">bulk_get_parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#real-time-telemetry-streams">Real-Time Telemetry Streams</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#subscribe-rc-value-stream">subscribe_rc_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#unsubscribe-rc-value-stream">unsubscribe_rc_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#subscribe-pose-value-stream">subscribe_pose_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#unsubscribe-pose-value-stream">unsubscribe_pose_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#subscribe-ks-status-stream">subscribe_ks_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#unsubscribe-ks-status-stream">unsubscribe_ks_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#subscribe-mfs-a-status-stream-subscribe-mfs-b-status-stream">subscribe_mfs_a_status_stream / subscribe_mfs_b_status_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#unsubscribeall">unsubscribeall</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#trajectory-verification-commands">Trajectory Verification Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#verify-pos-yaw-directions">verify_pos_yaw_directions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#verify-pos-yaw-directions-complete">verify_pos_yaw_directions_complete</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#wifi-optitrack-commands">WiFi &amp; OptiTrack Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#connect-to-wifi-and-verify-optitrack">connect_to_wifi_and_verify_optitrack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#set-static-ip-address">set_static_ip_address</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#system-commands">System Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#reboot-px4">reboot_px4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#format-sd-card">format_sd_card</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#get-log-entries">get_log_entries</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#complete-usage-example">Complete Usage Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#error-handling">Error Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#mqtt-topics-reference">MQTT Topics Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#commands-received-on-command-edge">Commands (Received on <code class="docutils literal notranslate"><span class="pre">command/edge</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="petal_user_journey_coordinator.html#published-topics-sent-to-command-web">Published Topics (Sent to <code class="docutils literal notranslate"><span class="pre">command/web</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="petal_user_journey_coordinator.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Petal Flight Log</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#required-proxies">Required Proxies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#command-categories">Command Categories</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#flight-record-fetch-commands">Flight Record Fetch Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fetch-flight-records">fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#subscribe-fetch-flight-records">subscribe_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#unsubscribe-fetch-flight-records">unsubscribe_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#cancel-fetch-flight-records">cancel_fetch_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fetch-existing-flight-records">fetch_existing_flight_records</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#flight-record-sync-commands">Flight Record Sync Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#start-sync-flight-record">start_sync_flight_record</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#subscribe-sync-job-value-stream">subscribe_sync_job_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#unsubscribe-sync-job-value-stream">unsubscribe_sync_job_value_stream</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#cancel-sync-job">cancel_sync_job</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#flight-record-management-commands">Flight Record Management Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#delete-flight-record">delete_flight_record</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#bulk-delete-flight-records-commands">Bulk Delete Flight Records Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#bulk-delete-flight-records">bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#subscribe-bulk-delete-flight-records">subscribe_bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#unsubscribe-bulk-delete-flight-records">unsubscribe_bulk_delete_flight_records</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#cancel-bulk-delete-flight-records">cancel_bulk_delete_flight_records</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#clear-error-logs-commands">Clear Error Logs Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#detect-error-logs">detect_error_logs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#clear-error-logs">clear_error_logs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#clear-all-ulogs-commands">Clear All ULogs Commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#clear-all-ulogs">clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#subscribe-clear-all-ulogs">subscribe_clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#unsubscribe-clear-all-ulogs">unsubscribe_clear_all_ulogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#cancel-clear-all-ulogs">cancel_clear_all_ulogs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#job-status-values">Job Status Values</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mqtt-topics-reference">MQTT Topics Reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-models">Data Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#flightrecordmatch">FlightRecordMatch</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#error-handling">Error Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id1">MQTT Topics Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#commands-received-on-command-edge">Commands (Received on <code class="docutils literal notranslate"><span class="pre">command/edge</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#published-topics-sent-to-command-web">Published Topics (Sent to <code class="docutils literal notranslate"><span class="pre">command/web</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-2-2-2026-02-22">Version 0.2.2 (2026-02-22)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-2-1-2026-02-12">Version 0.2.1 (2026-02-12)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-2-0-2026-02-12">Version 0.2.0 (2026-02-12)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-62-2026-02-06">Version 0.1.62 (2026-02-06)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-61-2026-02-03">Version 0.1.61 (2026-02-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-60-2026-01-30">Version 0.1.60 (2026-01-30)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-59-2026-01-27">Version 0.1.59 (2026-01-27)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-57-2026-01-18">Version 0.1.57 (2026-01-18)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-56-2026-01-17">Version 0.1.56 (2026-01-17)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-54-2026-01-15">Version 0.1.54 (2026-01-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-53-2026-01-15">Version 0.1.53 (2026-01-15)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-52-2026-01-14">Version 0.1.52 (2026-01-14)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-51-2026-01-08">Version 0.1.51 (2026-01-08)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-50-2026-01-05">Version 0.1.50 (2026-01-05)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-49-2025-01-05">Version 0.1.49 (2025-01-05)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-48-2025-12-31">Version 0.1.48 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-47-2025-12-31">Version 0.1.47 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-46-2025-12-31">Version 0.1.46 (2025-12-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-45-2025-11-23">Version 0.1.45 (2025-11-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-44-2025-11-07">Version 0.1.44 (2025-11-07)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-43-2025-11-05-hotfix">Version 0.1.43 (2025-11-05) - Hotfix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-42-2025-11-03">Version 0.1.42 (2025-11-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-41-2025-11-02">Version 0.1.41 (2025-11-02)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-39-2025-10-23">Version 0.1.39 (2025-10-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-38-2025-10-23">Version 0.1.38 (2025-10-23)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-37-2025-10-22">Version 0.1.37 (2025-10-22)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-31-2025-09-25">Version 0.1.31 (2025-09-25)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-29-2025-08-28">Version 0.1.29 (2025-08-28)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-28-2025-08-17">Version 0.1.28 (2025-08-17)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-23-2025-07-31">Version 0.1.23 (2025-07-31)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-18-2025-07-29">Version 0.1.18 (2025-07-29)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-5-2025-07-03-first-stable-release">Version 0.1.5 (2025-07-03) - First Stable Release</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-0-1-0-2025-06-22-initial-release">Version 0.1.0 (2025-06-22) - Initial Release</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api_reference/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/core_api.html">Core API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.admin_ui">Admin UI</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.admin_ui.admin_dashboard"><code class="docutils literal notranslate"><span class="pre">admin_dashboard()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.admin_ui.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.health">Health Endpoints</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.detailed_health_check"><code class="docutils literal notranslate"><span class="pre">detailed_health_check()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.health_check"><code class="docutils literal notranslate"><span class="pre">health_check()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.health.organization_health_check"><code class="docutils literal notranslate"><span class="pre">organization_health_check()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.config_api">Configuration API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.AllComponentsResponse"><code class="docutils literal notranslate"><span class="pre">AllComponentsResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.ConfigResponse"><code class="docutils literal notranslate"><span class="pre">ConfigResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.PetalControlRequest"><code class="docutils literal notranslate"><span class="pre">PetalControlRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.PetalInfo"><code class="docutils literal notranslate"><span class="pre">PetalInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.ProxyInfo"><code class="docutils literal notranslate"><span class="pre">ProxyInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.control_petals"><code class="docutils literal notranslate"><span class="pre">control_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.control_proxies"><code class="docutils literal notranslate"><span class="pre">control_proxies()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.get_status"><code class="docutils literal notranslate"><span class="pre">get_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.config_api.list_all_components"><code class="docutils literal notranslate"><span class="pre">list_all_components()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.cloud_api">Cloud API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.GetItemRequest"><code class="docutils literal notranslate"><span class="pre">GetItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.ScanTableRequest"><code class="docutils literal notranslate"><span class="pre">ScanTableRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.SetItemRequest"><code class="docutils literal notranslate"><span class="pre">SetItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.UpdateItemRequest"><code class="docutils literal notranslate"><span class="pre">UpdateItemRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.delete_item"><code class="docutils literal notranslate"><span class="pre">delete_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.get_item"><code class="docutils literal notranslate"><span class="pre">get_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.scan_table"><code class="docutils literal notranslate"><span class="pre">scan_table()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.set_item"><code class="docutils literal notranslate"><span class="pre">set_item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.cloud_api.update_item"><code class="docutils literal notranslate"><span class="pre">update_item()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.bucket_api">Bucket API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.delete_file_test"><code class="docutils literal notranslate"><span class="pre">delete_file_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.download_file_test"><code class="docutils literal notranslate"><span class="pre">download_file_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.get_info"><code class="docutils literal notranslate"><span class="pre">get_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.list_files_test"><code class="docutils literal notranslate"><span class="pre">list_files_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.bucket_api.upload_file_test"><code class="docutils literal notranslate"><span class="pre">upload_file_test()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.mavftp_api">MAVLink FTP API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.ClearFailLogsRequest"><code class="docutils literal notranslate"><span class="pre">ClearFailLogsRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.clear_fail_logs"><code class="docutils literal notranslate"><span class="pre">clear_fail_logs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mavftp_api.list_directory"><code class="docutils literal notranslate"><span class="pre">list_directory()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.mqtt_api">MQTT API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.MQTTResponse"><code class="docutils literal notranslate"><span class="pre">MQTTResponse</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.PublishMessageRequest"><code class="docutils literal notranslate"><span class="pre">PublishMessageRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.SubscribePatternRequest"><code class="docutils literal notranslate"><span class="pre">SubscribePatternRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.SubscribeTopicRequest"><code class="docutils literal notranslate"><span class="pre">SubscribeTopicRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.UnsubscribeTopicRequest"><code class="docutils literal notranslate"><span class="pre">UnsubscribeTopicRequest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.get_mqtt_status"><code class="docutils literal notranslate"><span class="pre">get_mqtt_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.list_subscriptions"><code class="docutils literal notranslate"><span class="pre">list_subscriptions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.publish_message"><code class="docutils literal notranslate"><span class="pre">publish_message()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.subscribe_topic"><code class="docutils literal notranslate"><span class="pre">subscribe_topic()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.mqtt_api.unsubscribe_topic"><code class="docutils literal notranslate"><span class="pre">unsubscribe_topic()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/core_api.html#module-petal_app_manager.api.proxy_info">Proxy Info</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.proxy_info.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/core_api.html#petal_app_manager.api.proxy_info.list_proxies"><code class="docutils literal notranslate"><span class="pre">list_proxies()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/proxies.html">Proxies</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.base">Base Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.base.BaseProxy"><code class="docutils literal notranslate"><span class="pre">BaseProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.redis">Redis Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#redisproxy">RedisProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.redis.RedisProxy"><code class="docutils literal notranslate"><span class="pre">RedisProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.external">External MAVLink Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petalappmanager-proxies-external">petalappmanager.proxies.external</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.DownloadCancelledException"><code class="docutils literal notranslate"><span class="pre">DownloadCancelledException</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.ExternalProxy"><code class="docutils literal notranslate"><span class="pre">ExternalProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.FTPDeleteError"><code class="docutils literal notranslate"><span class="pre">FTPDeleteError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.MavLinkExternalProxy"><code class="docutils literal notranslate"><span class="pre">MavLinkExternalProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.MavLinkFTPProxy"><code class="docutils literal notranslate"><span class="pre">MavLinkFTPProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.ULogInfo"><code class="docutils literal notranslate"><span class="pre">ULogInfo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.external.setup_file_only_logger"><code class="docutils literal notranslate"><span class="pre">setup_file_only_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.localdb">Local Database Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#localdbproxy">LocalDBProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.localdb.LocalDBProxy"><code class="docutils literal notranslate"><span class="pre">LocalDBProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.cloud">Cloud Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#clouddbproxy">CloudDBProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.cloud.CloudDBProxy"><code class="docutils literal notranslate"><span class="pre">CloudDBProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.bucket">Bucket Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.bucket.S3BucketProxy"><code class="docutils literal notranslate"><span class="pre">S3BucketProxy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/proxies.html#module-petal_app_manager.proxies.mqtt">MQTT Proxy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#mqttproxy">MQTTProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.mqtt.MQTTProxy"><code class="docutils literal notranslate"><span class="pre">MQTTProxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/proxies.html#petal_app_manager.proxies.mqtt.MessageCallback"><code class="docutils literal notranslate"><span class="pre">MessageCallback</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/plugins.html">Plugins System</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/plugins.html#module-petal_app_manager.plugins.base">Base Petal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.base.Petal"><code class="docutils literal notranslate"><span class="pre">Petal</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/plugins.html#module-petal_app_manager.plugins.decorators">Decorators</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.decorators.http_action"><code class="docutils literal notranslate"><span class="pre">http_action()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.decorators.mqtt_action"><code class="docutils literal notranslate"><span class="pre">mqtt_action()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.decorators.websocket_action"><code class="docutils literal notranslate"><span class="pre">websocket_action()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/plugins.html#module-petal_app_manager.plugins.loader">Loader</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.loader.initialize_petals"><code class="docutils literal notranslate"><span class="pre">initialize_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.loader.load_petals"><code class="docutils literal notranslate"><span class="pre">load_petals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/plugins.html#petal_app_manager.plugins.loader.startup_petals"><code class="docutils literal notranslate"><span class="pre">startup_petals()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/petals.html">Available Petals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/petals.html#production-petals">Production Petals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-flight-log">petal-flight-log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-warehouse">petal-warehouse</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-leafsdk">petal-leafsdk</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-user-journey-coordinator">petal-user-journey-coordinator</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api_reference/petals.html#development-petals">Development Petals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api_reference/petals.html#petal-qgc-mission-server">petal-qgc-mission-server</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api_reference/index.html#core-modules">Core Modules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../known_issues.html">Known Issues</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#petal-issues">Petal Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#petal-name-must-start-with-petal">Petal Name Must Start with <code class="docutils literal notranslate"><span class="pre">petal-*</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#petal-not-getting-loaded">Petal Not Getting Loaded</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#python-3-11-issues">Python 3.11 Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#python-3-11-not-found">Python 3.11 Not Found</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#pdm-issues">PDM Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#pdm-installation-fails">PDM Installation Fails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#pdm-lock-file-issues">PDM Lock File Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#redis-issues">Redis Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#redis-connection-errors">Redis Connection Errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#redis-configuration-issues">Redis Configuration Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#mavlink-issues">MAVLink Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#mavlink-connection-issues">MAVLink Connection Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#mavlink-submodule-branch-issues-sitl">MAVLink Submodule Branch Issues (SITL)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#mqtt-issues">MQTT Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#mqtt-proxy-fails-on-fresh-installation">MQTT Proxy Fails on Fresh Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#port-conflicts">Port Conflicts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../known_issues.html#port-9000-already-in-use">Port 9000 Already in Use</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../known_issues.html#reporting-issues">Reporting Issues</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Petal App Manager</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Petal Documentation</a></li>
+      <li class="breadcrumb-item active">Petal Flight Log</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/petal_documentation/petal_flight_log.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="petal-flight-log">
+<h1>Petal Flight Log<a class="headerlink" href="#petal-flight-log" title="Link to this heading"></a></h1>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This documentation is for <strong>petal-flight-log v0.2.6</strong>
+This documentation covers the MQTT command interface for flight log management.</p>
+</div>
+<p>The <strong>petal-flight-log</strong> is a petal that provides comprehensive flight record management capabilities including ULog file downloads from Pixhawk, S3 uploads, rosbag file handling, and flight record synchronization. It uses a job-based architecture for long-running operations with real-time progress streaming.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>This petal communicates via MQTT messages on the <code class="docutils literal notranslate"><span class="pre">command/edge</span></code> topic. All commands follow a standardized message format:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;waitResponse&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;messageId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;unique-message-id&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;deviceId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;device-id&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;petal-flight-log/&lt;command_name&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-01-15T14:30:00Z&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;payload&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="required-proxies">
+<h2>Required Proxies<a class="headerlink" href="#required-proxies" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mqtt</span></code> - For MQTT communication with web clients</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">redis</span></code> - For job state persistence and caching</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">db</span></code> - Local database proxy for flight record storage</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud</span></code> - Cloud database proxy for flight record synchronization</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">s3_bucket</span></code> - S3 bucket proxy for file uploads</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mavftp</span></code> - MAVFTP proxy for ULog file downloads from Pixhawk</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ext_mavlink</span></code> - MAVLink proxy for flight controller communication</p></li>
+</ul>
+</section>
+<section id="command-categories">
+<h2>Command Categories<a class="headerlink" href="#command-categories" title="Link to this heading"></a></h2>
+</section>
+<section id="flight-record-fetch-commands">
+<h2>Flight Record Fetch Commands<a class="headerlink" href="#flight-record-fetch-commands" title="Link to this heading"></a></h2>
+<p>These commands handle scanning, matching, and retrieving flight records from the system.</p>
+<section id="fetch-flight-records">
+<h3>fetch_flight_records<a class="headerlink" href="#fetch-flight-records" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/fetch_flight_records</span></code></p>
+<p>Initiates a long-running job (~30 seconds) that scans for rosbag files, lists ULog files from Pixhawk via MAVFTP, matches them based on timestamps, and stores results in databases.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;tolerance_seconds&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;start_time&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-01-15T14:00:00Z&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;end_time&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-01-15T16:00:00Z&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd/log&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tolerance_seconds</span></code> (int): Tolerance for timestamp matching in seconds (1-300, default: 30)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">start_time</span></code> (str): Start time in ISO format for filtering records</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">end_time</span></code> (str): End time in ISO format for filtering records</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">base</span></code> (str): Base directory path on Pixhawk SD card for ULog file searches</p></li>
+</ul>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Fetch flight records job started. Subscribe to progress updates using subscribe_fetch_flight_records.&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Example - Complete Fetch Workflow:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+
+<span class="c1"># Step 1: Start the fetch job</span>
+<span class="n">fetch_command</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;waitResponse&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s2">&quot;messageId&quot;</span><span class="p">:</span> <span class="s2">&quot;fetch-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;deviceId&quot;</span><span class="p">:</span> <span class="s2">&quot;drone-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;petal-flight-log/fetch_flight_records&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-01-15T14:30:00Z&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;payload&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;tolerance_seconds&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+        <span class="s2">&quot;start_time&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-01-15T00:00:00Z&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;end_time&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-01-15T23:59:59Z&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;base&quot;</span><span class="p">:</span> <span class="s2">&quot;fs/microsd/log&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1"># Publish to MQTT and receive job_id in response</span>
+
+<span class="c1"># Step 2: Subscribe to progress updates</span>
+<span class="n">subscribe_command</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;waitResponse&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s2">&quot;messageId&quot;</span><span class="p">:</span> <span class="s2">&quot;subscribe-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;deviceId&quot;</span><span class="p">:</span> <span class="s2">&quot;drone-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;petal-flight-log/subscribe_fetch_flight_records&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-01-15T14:30:01Z&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;payload&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;subscribed_stream_id&quot;</span><span class="p">:</span> <span class="s2">&quot;fetch-progress-001&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;data_rate_hz&quot;</span><span class="p">:</span> <span class="mf">2.0</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1"># Progress updates will be published to petal-flight-log/publish_fetch_flight_records_job_value_stream</span>
+</pre></div>
+</div>
+</section>
+<section id="subscribe-fetch-flight-records">
+<h3>subscribe_fetch_flight_records<a class="headerlink" href="#subscribe-fetch-flight-records" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/subscribe_fetch_flight_records</span></code></p>
+<p>Subscribes to progress updates for an active fetch flight records job via MQTT streaming.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;subscribed_stream_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fetch-progress-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_rate_hz&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.0</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">subscribed_stream_id</span></code> (str): Unique identifier for this subscription</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_rate_hz</span></code> (float): Data publishing rate in Hz (default: 2.0)</p></li>
+</ul>
+<p><strong>Progress Stream Data Format:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;progress&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;machine_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;drone-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;in_progress&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">45.5</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;completed&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Scanning for flight records...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;total_records&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="unsubscribe-fetch-flight-records">
+<h3>unsubscribe_fetch_flight_records<a class="headerlink" href="#unsubscribe-fetch-flight-records" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/unsubscribe_fetch_flight_records</span></code></p>
+<p>Unsubscribes from fetch flight records progress updates.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;unsubscribed_stream_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fetch-progress-001&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="cancel-fetch-flight-records">
+<h3>cancel_fetch_flight_records<a class="headerlink" href="#cancel-fetch-flight-records" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/cancel_fetch_flight_records</span></code></p>
+<p>Cancels all active fetch flight records jobs.</p>
+<p><strong>Payload:</strong> None required</p>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cancelled 1 fetch flight records jobs&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;cancelled_jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="fetch-existing-flight-records">
+<h3>fetch_existing_flight_records<a class="headerlink" href="#fetch-existing-flight-records" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/fetch_existing_flight_records</span></code></p>
+<p>Retrieves existing flight records from the cloud database without performing a new scan. This is a fast operation that returns cached/stored records.</p>
+<p><strong>Payload:</strong> None required</p>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;flight_records&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;record-001&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;ulog&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ulog-001&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;file_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;log_44_2026-01-15-14-30-22.ulg&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;storage_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;size_bytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1048576</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;rosbag&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rosbag-001&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;file_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LeafFC_2026-01-15-14-30-22.bag&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;storage_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;size_bytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2097152</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;sync_job_status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;completed&quot;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;total_matches&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="flight-record-sync-commands">
+<h2>Flight Record Sync Commands<a class="headerlink" href="#flight-record-sync-commands" title="Link to this heading"></a></h2>
+<p>These commands handle synchronizing flight records to cloud storage (S3).</p>
+<section id="start-sync-flight-record">
+<h3>start_sync_flight_record<a class="headerlink" href="#start-sync-flight-record" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/start_sync_flight_record</span></code></p>
+<p>Starts a synchronization job for a specific flight record. This orchestrates multiple sub-jobs:</p>
+<ol class="arabic simple">
+<li><p>Download ULog from Pixhawk (if needed, via MAVFTP)</p></li>
+<li><p>Upload ULog to S3</p></li>
+<li><p>Upload Rosbag to S3</p></li>
+</ol>
+<p><strong>Progress Weight Distribution:</strong></p>
+<ul class="simple">
+<li><p>If ULog download is needed: 90% for ULog download, 5% each for S3 uploads</p></li>
+<li><p>If no ULog download needed: S3 jobs split 100% evenly (50% each, or 100% if single job)</p></li>
+</ul>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;flight_record_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">flight_record_id</span></code> (str): Unique identifier for the flight record to sync</p></li>
+</ul>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Started flight record sync job abc12345&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;sync_job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;abc12345-6789-0def-ghij-klmnopqrstuv&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Example - Complete Sync Workflow:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 1: Start sync job</span>
+<span class="n">sync_command</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;waitResponse&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s2">&quot;messageId&quot;</span><span class="p">:</span> <span class="s2">&quot;sync-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;deviceId&quot;</span><span class="p">:</span> <span class="s2">&quot;drone-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;petal-flight-log/start_sync_flight_record&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-01-15T14:30:00Z&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;payload&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;flight_record_id&quot;</span><span class="p">:</span> <span class="s2">&quot;record-001&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Step 2: Subscribe to sync job progress</span>
+<span class="n">subscribe_command</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;waitResponse&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s2">&quot;messageId&quot;</span><span class="p">:</span> <span class="s2">&quot;subscribe-002&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;deviceId&quot;</span><span class="p">:</span> <span class="s2">&quot;drone-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;petal-flight-log/subscribe_sync_job_value_stream&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-01-15T14:30:01Z&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;payload&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;subscribed_stream_id&quot;</span><span class="p">:</span> <span class="s2">&quot;abc12345-6789-0def-ghij-klmnopqrstuv&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;data_rate_hz&quot;</span><span class="p">:</span> <span class="mf">2.0</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1"># Progress updates published to petal-flight-log/publish_sync_job_value_stream</span>
+</pre></div>
+</div>
+</section>
+<section id="subscribe-sync-job-value-stream">
+<h3>subscribe_sync_job_value_stream<a class="headerlink" href="#subscribe-sync-job-value-stream" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/subscribe_sync_job_value_stream</span></code></p>
+<p>Subscribes to progress updates for a flight record sync job.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;subscribed_stream_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;abc12345-6789-0def-ghij-klmnopqrstuv&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_rate_hz&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.0</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">subscribed_stream_id</span></code> (str): The sync job ID to subscribe to</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_rate_hz</span></code> (float): Data publishing rate in Hz (default: 2.0)</p></li>
+</ul>
+<p><strong>Progress Stream Data Format:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;progress&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;sync_job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;abc12345-6789-0def-ghij-klmnopqrstuv&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;flight_record_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;record-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;machine_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;drone-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">45.0</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;completed&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Downloading ULog from Pixhawk... (125.5 KB/s)&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;sub_jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;ulog_download&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;download-job-001&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;ulog_upload&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;upload-job-001&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;rosbag_upload&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;upload-job-002&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="unsubscribe-sync-job-value-stream">
+<h3>unsubscribe_sync_job_value_stream<a class="headerlink" href="#unsubscribe-sync-job-value-stream" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/unsubscribe_sync_job_value_stream</span></code></p>
+<p>Unsubscribes from sync job progress updates.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;unsubscribed_stream_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;abc12345-6789-0def-ghij-klmnopqrstuv&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="cancel-sync-job">
+<h3>cancel_sync_job<a class="headerlink" href="#cancel-sync-job" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/cancel_sync_job</span></code></p>
+<p>Cancels a flight record sync job and all its sub-jobs (ULog download, S3 uploads).</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;flight_record_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">flight_record_id</span></code> (str): Unique identifier for the flight record whose sync job should be cancelled</p></li>
+</ul>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cancelled flight record sync job&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="flight-record-management-commands">
+<h2>Flight Record Management Commands<a class="headerlink" href="#flight-record-management-commands" title="Link to this heading"></a></h2>
+<section id="delete-flight-record">
+<h3>delete_flight_record<a class="headerlink" href="#delete-flight-record" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/delete_flight_record</span></code></p>
+<p>Deletes a flight record and its associated files from local storage and S3.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;flight_record_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">flight_record_id</span></code> (str): Unique identifier for the flight record to delete</p></li>
+</ul>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Flight record f47ac10b-58cc-4372-a567-0e02b2c3d479 deleted successfully&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This operation permanently deletes the flight record from both local and cloud databases,
+and moves associated S3 files to a <code class="docutils literal notranslate"><span class="pre">deleted/</span></code> folder. Local files are permanently removed.</p>
+</div>
+</section>
+</section>
+<section id="bulk-delete-flight-records-commands">
+<h2>Bulk Delete Flight Records Commands<a class="headerlink" href="#bulk-delete-flight-records-commands" title="Link to this heading"></a></h2>
+<p>These commands handle bulk deletion of multiple flight records using the job-based architecture with
+real-time progress streaming.</p>
+<section id="bulk-delete-flight-records">
+<h3>bulk_delete_flight_records<a class="headerlink" href="#bulk-delete-flight-records" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/bulk_delete_flight_records</span></code></p>
+<p>Initiates a long-running job to delete multiple flight records simultaneously. Each record’s ULog,
+Rosbag, S3 files, and database entries are removed. Any existing bulk delete job is automatically
+cancelled before starting a new one.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;flight_record_ids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;a1b2c3d4-e5f6-7890-abcd-1234567890ab&quot;</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">flight_record_ids</span></code> (list[str]): List of flight record IDs to delete (1-100, must be unique)</p></li>
+</ul>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bulk delete job started for 2 flight records. Subscribe to progress updates using subscribe_bulk_delete_flight_records.&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;total_requested&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Example - Complete Bulk Delete Workflow:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 1: Start the bulk delete job</span>
+<span class="n">bulk_delete_command</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;waitResponse&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s2">&quot;messageId&quot;</span><span class="p">:</span> <span class="s2">&quot;bulk-del-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;deviceId&quot;</span><span class="p">:</span> <span class="s2">&quot;drone-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;petal-flight-log/bulk_delete_flight_records&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-02-18T14:30:00Z&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;payload&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;flight_record_ids&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;record-001&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;record-002&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;record-003&quot;</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1"># Publish to MQTT and receive job_id in response</span>
+
+<span class="c1"># Step 2: Subscribe to progress updates</span>
+<span class="n">subscribe_command</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;waitResponse&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s2">&quot;messageId&quot;</span><span class="p">:</span> <span class="s2">&quot;subscribe-bulk-del-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;deviceId&quot;</span><span class="p">:</span> <span class="s2">&quot;drone-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;petal-flight-log/subscribe_bulk_delete_flight_records&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-02-18T14:30:01Z&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;payload&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;subscribed_stream_id&quot;</span><span class="p">:</span> <span class="s2">&quot;bulk-delete-progress-001&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;data_rate_hz&quot;</span><span class="p">:</span> <span class="mf">2.0</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1"># Progress updates published to petal-flight-log/publish_bulk_delete_job_value_stream</span>
+</pre></div>
+</div>
+</section>
+<section id="subscribe-bulk-delete-flight-records">
+<h3>subscribe_bulk_delete_flight_records<a class="headerlink" href="#subscribe-bulk-delete-flight-records" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/subscribe_bulk_delete_flight_records</span></code></p>
+<p>Subscribes to progress updates for an active bulk delete flight records job via MQTT streaming.
+The <code class="docutils literal notranslate"><span class="pre">subscribed_stream_id</span></code> is provided by the front-end for future use but is not used to find
+the job — this handler subscribes to the single active <code class="docutils literal notranslate"><span class="pre">BulkDeleteFlightRecordsJob</span></code>.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;subscribed_stream_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bulk-delete-progress-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_rate_hz&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.0</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">subscribed_stream_id</span></code> (str): Unique identifier for this subscription</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_rate_hz</span></code> (float): Data publishing rate in Hz (0.1-10.0, default: 2.0)</p></li>
+</ul>
+<p><strong>Progress Stream Data Format:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;progress&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;machine_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;drone-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;in_progress&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">50.0</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;completed&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Deleted 1 of 2 flight records...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;total_requested&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;total_deleted&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;total_failed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Subscribed to bulk delete job progress updates&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;subscribed_stream_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bulk-delete-progress-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_rate_hz&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.0</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;mqtt_topic&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;petal-flight-log/publish_bulk_delete_job_value_stream&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="unsubscribe-bulk-delete-flight-records">
+<h3>unsubscribe_bulk_delete_flight_records<a class="headerlink" href="#unsubscribe-bulk-delete-flight-records" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/unsubscribe_bulk_delete_flight_records</span></code></p>
+<p>Unsubscribes from bulk delete flight records progress updates.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;unsubscribed_stream_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bulk-delete-progress-001&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Unsubscribed from bulk delete job progress updates&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;unsubscribed_stream_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bulk-delete-progress-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="cancel-bulk-delete-flight-records">
+<h3>cancel_bulk_delete_flight_records<a class="headerlink" href="#cancel-bulk-delete-flight-records" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/cancel_bulk_delete_flight_records</span></code></p>
+<p>Cancels all active bulk delete flight records jobs.</p>
+<p><strong>Payload:</strong> None required</p>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cancelled 1 bulk delete jobs&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;cancelled_jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="clear-error-logs-commands">
+<h2>Clear Error Logs Commands<a class="headerlink" href="#clear-error-logs-commands" title="Link to this heading"></a></h2>
+<section id="detect-error-logs">
+<h3>detect_error_logs<a class="headerlink" href="#detect-error-logs" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/detect_error_logs</span></code></p>
+<p>Scans the Pixhawk SD card for <code class="docutils literal notranslate"><span class="pre">fail_*.log</span></code> error log files <strong>without deleting them</strong>.
+This uses a two-phase response pattern:</p>
+<ol class="arabic simple">
+<li><p><strong>Immediate Response</strong> (via <code class="docutils literal notranslate"><span class="pre">send_command_response</span></code>): Acknowledges the command was received</p></li>
+<li><p><strong>Status Publish</strong> (via <code class="docutils literal notranslate"><span class="pre">publish_message</span></code>): Reports the scan result after completion</p></li>
+</ol>
+<p>Files are listed via MAVFTP. No files are modified or deleted.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">base</span></code> (str, optional): Base directory to scan for error logs (default: <code class="docutils literal notranslate"><span class="pre">&quot;fs/microsd&quot;</span></code>)</p></li>
+</ul>
+<p><strong>Phase 1: Immediate Response (waitResponse)</strong></p>
+<p>Sent immediately via <code class="docutils literal notranslate"><span class="pre">send_command_response</span></code> when <code class="docutils literal notranslate"><span class="pre">waitResponse:</span> <span class="pre">true</span></code>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Detect error logs command initiated&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Phase 1: Error Responses</strong></p>
+<p><em>Validation Error:</em></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Invalid request parameters: &lt;validation details&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INVALID_PARAMETERS&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><em>Handler Error:</em></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Error processing detect_error_logs command: &lt;error details&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HANDLER_ERROR&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Phase 2: Status Publish (publish_message)</strong></p>
+<p>After the scan completes (or fails), the petal publishes the result to the <code class="docutils literal notranslate"><span class="pre">command/web</span></code>
+MQTT topic.</p>
+<p><strong>Status Publish Command Name Pattern:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>/&lt;petal_name&gt;/detect_error_logs
+</pre></div>
+</div>
+<p>For this petal, the command will be:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>/petal-flight-log/detect_error_logs
+</pre></div>
+</div>
+<p><strong>Front-End Handling:</strong></p>
+<p>The front-end should:</p>
+<ol class="arabic simple">
+<li><p>Subscribe to the <code class="docutils literal notranslate"><span class="pre">command/web</span></code> MQTT topic</p></li>
+<li><p>Filter incoming messages by checking if <code class="docutils literal notranslate"><span class="pre">message.command</span></code> equals <code class="docutils literal notranslate"><span class="pre">/petal-flight-log/detect_error_logs</span></code></p></li>
+<li><p>Use the <code class="docutils literal notranslate"><span class="pre">messageId</span></code> field to correlate the status with the original request</p></li>
+</ol>
+<p><strong>Status Publish (Success — files found):</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;messageId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;detect-err-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/petal-flight-log/detect_error_logs&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;payload&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Detected 2 error log file(s) under fs/microsd&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;total_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;files&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd/fail_1234.log&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;size_bytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">},</span>
+<span class="w">            </span><span class="p">{</span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd/fail_5678.log&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;size_bytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">}</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Status Publish (Success — no files found):</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;messageId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;detect-err-002&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/petal-flight-log/detect_error_logs&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;payload&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;No error log files found under fs/microsd&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;total_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;files&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<span class="w">        </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Status Publish (Execution Error):</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;messageId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;detect-err-003&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/petal-flight-log/detect_error_logs&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;payload&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Detect error logs failed: MAVFTP proxy not available&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;total_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;files&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<span class="w">        </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;EXECUTION_ERROR&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Status Payload Fields (DetectErrorLogsStatusPayload):</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">status</span></code> (str): <code class="docutils literal notranslate"><span class="pre">&quot;success&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;error&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">message</span></code> (str): Human-readable status message</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">base</span></code> (str): The base directory that was scanned</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">total_files</span></code> (int): Total number of error log files found</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">files</span></code> (list): List of detected files, each with <code class="docutils literal notranslate"><span class="pre">path</span></code> (str) and <code class="docutils literal notranslate"><span class="pre">size_bytes</span></code> (int)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error_code</span></code> (str|null): Error code if applicable:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">null</span></code> — Operation succeeded</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EXECUTION_ERROR</span></code> — The operation raised an exception</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">timestamp</span></code> (datetime): When the status was generated</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">messageId</span></code> in both the immediate response and the status publish matches the
+original request’s <code class="docutils literal notranslate"><span class="pre">messageId</span></code>, allowing the front-end to correlate responses with
+their originating requests.</p>
+</div>
+</section>
+<section id="clear-error-logs">
+<h3>clear_error_logs<a class="headerlink" href="#clear-error-logs" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/clear_error_logs</span></code></p>
+<p>Deletes all <code class="docutils literal notranslate"><span class="pre">fail_*.log</span></code> error log files from the Pixhawk SD card. This uses a two-phase
+response pattern:</p>
+<ol class="arabic simple">
+<li><p><strong>Immediate Response</strong> (via <code class="docutils literal notranslate"><span class="pre">send_command_response</span></code>): Acknowledges the command was received</p></li>
+<li><p><strong>Status Publish</strong> (via <code class="docutils literal notranslate"><span class="pre">publish_message</span></code>): Reports the result after completion</p></li>
+</ol>
+<p>Files are listed via MAVFTP and deleted via the NuttX shell <code class="docutils literal notranslate"><span class="pre">rm</span></code> command.
+If no error log files are found, the operation still counts as a success.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">base</span></code> (str, optional): Base directory to scan for error logs (default: <code class="docutils literal notranslate"><span class="pre">&quot;fs/microsd&quot;</span></code>)</p></li>
+</ul>
+<p><strong>Phase 1: Immediate Response (waitResponse)</strong></p>
+<p>Sent immediately via <code class="docutils literal notranslate"><span class="pre">send_command_response</span></code> when <code class="docutils literal notranslate"><span class="pre">waitResponse:</span> <span class="pre">true</span></code>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Clear error logs command initiated&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Phase 1: Error Responses</strong></p>
+<p><em>Validation Error:</em></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Invalid request parameters: &lt;validation details&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INVALID_PARAMETERS&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><em>Handler Error:</em></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Error processing clear_error_logs command: &lt;error details&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HANDLER_ERROR&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Phase 2: Status Publish (publish_message)</strong></p>
+<p>After the deletion completes (or fails), the petal publishes the result to the <code class="docutils literal notranslate"><span class="pre">command/web</span></code>
+MQTT topic.</p>
+<p><strong>Status Publish Command Name Pattern:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>/&lt;petal_name&gt;/clear_error_logs
+</pre></div>
+</div>
+<p>For this petal, the command will be:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>/petal-flight-log/clear_error_logs
+</pre></div>
+</div>
+<p><strong>Front-End Handling:</strong></p>
+<p>The front-end should:</p>
+<ol class="arabic simple">
+<li><p>Subscribe to the <code class="docutils literal notranslate"><span class="pre">command/web</span></code> MQTT topic</p></li>
+<li><p>Filter incoming messages by checking if <code class="docutils literal notranslate"><span class="pre">message.command</span></code> equals <code class="docutils literal notranslate"><span class="pre">/petal-flight-log/clear_error_logs</span></code></p></li>
+<li><p>Use the <code class="docutils literal notranslate"><span class="pre">messageId</span></code> field to correlate the status with the original request</p></li>
+</ol>
+<p><strong>Status Publish (Success — files deleted):</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;messageId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;clear-err-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/petal-flight-log/clear_error_logs&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;payload&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cleared 3 error log file(s) from fs/microsd&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;total_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;deleted&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;failed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Status Publish (Success — no files found):</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;messageId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;clear-err-002&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/petal-flight-log/clear_error_logs&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;payload&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;No error log files found under fs/microsd&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;total_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;deleted&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;failed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Status Publish (Partial Failure):</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;messageId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;clear-err-003&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/petal-flight-log/clear_error_logs&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;payload&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cleared 2 of 3 error log files (1 failed)&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;total_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;deleted&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;failed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PARTIAL_FAILURE&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Status Publish (Execution Error):</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;messageId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;clear-err-004&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/petal-flight-log/clear_error_logs&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;payload&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Clear error logs failed: MAVFTP proxy not available&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;total_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;deleted&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;failed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;EXECUTION_ERROR&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-18T12:00:05.000Z&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Status Payload Fields (ClearErrorLogsStatusPayload):</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">status</span></code> (str): <code class="docutils literal notranslate"><span class="pre">&quot;success&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;error&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">message</span></code> (str): Human-readable status message</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">base</span></code> (str): The base directory that was scanned</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">total_files</span></code> (int): Total number of error log files found</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">deleted</span></code> (int): Number of files successfully deleted</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">failed</span></code> (int): Number of files that failed to delete</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error_code</span></code> (str|null): Error code if applicable:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">null</span></code> — Operation succeeded</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTIAL_FAILURE</span></code> — Some files could not be deleted</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EXECUTION_ERROR</span></code> — The operation raised an exception</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">timestamp</span></code> (datetime): When the status was generated</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">messageId</span></code> in both the immediate response and the status publish matches the
+original request’s <code class="docutils literal notranslate"><span class="pre">messageId</span></code>, allowing the front-end to correlate responses with
+their originating requests.</p>
+</div>
+</section>
+</section>
+<section id="clear-all-ulogs-commands">
+<h2>Clear All ULogs Commands<a class="headerlink" href="#clear-all-ulogs-commands" title="Link to this heading"></a></h2>
+<p>These commands handle clearing all ULog files from the Pixhawk SD card using the job-based
+architecture with real-time progress streaming.</p>
+<section id="clear-all-ulogs">
+<h3>clear_all_ulogs<a class="headerlink" href="#clear-all-ulogs" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/clear_all_ulogs</span></code></p>
+<p>Initiates a long-running job to delete all ULog files from the Pixhawk SD card via MAVFTP.
+Any existing clear all ULogs job is automatically cancelled before starting a new one.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd/log&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">base</span></code> (str): Base directory on Pixhawk SD card to clear ULogs from (default: <code class="docutils literal notranslate"><span class="pre">&quot;fs/microsd/log&quot;</span></code>)</p></li>
+</ul>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Clear all ULogs job started for fs/microsd/log. Subscribe to progress updates using subscribe_clear_all_ulogs.&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Example - Complete Clear All ULogs Workflow:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 1: Start the clear all ULogs job</span>
+<span class="n">clear_command</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;waitResponse&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s2">&quot;messageId&quot;</span><span class="p">:</span> <span class="s2">&quot;clear-ulogs-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;deviceId&quot;</span><span class="p">:</span> <span class="s2">&quot;drone-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;petal-flight-log/clear_all_ulogs&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-02-18T14:30:00Z&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;payload&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;base&quot;</span><span class="p">:</span> <span class="s2">&quot;fs/microsd/log&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1"># Publish to MQTT and receive job_id in response</span>
+
+<span class="c1"># Step 2: Subscribe to progress updates</span>
+<span class="n">subscribe_command</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;waitResponse&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s2">&quot;messageId&quot;</span><span class="p">:</span> <span class="s2">&quot;subscribe-clear-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;deviceId&quot;</span><span class="p">:</span> <span class="s2">&quot;drone-001&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;petal-flight-log/subscribe_clear_all_ulogs&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-02-18T14:30:01Z&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;payload&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;subscribed_stream_id&quot;</span><span class="p">:</span> <span class="s2">&quot;clear-ulogs-progress-001&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;data_rate_hz&quot;</span><span class="p">:</span> <span class="mf">2.0</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1"># Progress updates published to petal-flight-log/publish_clear_all_ulogs_job_value_stream</span>
+</pre></div>
+</div>
+</section>
+<section id="subscribe-clear-all-ulogs">
+<h3>subscribe_clear_all_ulogs<a class="headerlink" href="#subscribe-clear-all-ulogs" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/subscribe_clear_all_ulogs</span></code></p>
+<p>Subscribes to progress updates for an active clear all ULogs job via MQTT streaming.
+The <code class="docutils literal notranslate"><span class="pre">subscribed_stream_id</span></code> is provided by the front-end for future use but is not used to find
+the job — this handler subscribes to the single active <code class="docutils literal notranslate"><span class="pre">ClearAllUlogsJob</span></code>.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;subscribed_stream_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;clear-ulogs-progress-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_rate_hz&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.0</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">subscribed_stream_id</span></code> (str): Unique identifier for this subscription</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_rate_hz</span></code> (float): Data publishing rate in Hz (0.1-10.0, default: 2.0)</p></li>
+</ul>
+<p><strong>Progress Stream Data Format:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;progress&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;machine_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;drone-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;in_progress&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">50.0</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;completed&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Deleting ULog files...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fs/microsd/log&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;total_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;deleted&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;failed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Subscribed to clear all ULogs job progress updates&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;subscribed_stream_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;clear-ulogs-progress-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_rate_hz&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.0</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;mqtt_topic&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;petal-flight-log/publish_clear_all_ulogs_job_value_stream&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="unsubscribe-clear-all-ulogs">
+<h3>unsubscribe_clear_all_ulogs<a class="headerlink" href="#unsubscribe-clear-all-ulogs" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/unsubscribe_clear_all_ulogs</span></code></p>
+<p>Unsubscribes from clear all ULogs progress updates.</p>
+<p><strong>Payload:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;unsubscribed_stream_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;clear-ulogs-progress-001&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Unsubscribed from clear all ULogs job progress updates&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;unsubscribed_stream_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;clear-ulogs-progress-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="cancel-clear-all-ulogs">
+<h3>cancel_clear_all_ulogs<a class="headerlink" href="#cancel-clear-all-ulogs" title="Link to this heading"></a></h3>
+<p><strong>Command:</strong> <code class="docutils literal notranslate"><span class="pre">petal-flight-log/cancel_clear_all_ulogs</span></code></p>
+<p>Cancels all active clear all ULogs jobs.</p>
+<p><strong>Payload:</strong> None required</p>
+<p><strong>Response:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cancelled 1 clear all ULogs jobs&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;cancelled_jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">clear_all_ulogs</span></code> command permanently deletes <strong>all</strong> ULog files from the Pixhawk SD card.
+This operation cannot be undone. Ensure important logs have been synced to S3 before clearing.</p>
+</div>
+</section>
+</section>
+<section id="job-status-values">
+<h2>Job Status Values<a class="headerlink" href="#job-status-values" title="Link to this heading"></a></h2>
+<p>All jobs in petal-flight-log use the following status values:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">pending</span></code> - Job created but not yet started</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">in_progress</span></code> - Job is currently executing</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">completed</span></code> - Job finished successfully</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cancelled</span></code> - Job was cancelled by user request</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code> - Job failed with an error</p></li>
+</ul>
+</section>
+<section id="mqtt-topics-reference">
+<h2>MQTT Topics Reference<a class="headerlink" href="#mqtt-topics-reference" title="Link to this heading"></a></h2>
+<p><strong>Command Topic (incoming):</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">command/edge</span></code> - All commands are received on this topic</p></li>
+</ul>
+<p><strong>Progress Stream Topics (outgoing):</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/publish_fetch_flight_records_job_value_stream</span></code> - Fetch job progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/publish_sync_job_value_stream</span></code> - Sync job progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/publish_bulk_delete_job_value_stream</span></code> - Bulk delete job progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/publish_clear_all_ulogs_job_value_stream</span></code> - Clear all ULogs job progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/log_download/progress</span></code> - ULog download progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/s3_upload/progress</span></code> - S3 upload progress</p></li>
+</ul>
+<p><strong>Event Topics (outgoing):</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/fetch_flight_records</span></code> - Fetch results broadcast</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/cancel_sync_job</span></code> - Sync cancellation notifications</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/delete_flight_record</span></code> - Delete notifications</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/detect_error_logs</span></code> - Detect error logs scan result</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/clear_error_logs</span></code> - Clear error logs status (success/failure)</p></li>
+</ul>
+</section>
+<section id="data-models">
+<h2>Data Models<a class="headerlink" href="#data-models" title="Link to this heading"></a></h2>
+<section id="flightrecordmatch">
+<h3>FlightRecordMatch<a class="headerlink" href="#flightrecordmatch" title="Link to this heading"></a></h3>
+<p>Represents a matched pair of ULog and Rosbag files from the same flight session.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;record-001&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;ulog&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ulog-001&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;file_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;log_44_2026-01-15-14-30-22.ulg&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;file_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/opt/ulog_downloads/log_44_2026-01-15-14-30-22.ulg&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;file_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ulg&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;sd_card_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/log/2026-01-15/14_30_22.ulg&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;storage_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;size_bytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1048576</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;size_kb&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1024.0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;modified_timestamp_unix_s&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1705323022</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;date_str&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-01-15-14-30-22&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;s3_key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;flight-logs/drone-001/2026-01-15/log_44.ulg&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;rosbag&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rosbag-001&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;file_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LeafFC_2026-01-15-14-30-22.bag&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;file_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/home/leaf/rosbag_records/LeafFC_2026-01-15-14-30-22.bag&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;file_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bag&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;storage_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;size_bytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2097152</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;size_kb&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2048.0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;modified_timestamp_unix_s&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1705323022</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;date_str&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-01-15-14-30-22&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;s3_key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;flight-logs/drone-001/2026-01-15/LeafFC.bag&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;sync_job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;abc12345&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;sync_job_status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;completed&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="error-handling">
+<h2>Error Handling<a class="headerlink" href="#error-handling" title="Link to this heading"></a></h2>
+<p>All commands return standardized error responses:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Detailed error description&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ERROR_CODE&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Common Error Codes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">INVALID_PARAMETERS</span></code> - Request payload validation failed</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">JOB_NOT_FOUND</span></code> - Requested job does not exist</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">JOB_MONITOR_NOT_INITIALIZED</span></code> - Job monitoring system not ready</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">INTERNAL_ERROR</span></code> - Unexpected server error</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PROCESSING_ERROR</span></code> - Error during command processing</p></li>
+</ul>
+</section>
+<section id="id1">
+<h2>MQTT Topics Reference<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<p>This section provides a comprehensive reference of all MQTT topics used by the petal.</p>
+<section id="commands-received-on-command-edge">
+<h3>Commands (Received on <code class="docutils literal notranslate"><span class="pre">command/edge</span></code>)<a class="headerlink" href="#commands-received-on-command-edge" title="Link to this heading"></a></h3>
+<p>Commands are received on the <code class="docutils literal notranslate"><span class="pre">command/edge</span></code> topic with the following format:
+<code class="docutils literal notranslate"><span class="pre">petal-flight-log/&lt;command_name&gt;</span></code></p>
+<p><strong>Flight Record Fetch:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/fetch_flight_records</span></code> - Scan and match flight records from multiple sources</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/fetch_existing_flight_records</span></code> - Fetch previously fetched records from cache</p></li>
+</ul>
+<p><strong>Flight Record Management:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/delete_flight_record</span></code> - Delete a flight record and associated files</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/bulk_delete_flight_records</span></code> - Bulk delete multiple flight records</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/subscribe_bulk_delete_flight_records</span></code> - Subscribe to bulk delete progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/unsubscribe_bulk_delete_flight_records</span></code> - Unsubscribe from bulk delete progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/cancel_bulk_delete_flight_records</span></code> - Cancel active bulk delete job</p></li>
+</ul>
+<p><strong>Error Log Management:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/detect_error_logs</span></code> - Detect fail_*.log error files on Pixhawk SD card</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/clear_error_logs</span></code> - Clear fail_*.log error files from Pixhawk SD card</p></li>
+</ul>
+<p><strong>ULog Management:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/clear_all_ulogs</span></code> - Clear all ULog files from Pixhawk SD card</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/subscribe_clear_all_ulogs</span></code> - Subscribe to clear all ULogs progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/unsubscribe_clear_all_ulogs</span></code> - Unsubscribe from clear all ULogs progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/cancel_clear_all_ulogs</span></code> - Cancel active clear all ULogs job</p></li>
+</ul>
+<p><strong>Sync Job Management:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/start_sync_flight_record</span></code> - Start a sync job for ULog download and S3 upload</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/cancel_sync_job</span></code> - Cancel an active sync job</p></li>
+</ul>
+<p><strong>Stream Subscriptions:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/subscribe_sync_job_value_stream</span></code> - Subscribe to sync job progress updates</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/unsubscribe_sync_job_value_stream</span></code> - Unsubscribe from sync job progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/subscribe_fetch_flight_records</span></code> - Subscribe to fetch job progress updates</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/unsubscribe_fetch_flight_records</span></code> - Unsubscribe from fetch job progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">petal-flight-log/cancel_fetch_flight_records</span></code> - Cancel an active fetch job</p></li>
+</ul>
+</section>
+<section id="published-topics-sent-to-command-web">
+<h3>Published Topics (Sent to <code class="docutils literal notranslate"><span class="pre">command/web</span></code>)<a class="headerlink" href="#published-topics-sent-to-command-web" title="Link to this heading"></a></h3>
+<p>The petal publishes status updates and progress to <code class="docutils literal notranslate"><span class="pre">command/web</span></code> with the following topics:</p>
+<p><strong>Progress Streams:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">/petal-flight-log/log_download/progress</span></code> - ULog download progress updates</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/petal-flight-log/s3_upload/progress</span></code> - S3 upload progress updates</p></li>
+</ul>
+<p><strong>Job Status Streams:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">/petal-flight-log/publish_sync_job_value_stream</span></code> - Sync job status and progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/petal-flight-log/publish_fetch_flight_records_job_value_stream</span></code> - Fetch job status and progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/petal-flight-log/publish_bulk_delete_job_value_stream</span></code> - Bulk delete job status and progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/petal-flight-log/publish_clear_all_ulogs_job_value_stream</span></code> - Clear all ULogs job status and progress</p></li>
+</ul>
+<p><strong>Command Results:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">/petal-flight-log/detect_error_logs</span></code> - Detect error logs scan result</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/petal-flight-log/clear_error_logs</span></code> - Clear error logs status (success/failure)</p></li>
+</ul>
+<p><strong>Job Results:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">/petal-flight-log/delete_flight_record</span></code> - Delete operation result</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/petal-flight-log/cancel_sync_job</span></code> - Cancel operation result</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/petal-flight-log/check_sync_job</span></code> - Sync job check result</p></li>
+</ul>
+</section>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../development_contribution/using_proxies.html"><span class="doc">Using Proxies in Petals</span></a> - Proxy usage documentation</p></li>
+<li><p><a class="reference internal" href="../changelog.html"><span class="doc">Changelog</span></a> - Version history and changes</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="petal_user_journey_coordinator.html" class="btn btn-neutral float-left" title="Petal User Journey Coordinator" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../changelog.html" class="btn btn-neutral float-right" title="Changelog" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, DroneLeaf.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
