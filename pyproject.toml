@@ -1,6 +1,6 @@
 [project]
 name = "petal-app-manager"
-version = "0.2.1"
+version = "0.2.2"
 description = "A FastAPI interface for loading, managing and running Droneleaf Petal applications"
 authors = [
     {name = "Khalil Al Handawi", email = "khalil.alhandawi@droneleaf.io"},
@@ -58,10 +58,10 @@ cicddocs = [
 ]
 prod = [
     "leaf-pymavlink>=0.1.16,<0.1.17",
-    "petal-flight-log==0.2.6",
+    "petal-flight-log==0.2.7",
     "petal-warehouse==0.1.9",
-    "petal-leafsdk==0.2.10",
-    "petal-user-journey-coordinator==0.1.12",
+    "petal-leafsdk==0.2.11",
+    "petal-user-journey-coordinator==0.1.13",
     "petal-qgc-mission-server==0.1.4",
 ]
 dev = [
