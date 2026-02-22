@@ -71,7 +71,6 @@ class RedisProxy(BaseProxy):
         
     async def start(self):
         """Initialize the connection to Redis."""
-        """Initialize the connection to Redis."""
         self._loop = asyncio.get_running_loop()
         
         try:

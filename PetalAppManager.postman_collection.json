@@ -181,6 +181,96 @@
 										"description": "Sends a PX4 reboot command with full heartbeat confirmation.\n\nFlow:\n1. Validates message and checks for active operations\n2. Immediately responds with acknowledgement (send_command_response)\n3. Sends MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN to PX4\n4. Waits for heartbeat DROP (confirming PX4 is rebooting)\n5. Waits for heartbeat RETURN (confirming PX4 is alive again)\n6. Publishes confirmed reboot status to command/web topic\n\nThe front-end should await the published status on command/web to confirm the reboot completed successfully.\n\nTimeout defaults (configurable via env vars):\n- ACK_TIMEOUT: 3.0s (PETAL_REBOOT_ACK_TIMEOUT)\n- HEARTBEAT_DROP_WINDOW: 5.0s (PETAL_REBOOT_HB_DROP_WINDOW)\n- HEARTBEAT_DROP_GAP: 1.5s (PETAL_REBOOT_HB_DROP_GAP)\n- HEARTBEAT_RETURN_WINDOW: 30.0s (PETAL_REBOOT_HB_RETURN_WINDOW)"
 									},
 									"response": []
+								},
+								{
+									"name": "format SD card",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"waitResponse\": true,\n    \"messageId\": \"{{test_message_id}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/format_sd_card\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"storage_id\": 0\n    }\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{API_URL}}/petals/petal-user-journey-coordinator/mqtt/format_sd_card?topic=test_topic",
+											"host": [
+												"{{API_URL}}"
+											],
+											"path": [
+												"petals",
+												"petal-user-journey-coordinator",
+												"mqtt",
+												"format_sd_card"
+											],
+											"query": [
+												{
+													"key": "topic",
+													"value": "test_topic"
+												}
+											]
+										},
+										"description": "Sends a format SD card command directly via the petal HTTP endpoint.\n\nFlow:\n1. Validates message and checks for active operations\n2. Immediately responds with acknowledgement (send_command_response)\n3. Sends MAV_CMD_STORAGE_FORMAT to the Pixhawk flight controller\n4. Waits for COMMAND_ACK confirming format result\n5. Publishes format status to command/web topic\n\nParameters:\n- storage_id (int, 0-3): Storage device ID to format. 0 = primary SD card (default).\n\nWarning: This permanently erases ALL data on the Pixhawk SD card."
+									},
+									"response": []
+								},
+								{
+									"name": "get log entries",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"waitResponse\": true,\n    \"messageId\": \"{{test_message_id}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/get_log_entries\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"timeout\": 5.0\n    }\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{API_URL}}/petals/petal-user-journey-coordinator/mqtt/get_log_entries?topic=test_topic",
+											"host": [
+												"{{API_URL}}"
+											],
+											"path": [
+												"petals",
+												"petal-user-journey-coordinator",
+												"mqtt",
+												"get_log_entries"
+											],
+											"query": [
+												{
+													"key": "topic",
+													"value": "test_topic"
+												}
+											]
+										},
+										"description": "Sends a get log entries command directly via the petal HTTP endpoint to retrieve log metadata from the flight controller.\n\nFlow:\n1. Validates message and checks for active operations\n2. Immediately responds with acknowledgement (send_command_response)\n3. Sends LOG_REQUEST_LIST MAVLink message to the flight controller\n4. Collects LOG_ENTRY response packets within the specified timeout\n5. Publishes retrieval status to command/web topic\n\nParameters:\n- timeout (float, 1.0-30.0): Timeout in seconds for log entry retrieval (default: 5.0)"
+									},
+									"response": []
 								}
 							]
 						},
@@ -486,6 +576,94 @@
 											]
 										},
 										"description": "Emergency stop: Immediately cancels single-motor ESC calibration.\n\nSets force_cancel_calibration=true to trigger an immediate motor shutdown regardless of current state. Use this if anything goes wrong.\n\nCan be sent at any time during the calibration workflow."
+									},
+									"response": []
+								},
+								{
+									"name": "format SD card",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"topic\": \"org/{{org_id}}/device/{{device_id}}/command/edge\",\n    \"waitResponse\": true,\n    \"messageId\": \"{{$guid}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/format_sd_card\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"waitResponse\": true,\n        \"messageId\": \"{{$guid}}\",\n        \"deviceId\": \"{{robot_instance_id}}\",\n        \"command\": \"petal-user-journey-coordinator/format_sd_card\",\n        \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n        \"payload\": {\n            \"storage_id\": 0\n        }\n    }\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{CALLBACK_URL}}/mqtt-callback/callback",
+											"host": [
+												"{{CALLBACK_URL}}"
+											],
+											"path": [
+												"mqtt-callback",
+												"callback"
+											],
+											"query": [
+												{
+													"key": "topic",
+													"value": "test_topic",
+													"disabled": true
+												}
+											]
+										},
+										"description": "Sends a format SD card command via the MQTT callback server.\n\nFlow:\n1. Validates message and checks for active operations\n2. Immediately responds with acknowledgement (send_command_response)\n3. Sends MAV_CMD_STORAGE_FORMAT to the Pixhawk flight controller\n4. Waits for COMMAND_ACK confirming format result\n5. Publishes format status to command/web topic at /petal-user-journey-coordinator/format_sd_card_status\n\nThe front-end should subscribe to command/web and filter by command='/petal-user-journey-coordinator/format_sd_card_status' to receive the confirmed result.\n\nParameters:\n- storage_id (int, 0-3): Storage device ID to format. 0 = primary SD card (default).\n\nWarning: This permanently erases ALL data on the Pixhawk SD card including all ULog files."
+									},
+									"response": []
+								},
+								{
+									"name": "get log entries",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json",
+												"type": "text"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"topic\": \"org/{{org_id}}/device/{{device_id}}/command/edge\",\n    \"waitResponse\": true,\n    \"messageId\": \"{{$guid}}\",\n    \"deviceId\": \"{{robot_instance_id}}\",\n    \"command\": \"petal-user-journey-coordinator/get_log_entries\",\n    \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n    \"payload\": {\n        \"waitResponse\": true,\n        \"messageId\": \"{{$guid}}\",\n        \"deviceId\": \"{{robot_instance_id}}\",\n        \"command\": \"petal-user-journey-coordinator/get_log_entries\",\n        \"timestamp\": \"2026-01-06T10:14:22.652848+00:00\",\n        \"payload\": {\n            \"timeout\": 5.0\n        }\n    }\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{CALLBACK_URL}}/mqtt-callback/callback",
+											"host": [
+												"{{CALLBACK_URL}}"
+											],
+											"path": [
+												"mqtt-callback",
+												"callback"
+											],
+											"query": [
+												{
+													"key": "topic",
+													"value": "test_topic",
+													"disabled": true
+												}
+											]
+										},
+										"description": "Sends a get log entries command via the MQTT callback server to retrieve log metadata from the flight controller.\n\nFlow:\n1. Validates message and checks for active operations\n2. Immediately responds with acknowledgement (send_command_response)\n3. Sends LOG_REQUEST_LIST MAVLink message to the flight controller\n4. Collects LOG_ENTRY response packets within the specified timeout\n5. Publishes retrieval status with log entries to command/web topic at /petal-user-journey-coordinator/get_log_entries_status\n\nThe front-end should subscribe to command/web and filter by command='/petal-user-journey-coordinator/get_log_entries_status' to receive the result.\n\nParameters:\n- timeout (float, 1.0-30.0): Timeout in seconds for log entry retrieval (default: 5.0)\n\nEach log entry contains:\n- size (int): Log file size in bytes\n- utc (int): UTC timestamp of the log entry (Unix epoch seconds)"
 									},
 									"response": []
 								}

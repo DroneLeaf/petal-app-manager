@@ -1,6 +1,203 @@
 Changelog
 =========
 
+Version 0.2.2 (2026-02-22)
+---------------------------
+
+**SD Card File Deletion — Shell rm with MAVFTP Fallback:**
+
+- Implemented a robust two-tier file deletion strategy in ``MavLinkFTPProxy`` via the new
+  ``_delete_file_with_fallback()`` method:
+
+  - **Tier 1 — NuttX shell ``rm``**: Sends ``rm /path`` via MAVLink ``SERIAL_CONTROL`` to the
+    PX4 NuttX shell, bypassing the MAVFTP ``FileProtected`` (code 9) restriction that blocks
+    ``cmd_rm`` on active log files. This is the primary method on real hardware.
+  - **Tier 2 — MAVFTP ``cmd_rm``**: Falls back to the MAVFTP ``_delete()`` path when the shell
+    ``rm`` command is not available (e.g. PX4 SITL builds where the NuttX shell does not expose
+    ``rm`` / ``rmdir`` and returns ``"Invalid command: rm"``).
+
+- All file deletion call sites in ``MavLinkFTPProxy`` now use ``_delete_file_with_fallback()``:
+  ``delete_file()``, ``delete_all_logs()`` (per-file loop), and ``clear_error_logs()``
+  (per-file loop). Directory cleanup via ``rmdir`` remains shell-only (best-effort) since
+  MAVFTP has no directory removal equivalent.
+
+- PX4 logger stop/start (``logger stop\n`` / ``logger start\n``) is issued before and after
+  deletion loops to release file handles, enabling both shell and MAVFTP deletion to succeed.
+
+- ``delete_file_via_shell()`` on ``MavLinkExternalProxy`` detects shell errors by checking
+  reply text for keywords: ``"invalid"``, ``"no such"``, ``"error"``, ``"failed"``,
+  ``"not empty"`` — returning ``False`` so the fallback can be triggered.
+
+**Format SD Card (petal-user-journey-coordinator):**
+
+- Added ``format_sd_card`` MQTT command handler with two-phase response pattern:
+
+  - **Phase 1**: Immediate ``send_command_response`` acknowledging the command was received
+  - **Phase 2**: Executes ``MAV_CMD_PREFLIGHT_STORAGE`` via MAVLink, then publishes the result
+    (success or failure) to ``command/web`` via ``publish_message`` with command
+    ``/<petal_name>/format_sd_card_status``
+
+- Added ``format_sd_card()`` method on ``MavLinkExternalProxy`` that sends
+  ``MAV_CMD_PREFLIGHT_STORAGE`` and waits for ``COMMAND_ACK``, returning a structured
+  ``FormatStorageResponse`` with ``FormatStorageStatusCode`` enum values for all ACK outcomes
+  (accepted, denied, timeout, unsupported, etc.)
+
+- Added ``build_format_storage_command()`` to construct the MAVLink ``COMMAND_LONG`` message
+  for ``MAV_CMD_PREFLIGHT_STORAGE`` with configurable ``storage_id`` (0–3)
+
+- Added Pydantic models:
+
+  - ``FormatStorageStatusCode`` (enum) and ``FormatStorageResponse`` in
+    ``petal_app_manager.models.mavlink``
+  - ``FormatSDCardRequest`` and ``FormatSDCardStatusPayload`` in
+    ``petal-user-journey-coordinator`` data models
+
+- Active-operation guard prevents concurrent format operations
+
+- Full documentation added to ``petal_user_journey_coordinator.rst`` with Phase 1/Phase 2
+  response examples, error scenarios, and front-end handling instructions
+
+**Bulk Delete Flight Records (petal-flight-log):**
+
+- Added ``bulk_delete_flight_records`` MQTT command with job-based architecture:
+
+  - Creates a ``BulkDeleteFlightRecordsJob`` that runs in the background via the job manager
+  - Supports real-time progress streaming via ``subscribe_bulk_delete_flight_records`` /
+    ``unsubscribe_bulk_delete_flight_records`` / ``cancel_bulk_delete_flight_records``
+  - Deletes both ULog files from SD card (via ``_delete_file_with_fallback``) and local
+    rosbag files, plus associated database records
+
+- Added Pydantic models: ``BulkDeleteFlightRecordsRequest``, ``BulkDeleteFlightRecordsResponse``,
+  ``BulkDeleteFlightRecordsStatusPayload``, ``BulkDeleteProgressPayload``
+
+**Clear All ULogs (petal-flight-log):**
+
+- Added ``clear_all_ulogs`` MQTT command with job-based architecture:
+
+  - Creates a ``ClearAllUlogsJob`` that recursively scans date directories via MAVFTP and
+    deletes every ``.ulg`` file using ``_delete_file_with_fallback()``
+  - Supports real-time progress streaming via ``subscribe_clear_all_ulogs`` /
+    ``unsubscribe_clear_all_ulogs`` / ``cancel_clear_all_ulogs``
+  - Empty date directories are cleaned up via shell ``rmdir`` (best-effort)
+
+- ``MavLinkFTPProxy.delete_all_logs()`` inline ``_scan()`` returns both file list and date
+  directory list in a single pass, enabling cleanup of directories left empty by previous runs
+
+- MAVFTP base directory listing retries reduced from 5 to 2 to avoid long stalls on
+  empty SD cards; empty-directory listing failures (MAVFTP code 73 / timeout) are caught
+  gracefully and treated as "nothing to delete"
+
+- Per-file progress callback support via ``progress_callback(current_index, total)`` —
+  accepts both sync and async callables
+
+- Added Pydantic models: ``ClearAllUlogsRequest``, ``ClearAllUlogsResponse``,
+  ``ClearAllUlogsStatusPayload``, ``ClearAllUlogsProgressPayload``
+
+**Detect & Clear Error Logs (petal-flight-log):**
+
+- Added ``detect_error_logs`` MQTT command (2-phase pattern):
+
+  - Scans the Pixhawk SD card for ``fail_*.log`` error log files via MAVFTP **without
+    deleting** them
+  - Phase 1: Immediate acknowledgement via ``send_command_response``
+  - Phase 2: Publishes scan results (file paths, sizes, count) to ``command/web`` via
+    ``publish_message`` with command ``/<petal_name>/detect_error_logs``
+
+- Added ``clear_error_logs`` MQTT command (2-phase pattern):
+
+  - Lists ``fail_*.log`` files via MAVFTP, then deletes each via
+    ``_delete_file_with_fallback()`` with PX4 logger stop/start
+  - Phase 1: Immediate acknowledgement via ``send_command_response``
+  - Phase 2: Publishes deletion summary (total, deleted, failed counts) to ``command/web``
+    via ``publish_message`` with command ``/<petal_name>/clear_error_logs``
+  - Zero files found counts as success (``"No error log files found under {base}"``)
+  - Partial failures reported with ``PARTIAL_FAILURE`` error code
+
+- Added ``MavLinkFTPProxy.detect_error_logs()`` — read-only listing method that returns
+  ``{"total": N, "files": [{"path": ..., "size_bytes": ...}, ...]}``
+
+- Added ``MavLinkFTPProxy.clear_error_logs()`` — returns summary dict
+  ``{"total": N, "deleted": N, "failed": N}``
+
+- Added Pydantic models: ``DetectErrorLogsRequest``, ``DetectErrorLogsResponse``,
+  ``DetectErrorLogsStatusPayload``, ``ClearErrorLogsRequest``, ``ClearErrorLogsResponse``,
+  ``ClearErrorLogsStatusPayload``
+
+**Single Flight Record Deletion (petal-flight-log):**
+
+- ``delete_flight_record`` handler now uses ``MavLinkFTPProxy.delete_file()`` which calls
+  ``_delete_file_with_fallback()`` (shell rm → MAVFTP fallback) instead of relying solely
+  on shell rm
+
+**MAVFTP Proxy Improvements:**
+
+- Phased out direct MAVFTP ``cmd_rm`` usage from all high-level deletion methods; all file
+  deletions now go through ``_delete_file_with_fallback()`` which provides automatic fallback
+
+- ``_BlockingParser.clear_error_logs()`` retained for legacy/direct calls but the primary
+  async path (``MavLinkFTPProxy.clear_error_logs()``) uses shell rm with MAVFTP fallback
+
+- FTP listing retries for sub-directories reduced from 5 to 1 to avoid long stalls on
+  directories that were emptied by deletion
+
+- Empty base directory listing failures (MAVFTP timeout code 73) caught with try/except
+  in ``_scan()`` and treated as empty — prevents crashes when the log directory has been
+  fully cleared
+
+- ``FTPDeleteError`` exception class added for structured MAVFTP error reporting with
+  FTP error code and path
+
+**Redis Compatibility Fix:**
+
+- Pinned ``redis`` dependency to ``>=6.2.0,<7.0.0`` in ``pyproject.toml`` to fix a
+  compatibility issue where ``redis>=7.0`` introduced breaking API changes that caused
+  connection and command failures at runtime
+
+**Documentation Updates:**
+
+- Added ``detect_error_logs`` command documentation to ``petal_flight_log.rst``:
+  payload, Phase 1 responses, Phase 2 status publish examples (files found, no files,
+  execution error), ``DetectErrorLogsStatusPayload`` field reference
+
+- Added ``clear_error_logs`` command documentation to ``petal_flight_log.rst``:
+  payload, Phase 1 responses, Phase 2 status publish examples (files deleted, no files,
+  partial failure, execution error), ``ClearErrorLogsStatusPayload`` field reference
+
+- Updated MQTT Topics Reference in ``petal_flight_log.rst``:
+
+  - Commands: ``petal-flight-log/detect_error_logs``, ``petal-flight-log/clear_error_logs``
+  - Published topics: ``/petal-flight-log/detect_error_logs``,
+    ``/petal-flight-log/clear_error_logs``
+
+- Added ``format_sd_card`` command documentation to ``petal_user_journey_coordinator.rst``
+  with full two-phase response pattern, including Phase 1 immediate/error responses,
+  Phase 2 status publish (success/failure), ``FormatSDCardStatusPayload`` field reference,
+  and front-end handling instructions
+
+**Dependency Updates:**
+
+- Updated ``petal-flight-log`` from ``v0.2.6`` to ``v0.2.7``:
+
+  - **Feature**: Added ``bulk_delete_flight_records`` job-based MQTT command with progress
+    streaming (subscribe/unsubscribe/cancel)
+  - **Feature**: Added ``clear_all_ulogs`` job-based MQTT command with progress streaming
+  - **Feature**: Added ``detect_error_logs`` 2-phase MQTT command for scanning fail_*.log files
+  - **Feature**: Added ``clear_error_logs`` 2-phase MQTT command for deleting fail_*.log files
+  - **Improvement**: All file deletion uses ``_delete_file_with_fallback()`` (shell rm → MAVFTP)
+    for hardware and SITL compatibility
+  - **Improvement**: MAVFTP listing resilience (reduced retries, graceful empty-dir handling)
+  - **Fix**: Progress reporting no longer stuck at 10% — ``progress_callback`` propagated
+    correctly through deletion loops
+  - **Fix**: Empty date directories cleaned up after deletion via shell ``rmdir``
+  - **Fix**: FTP listing crash on empty base directory (code 73) caught gracefully
+
+- Updated ``petal-user-journey-coordinator`` from ``v0.1.12`` to ``v0.1.13``:
+
+  - **Feature**: Added ``format_sd_card`` MQTT command with 2-phase response pattern
+    (immediate acknowledgement + status publish to ``command/web``)
+  - **Feature**: Added ``FormatSDCardRequest`` and ``FormatSDCardStatusPayload`` Pydantic models
+  - **Feature**: Active-operation guard prevents concurrent SD card format operations
+
 Version 0.2.1 (2026-02-12)
 ---------------------------
 
