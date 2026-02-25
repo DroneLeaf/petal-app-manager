@@ -5,6 +5,66 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class FormatStorageStatusCode(str, Enum):
+    # Success
+    OK_ACK_ACCEPTED = "OK_ACK_ACCEPTED"
+
+    # Failures
+    FAIL_ACK_DENIED = "FAIL_ACK_DENIED"
+    FAIL_ACK_TEMPORARILY_REJECTED = "FAIL_ACK_TEMPORARILY_REJECTED"
+    FAIL_ACK_UNSUPPORTED = "FAIL_ACK_UNSUPPORTED"
+    FAIL_ACK_FAILED = "FAIL_ACK_FAILED"
+    FAIL_ACK_IN_PROGRESS = "FAIL_ACK_IN_PROGRESS"
+    FAIL_ACK_CANCELLED = "FAIL_ACK_CANCELLED"
+    FAIL_NO_ACK_MATCH = "FAIL_NO_ACK_MATCH"
+    FAIL_TIMEOUT = "FAIL_TIMEOUT"
+    FAIL_ACK_UNKNOWN = "FAIL_ACK_UNKNOWN"
+    FAIL_NOT_CONNECTED = "FAIL_NOT_CONNECTED"
+
+
+class FormatStorageResponse(BaseModel):
+    """
+    Response model for format_sd_card().
+
+    - success: True if the format command was accepted by the autopilot.
+    - status_code: Machine-friendly status describing the outcome.
+    - reason: Human-friendly explanation for logs/UI.
+    - ack_result: MAVLink COMMAND_ACK result code (if received).
+    """
+    success: bool = Field(..., description="Whether the format was accepted by the autopilot.")
+    status_code: FormatStorageStatusCode = Field(..., description="Machine-friendly outcome code.")
+    reason: str = Field(..., description="Human-friendly explanation of the outcome.")
+    ack_result: Optional[int] = Field(
+        None,
+        description="MAVLink COMMAND_ACK result value when an ACK was received; otherwise None.",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "success": True,
+                    "status_code": "OK_ACK_ACCEPTED",
+                    "reason": "Autopilot acknowledged the format storage command (ACCEPTED).",
+                    "ack_result": 0,
+                },
+                {
+                    "success": False,
+                    "status_code": "FAIL_ACK_DENIED",
+                    "reason": "Autopilot rejected the format storage command: DENIED.",
+                    "ack_result": 2,
+                },
+                {
+                    "success": False,
+                    "status_code": "FAIL_TIMEOUT",
+                    "reason": "No ACK received within timeout.",
+                    "ack_result": None,
+                },
+            ]
+        }
+    }
+
+
 class RebootStatusCode(str, Enum):
     # Success
     OK_ACK_ACCEPTED = "OK_ACK_ACCEPTED"

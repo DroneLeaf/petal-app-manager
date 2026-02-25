@@ -47,6 +47,8 @@ from .. import Config
 from ..models.mavlink import (
     RebootStatusCode,
     RebootAutopilotResponse,
+    FormatStorageResponse, 
+    FormatStorageStatusCode
 )
 from pymavlink import mavutil, mavftp
 from pymavlink.mavftp_op import FTP_OP
@@ -171,6 +173,14 @@ ProgressCB = Callable[[float], Awaitable[None]]       # 0.0 - 1.0
 class DownloadCancelledException(Exception):
     """Raised when a download is cancelled by the user."""
     pass
+
+
+class FTPDeleteError(Exception):
+    """Raised when a MAVFTP delete operation fails with a known FTP error code."""
+    def __init__(self, path: str, ftp_code: int, message: str):
+        self.path = path
+        self.ftp_code = ftp_code
+        super().__init__(message)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1300,6 +1310,152 @@ class MavLinkExternalProxy(ExternalProxy):
             0, 0, 0, 0, 0  # param3..param7 unused
         )
 
+    def build_format_storage_command(
+        self,
+        storage_id: int = 0,
+    ) -> mavutil.mavlink.MAVLink_command_long_message:
+        """
+        Build a MAVLink command to format the SD card (MAV_CMD_PREFLIGHT_STORAGE).
+
+        Parameters
+        ----------
+        storage_id : int
+            Storage device ID (0 = primary SD card). Default is 0.
+
+        Returns
+        -------
+        mavutil.mavlink.MAVLink_command_long_message
+            The MAVLink COMMAND_LONG message for format storage.
+
+        Raises
+        ------
+        RuntimeError
+            If MAVLink connection is not established.
+        """
+        if not self.master or not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        return self.master.mav.command_long_encode(
+            self.master.target_system,
+            self.master.target_component,
+            mavutil.mavlink.MAV_CMD_PREFLIGHT_STORAGE,  # 245
+            0,                  # confirmation
+            2,                  # param1: 2 = format
+            float(storage_id),  # param2: storage id / device
+            0, 0, 0, 0, 0      # param3..param7 unused
+        )
+
+    async def format_sd_card(
+        self,
+        storage_id: int = 0,
+        timeout: float = 10.0,
+    ) -> "FormatStorageResponse":
+        """
+        Send a format storage command to the autopilot and wait for ACK.
+
+        Parameters
+        ----------
+        storage_id : int
+            Storage device ID (0 = primary SD card). Default is 0.
+        timeout : float
+            Maximum time to wait for acknowledgment. Default is 10.0 seconds
+            (formatting can take a few seconds).
+
+        Returns
+        -------
+        FormatStorageResponse
+            Structured response indicating success/failure and reason.
+        """
+        
+        if not self.connected:
+            return FormatStorageResponse(
+                success=False,
+                status_code=FormatStorageStatusCode.FAIL_NOT_CONNECTED,
+                reason="MAVLink connection not established.",
+                ack_result=None,
+            )
+
+        cmd = self.build_format_storage_command(storage_id=storage_id)
+
+        result = {"ack_received": False, "result": None}
+
+        def _collector(pkt) -> bool:
+            if pkt.get_type() != "COMMAND_ACK":
+                return False
+            if pkt.command == mavutil.mavlink.MAV_CMD_PREFLIGHT_STORAGE:
+                result["ack_received"] = True
+                result["result"] = pkt.result
+                return True
+            return False
+
+        COMMAND_ACK_ID = str(mavutil.mavlink.MAVLINK_MSG_ID_COMMAND_ACK)
+
+        _ACK_TO_STATUS = {
+            mavutil.mavlink.MAV_RESULT_DENIED: FormatStorageStatusCode.FAIL_ACK_DENIED,
+            mavutil.mavlink.MAV_RESULT_TEMPORARILY_REJECTED: FormatStorageStatusCode.FAIL_ACK_TEMPORARILY_REJECTED,
+            mavutil.mavlink.MAV_RESULT_UNSUPPORTED: FormatStorageStatusCode.FAIL_ACK_UNSUPPORTED,
+            mavutil.mavlink.MAV_RESULT_FAILED: FormatStorageStatusCode.FAIL_ACK_FAILED,
+            mavutil.mavlink.MAV_RESULT_IN_PROGRESS: FormatStorageStatusCode.FAIL_ACK_IN_PROGRESS,
+            getattr(mavutil.mavlink, "MAV_RESULT_CANCELLED", -999): FormatStorageStatusCode.FAIL_ACK_CANCELLED,
+        }
+
+        _ACK_NAME = {
+            mavutil.mavlink.MAV_RESULT_ACCEPTED: "ACCEPTED",
+            mavutil.mavlink.MAV_RESULT_TEMPORARILY_REJECTED: "TEMPORARILY_REJECTED",
+            mavutil.mavlink.MAV_RESULT_DENIED: "DENIED",
+            mavutil.mavlink.MAV_RESULT_UNSUPPORTED: "UNSUPPORTED",
+            mavutil.mavlink.MAV_RESULT_FAILED: "FAILED",
+            mavutil.mavlink.MAV_RESULT_IN_PROGRESS: "IN_PROGRESS",
+            getattr(mavutil.mavlink, "MAV_RESULT_CANCELLED", -999): "CANCELLED",
+        }
+
+        try:
+            await self.send_and_wait(
+                match_key=COMMAND_ACK_ID,
+                request_msg=cmd,
+                collector=_collector,
+                timeout=timeout,
+            )
+        except TimeoutError:
+            self._log.warning("Format storage command sent but no ACK received within timeout.")
+            return FormatStorageResponse(
+                success=False,
+                status_code=FormatStorageStatusCode.FAIL_TIMEOUT,
+                reason=f"No ACK received within {timeout}s timeout.",
+                ack_result=None,
+            )
+
+        # ACK path
+        if result["ack_received"]:
+            ack_val = result["result"]
+            ack_name = _ACK_NAME.get(ack_val, f"UNKNOWN({ack_val})")
+
+            if ack_val == mavutil.mavlink.MAV_RESULT_ACCEPTED:
+                self._log.info("Format storage command accepted by autopilot")
+                return FormatStorageResponse(
+                    success=True,
+                    status_code=FormatStorageStatusCode.OK_ACK_ACCEPTED,
+                    reason="Autopilot acknowledged the format storage command (ACCEPTED).",
+                    ack_result=ack_val,
+                )
+
+            status = _ACK_TO_STATUS.get(ack_val, FormatStorageStatusCode.FAIL_ACK_UNKNOWN)
+            self._log.warning(f"Format storage command rejected with result: {ack_val} ({ack_name})")
+            return FormatStorageResponse(
+                success=False,
+                status_code=status,
+                reason=f"Autopilot rejected the format storage command: {ack_name}.",
+                ack_result=ack_val,
+            )
+
+        # Rare: send_and_wait returned without TimeoutError but collector never matched
+        return FormatStorageResponse(
+            success=False,
+            status_code=FormatStorageStatusCode.FAIL_NO_ACK_MATCH,
+            reason="send_and_wait returned but no matching COMMAND_ACK for format storage was observed.",
+            ack_result=None,
+        )
+
     def build_motor_value_command(
         self,
         motor_idx: int, 
@@ -1402,6 +1558,181 @@ class MavLinkExternalProxy(ExternalProxy):
             )
 
         return msgs
+
+    async def send_shell_command(
+        self,
+        command: str,
+        settle_time: float = 0.5,
+        timeout: float = 3.0,
+    ) -> str:
+        """
+        Send a shell command to PX4 via MAVLink SERIAL_CONTROL and wait
+        for PX4 to acknowledge it.
+
+        Uses :py:meth:`send_and_wait` so the command is transmitted through
+        the normal I/O queue **and** we block until PX4 replies with at
+        least one ``SERIAL_CONTROL`` packet (flag ``REPLY``), confirming
+        the shell received the command.  A *settle_time* pause is added
+        afterwards so PX4 has time to act on it (e.g. release file
+        handles).
+
+        Parameters
+        ----------
+        command : str
+            The shell command to send (e.g. ``"logger stop\\n"``).
+        settle_time : float
+            Extra time (seconds) to wait **after** PX4 acknowledges the
+            command, giving it time to act (e.g. close file handles).
+        timeout : float
+            Maximum time (seconds) to wait for a reply before raising
+            ``TimeoutError``.
+
+        Returns
+        -------
+        str
+            The text content of the first SERIAL_CONTROL reply from PX4,
+            or an empty string if no reply was received.
+        """
+        if not self.connected:
+            raise RuntimeError("MAVLink connection not established")
+
+        msgs = self.build_shell_serial_control_msgs(command)
+        if not msgs:
+            return ""
+
+        # We only need to send_and_wait on the *last* chunk; PX4 will
+        # reply once it has the full command (terminated by \n).
+        # Send all chunks except the last one directly.
+        for msg in msgs[:-1]:
+            self.send("mav", msg)
+
+        serial_control_id = str(mavutil.mavlink.MAVLINK_MSG_ID_SERIAL_CONTROL)
+
+        reply_received = False
+        reply_chunks: list[str] = []
+
+        def _collector(pkt) -> bool:
+            """Return True once we get any SERIAL_CONTROL reply from PX4."""
+            nonlocal reply_received
+            flags = getattr(pkt, "flags", 0)
+            if flags & mavutil.mavlink.SERIAL_CONTROL_FLAG_REPLY:
+                # Capture reply text for diagnostics
+                count = getattr(pkt, "count", 0)
+                data = getattr(pkt, "data", [])
+                if count > 0 and data:
+                    reply_chunks.append(
+                        bytes(data[:count]).decode("utf-8", errors="replace")
+                    )
+                reply_received = True
+                return True
+            return False
+
+        try:
+            await self.send_and_wait(
+                match_key=serial_control_id,
+                request_msg=msgs[-1],
+                collector=_collector,
+                timeout=timeout,
+            )
+            reply_text = "".join(reply_chunks).strip()
+            self._log.info(
+                f"Shell command {command.strip()!r} acknowledged by PX4"
+                + (f" — reply: {reply_text!r}" if reply_text else "")
+            )
+        except TimeoutError:
+            reply_text = ""
+            self._log.warning(
+                f"No SERIAL_CONTROL reply for shell command "
+                f"{command.strip()!r} within {timeout}s — "
+                f"proceeding anyway (command may still have been received)"
+            )
+
+        # Give PX4 time to act on the command (e.g. release file handles)
+        if settle_time > 0:
+            await asyncio.sleep(settle_time)
+
+        return reply_text
+
+    async def stop_px4_logging(self, settle_time: float = 2.0, timeout: float = 5.0) -> None:
+        """
+        Stop PX4's SD-card logger so that log files can be deleted.
+
+        Sends ``logger stop\\n`` via the MAVLink shell and waits for PX4
+        to acknowledge.  The logger module releases its file handles,
+        making files deletable via MAVFTP.
+        """
+        self._log.info("Stopping PX4 logger to allow file deletion…")
+        await self.send_shell_command("logger stop\n", settle_time=settle_time, timeout=timeout)
+        self._log.info("PX4 logger stopped.")
+
+    async def start_px4_logging(self, settle_time: float = 1.0, timeout: float = 5.0) -> None:
+        """
+        Restart PX4's SD-card logger after file operations.
+
+        Sends ``logger start\\n`` via the MAVLink shell.
+        """
+        self._log.info("Restarting PX4 logger…")
+        await self.send_shell_command("logger start\n", settle_time=settle_time, timeout=timeout)
+        self._log.info("PX4 logger restarted.")
+
+    async def delete_file_via_shell(
+        self,
+        remote_path: str,
+        timeout: float = 5.0,
+        command: str = "rm",
+    ) -> bool:
+        """
+        Delete a file (or empty directory) on PX4 using a NuttX shell command.
+
+        This is a fallback for when MAVFTP ``cmd_rm`` fails with
+        ``FileProtected`` (code 9).  The shell ``rm`` bypasses the
+        MAVFTP server's protection checks and deletes the file
+        directly via NuttX ``unlink()``.
+
+        Parameters
+        ----------
+        remote_path : str
+            Full path on the vehicle, e.g.
+            ``"fs/microsd/log/2025-09-01/07_50_39.ulg"``.
+            The path must start without a leading ``/``.
+        timeout : float
+            Maximum seconds to wait for PX4 shell acknowledgment.
+        command : str
+            NuttX shell command to use.  ``"rm"`` for files,
+            ``"rmdir"`` for empty directories.
+
+        Returns
+        -------
+        bool
+            ``True`` if the command completed (no error detected in
+            the reply text), ``False`` otherwise.
+        """
+        # NuttX rm/rmdir expects an absolute path starting with /
+        abs_path = remote_path if remote_path.startswith("/") else f"/{remote_path}"
+        self._log.info(f"Shell {command} fallback: {command} {abs_path}")
+        try:
+            reply = await self.send_shell_command(
+                f"{command} {abs_path}\n", settle_time=0.3, timeout=timeout
+            )
+            # NuttX rm prints nothing on success; on error it prints
+            # something like "rm: /path: No such file or directory"
+            lower = reply.lower()
+            if reply and (
+                "no such" in lower
+                or "error" in lower
+                or "failed" in lower
+                or "invalid" in lower
+                or "not empty" in lower
+            ):
+                self._log.warning(
+                    f"Shell {command} for {remote_path} returned error: {reply!r}"
+                )
+                return False
+            self._log.info(f"Shell {command} completed for {remote_path}")
+            return True
+        except Exception as e:
+            self._log.error(f"Shell {command} failed for {remote_path}: {e}")
+            return False
 
     async def reboot_autopilot(
         self,
@@ -2031,25 +2362,116 @@ class MavLinkExternalProxy(ExternalProxy):
         msg_id: str,
         request_msg: mavutil.mavlink.MAVLink_message,
         timeout: float = 8.0,
+        stale_timeout: float = 2.0,
     ) -> Dict[int, Dict[str, int]]:
         """
         Send LOG_REQUEST_LIST and gather all LOG_ENTRY packets.
+
+        Handles two edge cases that PX4 firmware exhibits:
+
+        1. **No logs on the vehicle** — PX4 responds with a single
+           ``LOG_ENTRY`` where ``num_logs == 0``.  The MAVLink spec
+           requires this sentinel packet; we detect it and return an
+           empty dict immediately instead of waiting for the timeout.
+
+        2. **Corrupted / missing log entries** — PX4 may advertise
+           ``num_logs = N`` but only deliver fewer than *N*
+           ``LOG_ENTRY`` packets (corrupted slots are silently
+           skipped).  A staleness timer (``stale_timeout``) detects
+           when no new entry has arrived for a while and returns
+           whatever was collected so far.
+
+        Parameters
+        ----------
+        msg_id : str
+            The MAVLink message ID string for LOG_ENTRY (e.g. ``"118"``).
+        request_msg : mavutil.mavlink.MAVLink_message
+            The encoded LOG_REQUEST_LIST message to send.
+        timeout : float
+            Hard upper-bound on how long to wait (seconds).
+        stale_timeout : float
+            If no new LOG_ENTRY arrives within this many seconds
+            *after* the first one, collection stops early and whatever
+            entries were gathered are returned.  Only applies when
+            ``num_logs > 0`` and fewer than ``num_logs`` entries have
+            been received.  Default 2.0 s.
+
+        Returns
+        -------
+        Dict[int, Dict[str, int]]
+            ``{log_id: {"size": int, "utc": int}, …}``
         """
         entries: Dict[int, Dict[str, int]] = {}
-        expected_total = {"val": None}
+        expected_total: Dict[str, Optional[int]] = {"val": None}
+        last_entry_time: Dict[str, float] = {"t": time.time()}
 
         def _collector(pkt) -> bool:
             if expected_total["val"] is None:
                 expected_total["val"] = pkt.num_logs
-            entries[pkt.id] = {"size": pkt.size, "utc": pkt.time_utc}
-            return len(entries) == expected_total["val"]
 
-        await self.send_and_wait(
-            match_key=msg_id,
-            request_msg=request_msg,
-            collector=_collector,
-            timeout=timeout,
-        )
+            # ── No logs on the vehicle ────────────────────────────────
+            # PX4 sends LOG_ENTRY(id=0, num_logs=0) as a sentinel.
+            if expected_total["val"] == 0:
+                self._log.info("Vehicle reports num_logs=0 — no logs on SD card.")
+                return True  # signal done immediately
+
+            entries[pkt.id] = {"size": pkt.size, "utc": pkt.time_utc}
+            last_entry_time["t"] = time.time()
+
+            return len(entries) >= expected_total["val"]
+
+        # ── Staleness monitor ─────────────────────────────────────────
+        # If PX4 stops sending LOG_ENTRY packets before we reach the
+        # advertised num_logs (e.g. corrupted logs), the collector will
+        # never return True and we'd wait the full timeout.  This task
+        # detects the stall and signals completion early via cancel_event.
+        cancel_evt = threading.Event()
+
+        async def _stale_watchdog():
+            while not cancel_evt.is_set():
+                await asyncio.sleep(0.25)
+                if expected_total["val"] is not None and expected_total["val"] > 0:
+                    elapsed = time.time() - last_entry_time["t"]
+                    if elapsed >= stale_timeout and len(entries) > 0:
+                        got = len(entries)
+                        want = expected_total["val"]
+                        self._log.warning(
+                            f"LOG_ENTRY stream stalled — received {got}/{want} entries "
+                            f"(no new entry for {elapsed:.1f}s). "
+                            f"Returning partial results; {want - got} entries may be corrupted/missing."
+                        )
+                        cancel_evt.set()  # unblocks send_and_wait
+
+        watchdog_task = asyncio.create_task(_stale_watchdog())
+
+        try:
+            await self.send_and_wait(
+                match_key=msg_id,
+                request_msg=request_msg,
+                collector=_collector,
+                timeout=timeout,
+                cancel_event=cancel_evt,
+            )
+        except TimeoutError:
+            # If we collected *some* entries before the hard timeout, return
+            # them instead of propagating the error.
+            if entries:
+                got = len(entries)
+                want = expected_total.get("val")
+                self._log.warning(
+                    f"Hard timeout ({timeout}s) reached while collecting LOG_ENTRY packets. "
+                    f"Returning {got}/{want} entries collected so far."
+                )
+            else:
+                raise  # genuinely got nothing — let caller handle it
+        finally:
+            cancel_evt.set()
+            watchdog_task.cancel()
+            try:
+                await watchdog_task
+            except asyncio.CancelledError:
+                pass
+
         return entries
 
     async def _request_chunk(
@@ -2908,6 +3330,40 @@ class MavLinkFTPProxy(BaseProxy):
             create_parser
         )
 
+    # ------------------- deletion helper with fallback ------------- #
+    async def _delete_file_with_fallback(self, path: str) -> bool:
+        """Delete a file on the vehicle, trying shell rm first then MAVFTP.
+
+        On real NuttX hardware the shell ``rm`` command works and bypasses
+        PX4's MAVFTP ``FileProtected`` restriction.  In SITL builds the
+        NuttX shell is not available (``Invalid command: rm``), so we
+        fall back to MAVFTP ``cmd_rm`` which works there.
+
+        The caller is responsible for stopping the PX4 logger before
+        invoking this method.
+
+        Returns ``True`` on success, ``False`` on failure.
+        """
+        # 1) Try the NuttX shell rm (works on real hardware)
+        ok = await self.mavlink_proxy.delete_file_via_shell(path)
+        if ok:
+            return True
+
+        # 2) Fall back to MAVFTP cmd_rm (works on SITL)
+        self._log.info(f"Shell rm failed for {path}, falling back to MAVFTP delete")
+        if not hasattr(self, '_parser') or self._parser is None:
+            await self._init_parser()
+
+        def _ftp_delete():
+            try:
+                self._parser._delete(path)
+                return True
+            except Exception as exc:
+                self._log.warning(f"MAVFTP delete also failed for {path}: {exc}")
+                return False
+
+        return await self._loop.run_in_executor(self._exe, _ftp_delete)
+
     # ------------------- exposing blocking parser methods --------- #
     async def list_ulogs(self, base: str = None, connection_timeout: float = 3.0) -> List[ULogInfo]:
         """Return metadata for every .ulg file on the vehicle."""
@@ -3012,48 +3468,312 @@ class MavLinkFTPProxy(BaseProxy):
             self._log.error(f"All {n_attempts} attempts to download ulog failed.")
             raise last_exception
     
-    async def clear_error_logs(self, remote_path: str, connection_timeout: float = 3.0):
+    async def delete_file(self, remote_path: str, connection_timeout: float = 3.0, stop_logger: bool = True) -> None:
         """
-        Clear error logs under *remote_path* from the vehicle.
+        Delete a single file at *remote_path* on the vehicle.
+
+        Uses the NuttX shell ``rm`` command via MAVLink SERIAL_CONTROL,
+        which bypasses PX4's MAVFTP ``FileProtected`` restriction.
+
+        Parameters
+        ----------
+        remote_path : str
+            The path on the vehicle to delete.
+        connection_timeout : float
+            Maximum time to wait for MAVLink connection.
+        stop_logger : bool
+            If True, stop PX4 logging before deletion and restart it
+            afterwards.  Pass ``False`` when the caller has already
+            stopped the logger (e.g. bulk-delete loop).
+        """
+        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+            self._log.warning("MAVLink connection not established, attempting to connect...")
+            t_start = time.time()
+            while True:
+                await asyncio.sleep(1.0)
+                if self.mavlink_proxy.master and self.mavlink_proxy.connected:
+                    break
+                if time.time() - t_start > connection_timeout:
+                    self._log.error("Timeout waiting for MAVLink connection")
+                    raise RuntimeError("MAVLink connection could not be established")
+
+        if stop_logger:
+            await self.mavlink_proxy.stop_px4_logging()
+        try:
+            ok = await self._delete_file_with_fallback(remote_path)
+            if not ok:
+                raise RuntimeError(f"Delete failed for {remote_path} (shell rm and MAVFTP both failed)")
+        finally:
+            if stop_logger:
+                await self.mavlink_proxy.start_px4_logging()
+
+    async def delete_all_logs(
+        self,
+        base: str = None,
+        connection_timeout: float = 3.0,
+        progress_callback: "Callable[[int, int], Any] | None" = None,
+    ) -> Dict[str, Any]:
+        """
+        Recursively delete every ``.ulg`` file under *base* on the vehicle.
+
+        Uses MAVFTP only for *listing* directories, then deletes each file
+        via the NuttX shell ``rm`` command (MAVLink SERIAL_CONTROL).  This
+        bypasses PX4's MAVFTP ``FileProtected`` (code 9) restriction which
+        blocks ``cmd_rm`` on all log files.
+
+        Stops the PX4 logger before deletion and restarts it afterwards.
+
+        Args:
+            base: Root directory to scan for .ulg files.
+            connection_timeout: Seconds to wait for a MAVLink connection.
+            progress_callback: Optional ``callback(current_index, total)``
+                invoked after each file deletion attempt.  May be a
+                regular function or an ``async`` coroutine.
+
+        Returns a summary dict with deleted/failed counts.
+        """
+        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+            self._log.warning("MAVLink connection not established, attempting to connect...")
+            t_start = time.time()
+            while True:
+                await asyncio.sleep(1.0)
+                if self.mavlink_proxy.master and self.mavlink_proxy.connected:
+                    break
+                if time.time() - t_start > connection_timeout:
+                    self._log.error("Timeout waiting for MAVLink connection")
+                    raise RuntimeError("MAVLink connection could not be established")
+
+        if base is None:
+            base = self.mavlink_proxy.root_sd_path
+
+        if not hasattr(self, '_parser') or self._parser is None:
+            await self._init_parser()
+
+        # ── Discover .ulg files AND date directories in one pass ──
+        def _scan(base_dir):
+            """Return (file_list, date_dir_list)."""
+            files = []
+            dirs = []
+            try:
+                base_entries = self._parser._ls(base_dir, retries=2)
+            except Exception as exc:
+                # Empty directory → MAVFTP returns code 73 (timeout).
+                # Treat as "nothing to delete".
+                self._log.info(
+                    f"Base directory listing failed ({exc}) — "
+                    f"assuming empty, nothing to delete"
+                )
+                return files, dirs
+            for date, _, is_dir in base_entries:
+                if not is_dir:
+                    continue
+                sub = f"{base_dir}/{date}"
+                dirs.append(sub)
+                try:
+                    entries = self._parser._ls(sub, retries=1)
+                except Exception as exc:
+                    self._log.warning(f"Skipping {sub}: {exc}")
+                    continue
+                for name, size, child_is_dir in entries:
+                    if not child_is_dir and name.endswith(".ulg"):
+                        files.append((f"{sub}/{name}", size))
+            return files, dirs
+
+        ulog_files, date_dirs = await self._loop.run_in_executor(
+            self._exe, lambda: _scan(base)
+        )
+        self._log.info(
+            f"Found {len(ulog_files)} ULog file(s) under {base} — "
+            f"deleting via shell rm"
+        )
+
+        # Stop PX4 logger before deletion to release file handles
+        await self.mavlink_proxy.stop_px4_logging()
+        try:
+            results: List[Dict[str, Any]] = []
+            deleted = 0
+            failed = 0
+
+            total = len(ulog_files)
+            for idx, (remote_path, size) in enumerate(ulog_files, 1):
+                ok = await self._delete_file_with_fallback(remote_path)
+                if ok:
+                    results.append({
+                        "path": remote_path,
+                        "size_bytes": size,
+                        "status": "deleted",
+                    })
+                    deleted += 1
+                else:
+                    results.append({
+                        "path": remote_path,
+                        "size_bytes": size,
+                        "status": "failed",
+                        "error": "Delete failed (shell rm and MAVFTP)",
+                    })
+                    failed += 1
+
+                # Report per-file progress
+                if progress_callback is not None:
+                    try:
+                        ret = progress_callback(idx, total)
+                        if asyncio.iscoroutine(ret):
+                            await ret
+                    except Exception:
+                        pass  # never let a callback error abort deletion
+
+            # ── Clean up ALL discovered date directories ─────────
+            # Remove every date dir we found during listing, not
+            # just those that had deleted files.  This ensures dirs
+            # left empty by a previous run are also removed.
+            for d in sorted(date_dirs):
+                try:
+                    ok = await self.mavlink_proxy.delete_file_via_shell(
+                        d, command="rmdir"
+                    )
+                    if ok:
+                        self._log.info(f"Removed empty directory {d}")
+                    else:
+                        self._log.debug(f"rmdir {d} skipped (may not be empty)")
+                except Exception as exc:
+                    self._log.debug(f"rmdir {d} failed: {exc}")
+
+            summary = {
+                "total": deleted + failed,
+                "deleted": deleted,
+                "failed": failed,
+                "files": results,
+            }
+            self._log.info(
+                f"Delete all logs complete: {deleted} deleted, "
+                f"{failed} failed out of {deleted + failed} total"
+            )
+            return summary
+        finally:
+            # Always restart the logger, even if deletion failed
+            await self.mavlink_proxy.start_px4_logging()
+
+    async def detect_error_logs(self, remote_path: str, connection_timeout: float = 3.0) -> Dict[str, Any]:
+        """
+        Detect ``fail_*.log`` error log files under *remote_path* on the vehicle.
+
+        Lists files via MAVFTP without deleting anything.
+
+        Returns a summary dict ``{total, files}`` where *files* is a list of
+        ``{path, size_bytes}`` dicts.
         """
         # Check connection and attempt to establish if needed
         if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
             self._log.warning("FTP connection not established, attempting to connect...")
             t_start = time.time()
             while True:
-                await asyncio.sleep(1.0)  # brief wait before re-checking
+                await asyncio.sleep(1.0)
                 if self.mavlink_proxy.master and self.mavlink_proxy.connected:
                     break
-
                 if time.time() - t_start > connection_timeout:
                     self._log.error("Timeout waiting for MAVLink FTP connection")
                     raise RuntimeError("MAVLink FTP connection could not be established")
 
-        # Initialize parser if not already done (e.g., after reconnection)
+        # Initialize parser if not already done
         if not hasattr(self, '_parser') or self._parser is None:
             await self._init_parser()
 
-        # Try to get log entries from the vehicle, but handle timeout gracefully
-        entries = {}
-        try:
-            msg_id = str(mavutil.mavlink.MAVLINK_MSG_ID_LOG_ENTRY)
-            msg = self.mavlink_proxy.build_req_msg_log_request(message_id=msg_id)
+        # List fail_*.log files via MAVFTP
+        def _list_fail_logs():
+            try:
+                entries = self._parser._ls(remote_path, retries=2)
+                return [
+                    (f"{remote_path}/{name}", size)
+                    for name, size, is_dir in entries
+                    if not is_dir and name.startswith("fail_") and name.endswith(".log")
+                ]
+            except Exception as exc:
+                self._log.warning(f"Failed to list error logs in {remote_path}: {exc}")
+                return []
 
-            entries = await self.mavlink_proxy.get_log_entries(
-                msg_id=msg_id,
-                request_msg=msg,
-                timeout=5.0
-            )
-        except (TimeoutError, RuntimeError) as e:
-            self._log.warning(f"Failed to get log entries from vehicle: {e}")
-            self._log.info("Attempting to list files directly via FTP without log entries...")
-            entries = {}
+        fail_logs = await self._loop.run_in_executor(self._exe, _list_fail_logs)
 
-        await self._loop.run_in_executor(
-            self._exe, 
-            self._parser.clear_error_logs, 
-            remote_path
+        files_info = [
+            {"path": path, "size_bytes": size}
+            for path, size in fail_logs
+        ]
+        self._log.info(
+            f"Detected {len(files_info)} fail_*.log file(s) under {remote_path}"
         )
+        return {"total": len(files_info), "files": files_info}
+
+    async def clear_error_logs(self, remote_path: str, connection_timeout: float = 3.0) -> Dict[str, Any]:
+        """
+        Clear ``fail_*.log`` error logs under *remote_path* from the vehicle.
+
+        Uses MAVFTP only for *listing*, then deletes each file via the
+        NuttX shell ``rm`` command (same approach as ``delete_all_logs``).
+
+        Returns a summary dict ``{total, deleted, failed}``.
+        """
+        # Check connection and attempt to establish if needed
+        if not self.mavlink_proxy.master or not self.mavlink_proxy.connected:
+            self._log.warning("FTP connection not established, attempting to connect...")
+            t_start = time.time()
+            while True:
+                await asyncio.sleep(1.0)
+                if self.mavlink_proxy.master and self.mavlink_proxy.connected:
+                    break
+                if time.time() - t_start > connection_timeout:
+                    self._log.error("Timeout waiting for MAVLink FTP connection")
+                    raise RuntimeError("MAVLink FTP connection could not be established")
+
+        # Initialize parser if not already done
+        if not hasattr(self, '_parser') or self._parser is None:
+            await self._init_parser()
+
+        # List fail_*.log files via MAVFTP
+        def _list_fail_logs():
+            try:
+                entries = self._parser._ls(remote_path, retries=2)
+                return [
+                    (f"{remote_path}/{name}", size)
+                    for name, size, is_dir in entries
+                    if not is_dir and name.startswith("fail_") and name.endswith(".log")
+                ]
+            except Exception as exc:
+                self._log.warning(f"Failed to list error logs in {remote_path}: {exc}")
+                return []
+
+        fail_logs = await self._loop.run_in_executor(self._exe, _list_fail_logs)
+
+        if not fail_logs:
+            self._log.info(f"No fail_*.log files found under {remote_path}")
+            return {"total": 0, "deleted": 0, "failed": 0}
+
+        self._log.info(f"Found {len(fail_logs)} fail_*.log file(s) under {remote_path}")
+
+        deleted = 0
+        failed = 0
+
+        # Stop logger, delete via shell rm (with MAVFTP fallback), restart logger
+        await self.mavlink_proxy.stop_px4_logging()
+        try:
+            for path, _size in fail_logs:
+                try:
+                    ok = await self._delete_file_with_fallback(path)
+                    if ok:
+                        self._log.info(f"Deleted error log {path}")
+                        deleted += 1
+                    else:
+                        self._log.warning(f"Delete failed for {path} (shell rm and MAVFTP)")
+                        failed += 1
+                except Exception as exc:
+                    self._log.warning(f"Error deleting {path}: {exc}")
+                    failed += 1
+        finally:
+            await self.mavlink_proxy.start_px4_logging()
+
+        self._log.info(
+            f"Clear error logs complete: {deleted} deleted, "
+            f"{failed} failed out of {deleted + failed} total"
+        )
+        return {"total": deleted + failed, "deleted": deleted, "failed": failed}
 
     async def list_directory(self, base: str = None, connection_timeout: float = 3.0) -> List[str]:
         """
@@ -3368,7 +4088,78 @@ class _BlockingParser:
                 self._log.error(f"Error deleting log {log.remote_path}: {e}")
         self._log.info("Cleared all error logs")
 
-    # 4) ls a directory ------------------------------------------------------ #
+    # 4) delete_file --------------------------------------------------------- #
+    def delete_file(self, path: str) -> None:
+        """
+        Delete a single file at *path* on the vehicle via MAVFTP.
+        Wraps the private ``_delete`` helper with a public interface.
+        """
+        self._log.info(f"Deleting file: {path}")
+        if not self.proxy.master or not self.proxy.connected:
+            raise RuntimeError("MAVLink connection not available for delete operation")
+        self._delete(path)
+
+    # 5) delete_all_logs ----------------------------------------------------- #
+    def delete_all_logs(self, base: str = "fs/microsd/log") -> Dict[str, Any]:
+        """
+        Recursively walk *base* (same logic as ``_walk_ulogs``) and delete
+        every ``.ulg`` file found.  Does NOT require log entries from the
+        vehicle – purely filesystem-based.
+
+        .. note::
+
+           The caller (``MavLinkFTPProxy.delete_all_logs``) is responsible
+           for stopping PX4 logging **before** invoking this method.
+           Without that, PX4 returns ``FileProtected`` (FTP code 9) for
+           every file because the logger holds open file handles.
+
+        Returns a summary dict with ``deleted``, ``failed``, and ``total``
+        counts plus a list of per-file results.
+        """
+        self._log.info(f"Deleting all ULog files under {base}")
+        if not self.proxy.master or not self.proxy.connected:
+            raise RuntimeError("MAVLink connection not available for delete operation")
+
+        # Reset FTP state before starting the delete loop to ensure a clean session
+        with self.proxy._mav_lock:
+            with self.proxy._download_lock:
+                self._reset_ftp_state()
+
+        results: List[Dict[str, Any]] = []
+        deleted = 0
+        failed = 0
+
+        for remote_path, size in self._walk_ulogs(base):
+            try:
+                self._delete(remote_path)
+                results.append({"path": remote_path, "size_bytes": size, "status": "deleted"})
+                deleted += 1
+                time.sleep(0.1)  # brief pause between deletes
+            except FTPDeleteError as e:
+                self._log.error(f"Failed to delete {remote_path}: {e}")
+                results.append({
+                    "path": remote_path,
+                    "size_bytes": size,
+                    "status": "failed",
+                    "error": str(e),
+                    "ftp_code": e.ftp_code,
+                })
+                failed += 1
+            except Exception as e:
+                self._log.error(f"Failed to delete {remote_path}: {e}")
+                results.append({"path": remote_path, "size_bytes": size, "status": "failed", "error": str(e)})
+                failed += 1
+
+        summary = {
+            "total": deleted + failed,
+            "deleted": deleted,
+            "failed": failed,
+            "files": results,
+        }
+        self._log.info(f"Delete all logs complete: {deleted} deleted, {failed} failed out of {deleted + failed} total")
+        return summary
+
+    # 6) ls a directory ------------------------------------------------------ #
     def list_directory(self, base: str = "fs/microsd") -> List[Dict[str, Any]]:
         """List the contents of a directory on the vehicle's filesystem."""
         try:
@@ -3434,7 +4225,14 @@ class _BlockingParser:
         for date, _, is_dir in dates:
             if not is_dir:
                 continue
-            for name, size, is_dir in self._ls(f"{base}/{date}"):
+            try:
+                entries = self._ls(f"{base}/{date}", retries=1)
+            except Exception as exc:
+                self._log.warning(
+                    f"Skipping {base}/{date}: listing failed ({exc})"
+                )
+                continue
+            for name, size, is_dir in entries:
                 if not is_dir and name.endswith(".ulg"):
                     yield f"{base}/{date}/{name}", size
 
@@ -3459,6 +4257,9 @@ class _BlockingParser:
                             raise OSError("Invalid file descriptor")
                 except (OSError, AttributeError):
                     self._log.warning(f"File descriptor invalid, marking connection as lost (attempt {n}/{retries})")
+                    with self.proxy._mav_lock:
+                        with self.proxy._download_lock:
+                            self._reset_ftp_state()
                     if n >= retries:
                         return []
                     time.sleep(delay)
@@ -3549,6 +4350,9 @@ class _BlockingParser:
                             raise OSError("Invalid file descriptor")
                 except (OSError, AttributeError):
                     self._log.warning(f"File descriptor invalid for delete, marking connection as lost (attempt {n}/{retries})")
+                    with self.proxy._mav_lock:
+                        with self.proxy._download_lock:
+                            self._reset_ftp_state()
                     if n >= retries:
                         return
                     time.sleep(delay)
@@ -3568,9 +4372,34 @@ class _BlockingParser:
                             self._log.info(f"Successfully deleted {path}")
                             return
                         else:
-                            self._log.warning(f"FTP delete failed: {ack.return_code} (attempt {n}/{retries})")
+                            # Translate FTP error codes to human-readable messages
+                            _FTP_ERR_NAMES = {
+                                1: "Fail", 2: "FailErrno", 3: "InvalidDataSize",
+                                4: "InvalidSession", 5: "NoSessionsAvailable",
+                                6: "EndOfFile", 7: "UnknownCommand",
+                                8: "FileExists", 9: "FileProtected",
+                                10: "FileNotFound", 73: "RemoteReplyTimeout",
+                            }
+                            err_name = _FTP_ERR_NAMES.get(ack.return_code, f"Unknown({ack.return_code})")
+                            detail = (
+                                f"FTP delete failed: {err_name} (code {ack.return_code}) "
+                                f"(attempt {n}/{retries})"
+                            )
+                            if ack.return_code == 9:  # FileProtected
+                                detail += (
+                                    " — PX4 logger likely has the file locked. "
+                                    "Ensure 'logger stop' is sent before deleting."
+                                )
+                            self._log.warning(detail)
                             if n >= retries:
-                                raise RuntimeError(f"delete('{path}') failed after {retries} attempts: FTP return code {ack.return_code}")
+                                raise FTPDeleteError(
+                                    path=path,
+                                    ftp_code=ack.return_code,
+                                    message=(
+                                        f"delete('{path}') failed after {retries} attempts: "
+                                        f"{err_name} (FTP code {ack.return_code})"
+                                    ),
+                                )
                             
             except (OSError, socket.error) as e:
                 # Handle connection errors gracefully
@@ -3581,6 +4410,8 @@ class _BlockingParser:
                 else:
                     self._log.error(f"Unexpected socket error during delete: {e}")
                     raise
+            except FTPDeleteError:
+                raise  # propagate structured FTP errors as-is
             except Exception as e:
                 self._log.error(f"Error during delete operation (attempt {n}/{retries}): {e}")
                 if n >= retries:
