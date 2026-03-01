@@ -13,6 +13,7 @@ import pathlib
 from ..proxies.base import BaseProxy
 from typing import List, Dict
 from ..plugins.base import Petal
+from ..compatibility import check_module_compatibility, check_package_compatibility, CompatReport
 
 # Cache entry points once to avoid repeated scanning
 _PETAL_EPS: Dict[str, md.EntryPoint] = {}
@@ -84,6 +85,27 @@ def initialize_petals(
     # Track loading method for statistics
     direct_loads = 0
     entry_point_loads = 0
+
+    # ── Run petal-app-manager self-check first ─────────────────────────
+    try:
+        import petal_app_manager as _pam
+        _self_report = check_module_compatibility(_pam)
+        if not _self_report.ok:
+            for issue in _self_report.issues:
+                logger.error(str(issue))
+        
+        _petal_compat = getattr(_pam, "__petal_compatibility__", None)
+        if _petal_compat:
+            _petal_report = check_package_compatibility(
+                "petal-app-manager (petal versions)",
+                _petal_compat,
+                skip_missing=True,
+            )
+            if not _petal_report.ok:
+                for issue in _petal_report.issues:
+                    logger.warning(str(issue))
+    except Exception as exc:
+        logger.warning("Skipping petal-app-manager self-check: %s", exc)
     
     for name in petal_name_list:
         # Check required proxies for this petal from YAML
@@ -128,6 +150,23 @@ def initialize_petals(
         try:
             petal: Petal = petal_cls()
             petal.inject_proxies(proxies)
+
+            # ── Per-petal compatibility check ──────────────────────────
+            petal_module = petal_cls.__module__.split(".")[0]  # e.g. "petal_flight_log"
+            try:
+                import importlib
+                mod = importlib.import_module(petal_module)
+                compat_report = check_module_compatibility(mod)
+                if not compat_report.ok:
+                    for issue in compat_report.issues:
+                        logger.warning(str(issue))
+                    logger.warning(
+                        "Petal '%s' has compatibility issues — it may not work correctly",
+                        name,
+                    )
+            except ImportError:
+                logger.debug("Could not import %s for compatibility check", petal_module)
+
             petal_list.append(petal)
             logger.info(f"Initialized petal '{name}' (version: {getattr(petal, 'version', 'unknown')})")
         except Exception as e:

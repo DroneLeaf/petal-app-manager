@@ -12,6 +12,22 @@ except PackageNotFoundError:
     # Useful during local development before install; pick what you prefer here
     __version__ = "0.0.0"
 
+# ── Compatibility requirements ──────────────────────────────────────────
+# Hard library requirements — must always be present.
+__compatibility__ = {
+    "leaf-pymavlink": ">=0.1.17,<0.1.18",
+}
+
+# Petal version expectations — only checked if a petal is actually
+# installed.  Update these when bumping petal versions.
+__petal_compatibility__ = {
+    "petal-flight-log":                ">=0.2.7,<0.3.0",
+    "petal-warehouse":                 ">=0.1.9,<0.2.0",
+    "petal-leafsdk":                   ">=0.2.13,<0.3.0",
+    "petal-user-journey-coordinator":  ">=0.1.13,<0.2.0",
+    "petal-qgc-mission-server":        ">=0.1.5,<0.2.0",
+}
+
 class Config:
     # General configuration
     PETAL_LOG_LEVEL = os.environ.get("PETAL_LOG_LEVEL", "INFO").upper()
