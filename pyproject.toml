@@ -32,14 +32,14 @@ cicd = [
     "pytest-asyncio>=1.0.0",
     "anyio>=4.9.0",
     "pytest-cov>=6.2.1",
-    "leaf-pymavlink>=0.1.17,<0.1.18",
+    "leaf-pymavlink @ git+https://github.com/DroneLeaf/leaf-mavlink.git@dev-sitl#subdirectory=pymavlink",
 ]
 cicddocs = [
     "pytest>=8.4.0",
     "pytest-asyncio>=1.0.0",
     "anyio>=4.9.0",
     "pytest-cov>=6.2.1",
-    "leaf-pymavlink>=0.1.17,<0.1.18",
+    "leaf-pymavlink @ git+https://github.com/DroneLeaf/leaf-mavlink.git@dev-sitl#subdirectory=pymavlink",
     # Documentation dependencies
     "sphinx>=7.0.0",
     "sphinx-rtd-theme>=2.0.0",
