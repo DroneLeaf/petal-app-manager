@@ -138,6 +138,13 @@ class Petal(ABC):
             logger.info("Petal %s master handler received command: %s", self.name, command)
 
             if command in self._mqtt_command_handlers:
+                # Send immediate ACK before dispatching to handler
+                if message.get("waitAck", False) and mqtt_proxy:
+                    await mqtt_proxy.send_command_ack(
+                        message_id=message.get("messageId", "unknown"),
+                        service=self.name,
+                    )
+
                 handler = self._mqtt_command_handlers[command]
                 is_cpu_heavy = self._mqtt_cpu_heavy_commands.get(command, False)
 

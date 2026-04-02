@@ -91,6 +91,7 @@ class MQTTProxy(BaseProxy):
         # Subscription management
         self.command_edge_topic = command_edge_topic
         self.response_topic = response_topic
+        self.ack_topic = "ack"
         self.test_topic = test_topic
         self.command_web_topic = command_web_topic
         self._handlers: Dict[str, List[Dict[str, str | Callable[[str, Dict[str, Any]], None]]]] = defaultdict(list)
@@ -673,6 +674,23 @@ class MQTTProxy(BaseProxy):
             qos=qos
         )
 
+    async def send_command_ack(self, message_id: str, service: str, ack_type: str = 'service-received') -> bool:
+        """Send an immediate ACK to confirm command receipt.
+        Args:
+            message_id: Original message ID to correlate
+            service: Name of the service sending the ACK
+            ack_type: 'edge-received' (TS client got it) or 'service-received' (petal got it)
+        """
+        response_topic = f"{self._get_base_topic()}/{self.ack_topic}"
+        ack_payload = {
+            'messageId': message_id,
+            'phase': 'ack',
+            'ackType': ack_type,
+            'service': service,
+            'timestamp': datetime.now().isoformat(),
+        }
+        return await self._publish_message(response_topic, ack_payload)
+
     async def send_command_response(self, message_id: str, response_data: Dict[str, Any]) -> bool:
         """
         Send a command response to the response topic.
@@ -686,10 +704,11 @@ class MQTTProxy(BaseProxy):
 
         response_payload = {
             'messageId': message_id,
+            'phase': 'result',
             'timestamp': datetime.now().isoformat(),
             **response_data
         }
-        
+
         return await self._publish_message(response_topic, response_payload)
 
     def register_handler(
