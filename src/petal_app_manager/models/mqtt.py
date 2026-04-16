@@ -10,6 +10,7 @@ import time
 class MQTTMessage(BaseModel):
     """MQTT message model"""
     waitResponse: bool = Field(..., description="Whether to wait for a response")
+    waitAck: bool = Field(False, description="Whether to send delivery ACK")
     messageId: str = Field(..., description="Unique message ID")
     deviceId: str = Field(..., description="Device ID")
     command: str = Field(..., description="Command to execute")

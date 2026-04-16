@@ -842,8 +842,11 @@ async def test_cpu_heavy_handler_invoked(proxy: MQTTProxy):
 
     proxy._process_incoming_message(command_topic, {"data": "heavy_test"})
 
-    # Give executor time to run
-    await asyncio.sleep(0.3)
+    # Poll until the executor thread completes (up to 10 s for slow CI runners)
+    for _ in range(100):
+        if call_log:
+            break
+        await asyncio.sleep(0.1)
 
     assert len(call_log) == 1
     assert call_log[0] == ("heavy", command_topic, {"data": "heavy_test"})
