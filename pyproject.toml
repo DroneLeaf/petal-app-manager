@@ -32,14 +32,14 @@ cicd = [
     "pytest-asyncio>=1.0.0",
     "anyio>=4.9.0",
     "pytest-cov>=6.2.1",
-    "leaf-pymavlink>=0.1.16,<0.1.17",
+    "leaf-pymavlink @ git+https://github.com/DroneLeaf/leaf-mavlink.git@dev-sitl#subdirectory=pymavlink",
 ]
 cicddocs = [
     "pytest>=8.4.0",
     "pytest-asyncio>=1.0.0",
     "anyio>=4.9.0",
     "pytest-cov>=6.2.1",
-    "leaf-pymavlink>=0.1.16,<0.1.17",
+    "leaf-pymavlink @ git+https://github.com/DroneLeaf/leaf-mavlink.git@dev-sitl#subdirectory=pymavlink",
     # Documentation dependencies
     "sphinx>=7.0.0",
     "sphinx-rtd-theme>=2.0.0",
@@ -57,12 +57,12 @@ cicddocs = [
     "graphviz>=0.20.0",
 ]
 prod = [
-    "leaf-pymavlink>=0.1.16,<0.1.17",
+    "leaf-pymavlink>=0.1.17,<0.1.18",
     "petal-flight-log==0.2.7",
     "petal-warehouse==0.1.9",
-    "petal-leafsdk==0.2.11",
+    "petal-leafsdk==0.2.13",
     "petal-user-journey-coordinator==0.1.13",
-    "petal-qgc-mission-server==0.1.4",
+    "petal-qgc-mission-server==0.1.5",
 ]
 dev = [
     "pytest>=8.4.0",

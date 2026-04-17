@@ -1,6 +1,7 @@
 {
   "config": {
-    "joystick_mode": "ENABLED_ON_PAUSE"
+    "joystick_mode": "ENABLED_ON_PAUSE",
+    "safe_height_m": 5.0
   },
   "edges": [
     {

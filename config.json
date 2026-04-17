@@ -13,6 +13,7 @@
     "logging": {
         "level_outputs": {
             "DEBUG": [
+                "terminal",
                 "file"
             ],
             "INFO": [
