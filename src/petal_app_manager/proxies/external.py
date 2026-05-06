@@ -610,6 +610,15 @@ class MavLinkExternalProxy(ExternalProxy):
         self._exe = ThreadPoolExecutor(max_workers=1, thread_name_prefix="MavLinkExternalProxy")
         self.connected = False
         self._last_heartbeat_time = time.time()
+        # Tracks ONLY heartbeats originating from the autopilot
+        # (MAV_COMP_ID_AUTOPILOT1, autopilot != INVALID, type != GCS).
+        # Used by the reboot-confirmation logic so that heartbeats from
+        # routers / companion components / our own echoed heartbeat do not
+        # mask a real autopilot drop during reboot.
+        self._last_autopilot_heartbeat_time: float | None = None
+        # Cached source IDs of the autopilot, learned from heartbeats.
+        self._autopilot_system_id: int | None = None
+        self._autopilot_component_id: int | None = None
         self.leaf_fc_connected = False
         self._last_leaf_fc_heartbeat_time = time.time()
         self._connection_check_interval = 5.0  # Check connection every 5 seconds
@@ -901,8 +910,40 @@ class MavLinkExternalProxy(ExternalProxy):
         return False
 
     async def _on_heartbeat_received(self, msg):
-        """Handler for incoming heartbeat messages to track connection health."""
-        self._last_heartbeat_time = time.time()
+        """Handler for incoming heartbeat messages to track connection health.
+
+        Updates two timestamps:
+          * ``_last_heartbeat_time`` — any HEARTBEAT (used for the generic
+            connection monitor).
+          * ``_last_autopilot_heartbeat_time`` — only HEARTBEATs originating
+            from the autopilot itself (component == MAV_COMP_ID_AUTOPILOT1,
+            non-INVALID autopilot field, non-GCS type). This is what the
+            reboot-confirmation logic uses to detect a real PX4 reboot,
+            since routers / companion computers / echoed heartbeats from
+            this proxy itself would otherwise prevent a "drop" from ever
+            being observed.
+        """
+        now = time.time()
+        self._last_heartbeat_time = now
+
+        try:
+            src_sys = msg.get_srcSystem()
+            src_comp = msg.get_srcComponent()
+            ap_field = getattr(msg, "autopilot", mavutil.mavlink.MAV_AUTOPILOT_INVALID)
+            type_field = getattr(msg, "type", None)
+            mav_type_gcs = getattr(mavutil.mavlink, "MAV_TYPE_GCS", 6)
+            if (
+                src_comp == mavutil.mavlink.MAV_COMP_ID_AUTOPILOT1
+                and ap_field != mavutil.mavlink.MAV_AUTOPILOT_INVALID
+                and type_field != mav_type_gcs
+            ):
+                self._last_autopilot_heartbeat_time = now
+                self._autopilot_system_id = src_sys
+                self._autopilot_component_id = src_comp
+        except Exception:
+            # Never let heartbeat bookkeeping break the receive loop.
+            pass
+
         if not self.connected:
             self.connected = True
             self._log.info("MAVLink connection re-established")
@@ -1271,6 +1312,7 @@ class MavLinkExternalProxy(ExternalProxy):
         self,
         reboot_autopilot: bool = True,
         reboot_onboard_computer: bool = False,
+        target_component: int | None = None,
     ) -> mavutil.mavlink.MAVLink_command_long_message:
         """
         Build a MAVLink command to reboot the autopilot and/or onboard computer.
@@ -1281,6 +1323,13 @@ class MavLinkExternalProxy(ExternalProxy):
             If True, reboot the autopilot (PX4/ArduPilot). Default is True.
         reboot_onboard_computer : bool
             If True, reboot the onboard computer. Default is False.
+        target_component : int, optional
+            MAVLink component ID to address. Defaults to
+            ``MAV_COMP_ID_AUTOPILOT1`` (1) — required for PX4 to act on
+            ``param1``. Falling back to ``master.target_component`` is
+            unsafe because pymavlink's ``wait_heartbeat()`` may have
+            locked onto a router / companion component (e.g. 191/194)
+            whose component will silently drop the reboot command.
 
         Returns
         -------
@@ -1295,14 +1344,31 @@ class MavLinkExternalProxy(ExternalProxy):
         if not self.master or not self.connected:
             raise RuntimeError("MAVLink connection not established")
 
-        # param1: 1=reboot autopilot, 0=do nothing
+        # param1: 1=reboot autopilot, 0=do nothing  (REBOOT_SHUTDOWN_ACTION)
         # param2: 1=reboot onboard computer, 0=do nothing
         param1 = 1.0 if reboot_autopilot else 0.0
         param2 = 1.0 if reboot_onboard_computer else 0.0
 
+        # Prefer the AP component we discovered from a real autopilot HB.
+        # Otherwise default to the canonical MAV_COMP_ID_AUTOPILOT1 (1).
+        if target_component is None:
+            target_component = (
+                self._autopilot_component_id
+                if self._autopilot_component_id is not None
+                else mavutil.mavlink.MAV_COMP_ID_AUTOPILOT1
+            )
+
+        # Use the autopilot system ID we observed from a real autopilot HB
+        # (falling back to master.target_system if we never saw one yet).
+        target_system = (
+            self._autopilot_system_id
+            if self._autopilot_system_id is not None
+            else self.master.target_system
+        )
+
         return self.master.mav.command_long_encode(
-            self.master.target_system,
-            self.master.target_component,
+            target_system,
+            target_component,
             mavutil.mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN,
             0,       # confirmation
             param1,  # param1: reboot autopilot
@@ -1931,6 +1997,8 @@ class MavLinkExternalProxy(ExternalProxy):
         hb_return_window_s: float = 30.0,
         hb_poll_interval_s: float = 0.05,
         sitl_mode: bool = False,
+        max_send_attempts: int = 3,
+        retry_delay_s: float = 0.5,
     ) -> RebootAutopilotResponse:
         """
         Send a reboot command and confirm success via heartbeat drop + return.
@@ -1938,22 +2006,28 @@ class MavLinkExternalProxy(ExternalProxy):
         Unlike :meth:`reboot_autopilot`, heartbeat confirmation is the
         **primary** verification method, not a fallback.  The flow is:
 
-        1. Send MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN and wait for COMMAND_ACK.
-           - If the ACK is a rejection, return immediately with failure.
-           - If the ACK is accepted *or* times out, proceed to step 2.
-        2. Wait for heartbeat to **drop** (gap ≥ ``hb_drop_gap_s`` within
-           ``hb_drop_window_s``).
-        3. Wait for heartbeat to **return** (new heartbeat after the drop
-           within ``hb_return_window_s``).
-        4. Return success only when heartbeat returns, confirming the
-           autopilot has rebooted and is alive again.
+        1. Send MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN (targeted at
+           ``MAV_COMP_ID_AUTOPILOT1``) up to ``max_send_attempts`` times,
+           waiting up to ``ack_timeout`` for a COMMAND_ACK on each attempt.
+           - If any ACK is a rejection, return immediately with failure.
+           - If an ACK is ACCEPTED *or* every attempt times out, proceed
+             to step 2.
+        2. Wait for the **autopilot's own** heartbeat to drop (gap
+           ≥ ``hb_drop_gap_s`` within ``hb_drop_window_s``). Heartbeats
+           from routers / companion components are ignored — only
+           heartbeats with ``srcComponent == MAV_COMP_ID_AUTOPILOT1``
+           and ``autopilot != MAV_AUTOPILOT_INVALID`` count.
+        3. Wait for the autopilot heartbeat to return after the drop
+           within ``hb_return_window_s``.
+        4. Return success only when the autopilot heartbeat returns,
+           confirming PX4 has rebooted and is alive again.
 
         Parameters
         ----------
         reboot_onboard_computer : bool
             If True, also reboot the onboard computer.
         ack_timeout : float
-            Maximum time (s) to wait for COMMAND_ACK.
+            Maximum time (s) to wait for COMMAND_ACK on each send attempt.
         hb_drop_window_s : float
             Time window (s) to detect heartbeat drop after command.
         hb_drop_gap_s : float
@@ -1967,6 +2041,12 @@ class MavLinkExternalProxy(ExternalProxy):
             immediately.  This allows SITL testing where the user manually
             kills and restarts the ``px4_sitl`` process to trigger the
             heartbeat drop + return cycle.
+        max_send_attempts : int
+            How many times to (re)send the reboot command if no ACK is
+            received. UDP transport can drop the single datagram and PX4
+            firmware may also miss the first command shortly after boot.
+        retry_delay_s : float
+            Delay between resend attempts (only used if no ACK arrived).
 
         Returns
         -------
@@ -1974,23 +2054,6 @@ class MavLinkExternalProxy(ExternalProxy):
         """
         if not self.connected:
             raise RuntimeError("MAVLink connection not established")
-
-        # ── Step 1: Send reboot command and attempt to get ACK ────────────
-        cmd = self.build_reboot_command(
-            reboot_autopilot=True,
-            reboot_onboard_computer=reboot_onboard_computer,
-        )
-
-        result = {"ack_received": False, "result": None}
-
-        def _collector(pkt) -> bool:
-            if pkt.get_type() != "COMMAND_ACK":
-                return False
-            if pkt.command == mavutil.mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN:
-                result["ack_received"] = True
-                result["result"] = pkt.result
-                return True
-            return False
 
         COMMAND_ACK_ID = str(mavutil.mavlink.MAVLINK_MSG_ID_COMMAND_ACK)
 
@@ -2013,65 +2076,121 @@ class MavLinkExternalProxy(ExternalProxy):
             getattr(mavutil.mavlink, "MAV_RESULT_CANCELLED", -999): "CANCELLED",
         }
 
+        # ── Step 1: Send reboot command (with retries) and try to get ACK ──
         ack_received = False
         ack_val = None
 
-        try:
-            await self.send_and_wait(
-                match_key=COMMAND_ACK_ID,
-                request_msg=cmd,
-                collector=_collector,
-                timeout=ack_timeout,
-            )
-        except TimeoutError:
-            self._log.warning(
-                "Reboot command sent but no ACK received; proceeding to heartbeat confirmation..."
+        # Capture the autopilot heartbeat baseline *before* sending so the
+        # drop detector measures from a known-fresh moment, not from some
+        # stale value left over from earlier in the session.
+        send_baseline_ts = self._last_autopilot_heartbeat_time
+
+        for attempt in range(1, max_send_attempts + 1):
+            cmd = self.build_reboot_command(
+                reboot_autopilot=True,
+                reboot_onboard_computer=reboot_onboard_computer,
             )
 
-        if result["ack_received"]:
-            ack_received = True
-            ack_val = result["result"]
-            ack_name = _ACK_NAME.get(ack_val, f"UNKNOWN({ack_val})")
+            self._log.info(
+                "Sending PX4 reboot (MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN) "
+                "attempt %d/%d -> sys=%d comp=%d",
+                attempt, max_send_attempts,
+                cmd.target_system, cmd.target_component,
+            )
 
-            # If ACK is a rejection, fail immediately — no point waiting for heartbeat
-            # Exception: in SITL mode, DENIED is expected (simulator cannot reboot)
-            # so we skip the failure and proceed to heartbeat confirmation,
-            # allowing the user to manually kill/restart px4_sitl.
-            if ack_val != mavutil.mavlink.MAV_RESULT_ACCEPTED:
-                if sitl_mode and ack_val == mavutil.mavlink.MAV_RESULT_DENIED:
-                    self._log.warning(
-                        f"SITL_MODE: Reboot ACK was DENIED (expected for SITL). "
-                        f"Proceeding to heartbeat confirmation — manually kill and "
-                        f"restart px4_sitl within {hb_drop_window_s}s to trigger "
-                        f"heartbeat drop..."
-                    )
-                else:
+            attempt_result = {"ack_received": False, "result": None}
+
+            def _collector(pkt, _r=attempt_result) -> bool:
+                if pkt.get_type() != "COMMAND_ACK":
+                    return False
+                if pkt.command == mavutil.mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN:
+                    _r["ack_received"] = True
+                    _r["result"] = pkt.result
+                    return True
+                return False
+
+            try:
+                await self.send_and_wait(
+                    match_key=COMMAND_ACK_ID,
+                    request_msg=cmd,
+                    collector=_collector,
+                    timeout=ack_timeout,
+                )
+            except TimeoutError:
+                self._log.warning(
+                    "No COMMAND_ACK for reboot on attempt %d/%d (timeout=%.1fs).",
+                    attempt, max_send_attempts, ack_timeout,
+                )
+
+            if attempt_result["ack_received"]:
+                ack_received = True
+                ack_val = attempt_result["result"]
+                ack_name = _ACK_NAME.get(ack_val, f"UNKNOWN({ack_val})")
+                self._log.info("Reboot ACK received: %s (%s)", ack_val, ack_name)
+
+                if ack_val != mavutil.mavlink.MAV_RESULT_ACCEPTED:
+                    # In SITL the simulator can't actually reboot itself,
+                    # so DENIED is expected; let the user kill/restart it.
+                    if sitl_mode and ack_val == mavutil.mavlink.MAV_RESULT_DENIED:
+                        self._log.warning(
+                            "SITL_MODE: Reboot ACK was DENIED (expected for SITL). "
+                            "Proceeding to heartbeat confirmation — manually kill/restart "
+                            "px4_sitl within %.1fs to trigger heartbeat drop...",
+                            hb_drop_window_s,
+                        )
+                        break
                     status = _ACK_TO_STATUS.get(ack_val, RebootStatusCode.FAIL_ACK_UNKNOWN)
-                    self._log.warning(f"Reboot command rejected with result: {ack_val} ({ack_name})")
+                    self._log.warning(
+                        "Reboot command rejected with result: %s (%s)", ack_val, ack_name,
+                    )
                     return RebootAutopilotResponse(
                         success=False,
                         status_code=status,
                         reason=f"Autopilot rejected the reboot command: {ack_name}.",
                         ack_result=ack_val,
                     )
-            else:
-                self._log.info("Reboot command accepted by autopilot, proceeding to heartbeat confirmation...")
+                # ACCEPTED — break out of retry loop
+                break
+
+            # No ACK on this attempt; back off briefly before resending.
+            if attempt < max_send_attempts:
+                await asyncio.sleep(retry_delay_s)
+
+        if not ack_received:
+            self._log.warning(
+                "Reboot command sent %d time(s) with no COMMAND_ACK; "
+                "falling back to heartbeat-based confirmation.",
+                max_send_attempts,
+            )
 
         # ── Step 2: Heartbeat drop confirmation (primary check) ───────────
-        last_hb = getattr(self, "_last_heartbeat_time", None)
-        if last_hb is None:
-            self._log.warning("No heartbeat timestamp available; cannot confirm reboot via heartbeat.")
+        # We confirm reboot using the autopilot's OWN heartbeat. Heartbeats
+        # from a mavlink-router, companion computer, GCS or our own echoed
+        # heartbeat are ignored, otherwise they would mask a real drop and
+        # we'd see the symptom from the bug report:
+        #   "Heartbeat did not drop within 15.0s window".
+        last_ap_hb = self._last_autopilot_heartbeat_time
+        if last_ap_hb is None:
+            self._log.warning(
+                "No autopilot heartbeat has been observed yet "
+                "(_last_autopilot_heartbeat_time is None). "
+                "Cannot confirm reboot via heartbeat — has the autopilot "
+                "ever connected at component MAV_COMP_ID_AUTOPILOT1 (1)?"
+            )
             return RebootAutopilotResponse(
                 success=False,
                 status_code=RebootStatusCode.FAIL_NO_HEARTBEAT_TRACKING,
-                reason="Heartbeat tracking is unavailable (_last_heartbeat_time is None). Cannot confirm reboot.",
+                reason=(
+                    "Autopilot heartbeat tracking unavailable: no HEARTBEAT "
+                    "from MAV_COMP_ID_AUTOPILOT1 has ever been observed."
+                ),
                 ack_result=ack_val,
             )
 
         async def _wait_for_heartbeat_drop() -> bool:
             deadline = time.time() + hb_drop_window_s
             while time.time() < deadline:
-                last = getattr(self, "_last_heartbeat_time", None)
+                last = self._last_autopilot_heartbeat_time
                 if last is not None and (time.time() - last) >= hb_drop_gap_s:
                     return True
                 await asyncio.sleep(hb_poll_interval_s)
@@ -2079,25 +2198,35 @@ class MavLinkExternalProxy(ExternalProxy):
 
         dropped = await _wait_for_heartbeat_drop()
         if not dropped:
-            self._log.warning("Heartbeat did not drop within the expected window; reboot not confirmed.")
+            now = time.time()
+            last = self._last_autopilot_heartbeat_time
+            age = (now - last) if last is not None else float("inf")
+            self._log.warning(
+                "Autopilot heartbeat did not drop within %.1fs window "
+                "(gap threshold: %.1fs, last AP HB age: %.2fs, "
+                "AP sys=%s comp=%s, baseline_ts=%s). Reboot not confirmed.",
+                hb_drop_window_s, hb_drop_gap_s, age,
+                self._autopilot_system_id, self._autopilot_component_id,
+                send_baseline_ts,
+            )
             return RebootAutopilotResponse(
                 success=False,
                 status_code=RebootStatusCode.FAIL_REBOOT_NOT_CONFIRMED_NO_HB_DROP,
                 reason=(
-                    f"Heartbeat did not drop within {hb_drop_window_s}s window "
-                    f"(gap threshold: {hb_drop_gap_s}s). Reboot not confirmed."
+                    f"Autopilot heartbeat did not drop within {hb_drop_window_s}s "
+                    f"window (gap threshold: {hb_drop_gap_s}s). Reboot not confirmed."
                 ),
                 ack_result=ack_val,
             )
 
-        drop_mark = getattr(self, "_last_heartbeat_time", last_hb) or last_hb
-        self._log.info("Heartbeat drop detected, waiting for heartbeat to return...")
+        drop_mark = self._last_autopilot_heartbeat_time or last_ap_hb
+        self._log.info("Autopilot heartbeat drop detected, waiting for heartbeat to return...")
 
         # ── Step 3: Heartbeat return confirmation ─────────────────────────
         async def _wait_for_heartbeat_return(since_ts: float) -> bool:
             deadline = time.time() + hb_return_window_s
             while time.time() < deadline:
-                last = getattr(self, "_last_heartbeat_time", None)
+                last = self._last_autopilot_heartbeat_time
                 if last is not None and last > since_ts:
                     return True
                 await asyncio.sleep(hb_poll_interval_s)
@@ -2105,32 +2234,32 @@ class MavLinkExternalProxy(ExternalProxy):
 
         returned = await _wait_for_heartbeat_return(since_ts=drop_mark)
         if not returned:
-            self._log.warning("Heartbeat dropped but did not return; reboot not confirmed.")
+            self._log.warning("Autopilot heartbeat dropped but did not return; reboot not confirmed.")
             return RebootAutopilotResponse(
                 success=False,
                 status_code=RebootStatusCode.FAIL_REBOOT_NOT_CONFIRMED_HB_NO_RETURN,
                 reason=(
-                    f"Heartbeat drop observed but heartbeat did not return within "
-                    f"{hb_return_window_s}s. Autopilot may still be rebooting."
+                    f"Heartbeat drop observed but autopilot heartbeat did not return "
+                    f"within {hb_return_window_s}s. Autopilot may still be rebooting."
                 ),
                 ack_result=ack_val,
             )
 
         # ── Step 4: Confirmed ─────────────────────────────────────────────
         if ack_received:
-            self._log.info("Reboot confirmed: ACK accepted + heartbeat drop + return.")
+            self._log.info("Reboot confirmed: ACK accepted + autopilot heartbeat drop + return.")
             return RebootAutopilotResponse(
                 success=True,
                 status_code=RebootStatusCode.OK_ACK_ACCEPTED_HB_CONFIRMED,
-                reason="Reboot confirmed: COMMAND_ACK accepted and heartbeat drop + return observed.",
+                reason="Reboot confirmed: COMMAND_ACK accepted and autopilot heartbeat drop + return observed.",
                 ack_result=ack_val,
             )
         else:
-            self._log.info("Reboot confirmed via heartbeat drop + return (no ACK received).")
+            self._log.info("Reboot confirmed via autopilot heartbeat drop + return (no ACK received).")
             return RebootAutopilotResponse(
                 success=True,
                 status_code=RebootStatusCode.OK_HB_CONFIRMED_NO_ACK,
-                reason="Reboot confirmed via heartbeat drop + return (no COMMAND_ACK received).",
+                reason="Reboot confirmed via autopilot heartbeat drop + return (no COMMAND_ACK received).",
                 ack_result=None,
             )
 
