@@ -2009,9 +2009,11 @@ class MavLinkExternalProxy(ExternalProxy):
         1. Send MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN (targeted at
            ``MAV_COMP_ID_AUTOPILOT1``) up to ``max_send_attempts`` times,
            waiting up to ``ack_timeout`` for a COMMAND_ACK on each attempt.
+
            - If any ACK is a rejection, return immediately with failure.
            - If an ACK is ACCEPTED *or* every attempt times out, proceed
              to step 2.
+
         2. Wait for the **autopilot's own** heartbeat to drop (gap
            ≥ ``hb_drop_gap_s`` within ``hb_drop_window_s``). Heartbeats
            from routers / companion components are ignored — only
