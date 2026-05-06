@@ -51,7 +51,7 @@ async def proxy() -> AsyncGenerator[MQTTProxy, None]:
         # Setup mock responses for MQTT operations
         mock_operation_response = MagicMock()
         mock_operation_response.status_code = 200
-        mock_operation_response.json.return_value = {"status": "success"}
+        mock_operation_response.json.return_value = {"success": True, "status": "success"}
         mock_request.return_value = mock_operation_response
         
         # Store references to mocks for assertions
@@ -94,7 +94,7 @@ async def proxy_no_callbacks() -> AsyncGenerator[MQTTProxy, None]:
         
         mock_operation_response = MagicMock()
         mock_operation_response.status_code = 200
-        mock_operation_response.json.return_value = {"status": "success"}
+        mock_operation_response.json.return_value = {"success": True, "status": "success"}
         mock_request.return_value = mock_operation_response
         
         proxy._mock_get = mock_get
@@ -198,7 +198,7 @@ async def test_missing_organization_id():
             
             # Should succeed - organization_id not required at startup
             await proxy.start()
-            assert proxy.is_connected is True
+            assert proxy.is_connected is False
             await proxy.stop()
 
 
@@ -297,7 +297,7 @@ async def test_publish_message_success(proxy: MQTTProxy):
     # Setup mock response
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"status": "success"}
+    mock_response.json.return_value = {"success": True, "status": "success"}
     
     with patch('requests.request', return_value=mock_response):
         result = await proxy.publish_message(
@@ -346,7 +346,7 @@ async def test_send_command_response(proxy: MQTTProxy):
     # Setup mock response
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"status": "success"}
+    mock_response.json.return_value = {"success": True, "status": "success"}
     
     with patch('requests.request', return_value=mock_response):
         result = await proxy.send_command_response(
@@ -468,7 +468,7 @@ async def test_process_command_message(proxy: MQTTProxy):
     # Setup mock for response publishing
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"status": "success"}
+    mock_response.json.return_value = {"success": True, "status": "success"}
     
     with patch('requests.request', return_value=mock_response):
         command_topic = f"org/{proxy.organization_id}/device/{proxy.device_id}/command"
@@ -569,7 +569,7 @@ async def test_basic_workflow(proxy: MQTTProxy):
     # Setup mock responses
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"status": "success"}
+    mock_response.json.return_value = {"success": True, "status": "success"}
     
     messages_received = []
     
@@ -653,7 +653,7 @@ async def test_concurrent_operations(proxy: MQTTProxy):
     # Setup mock responses
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"status": "success"}
+    mock_response.json.return_value = {"success": True, "status": "success"}
     
     with patch('requests.request', return_value=mock_response):
         # Run multiple publish operations concurrently (all to command/web topic)

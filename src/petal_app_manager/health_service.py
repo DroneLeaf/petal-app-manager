@@ -2,6 +2,7 @@
 Unified health check service that eliminates duplication between HTTP endpoints and Redis publishing.
 """
 
+import asyncio
 import time
 import logging
 from datetime import datetime
@@ -41,10 +42,47 @@ class HealthService:
     Unified health service that provides consistent health checking functionality
     for both HTTP endpoints and Redis publishing.
     """
-    
-    def __init__(self, logger: Optional[logging.Logger] = None):
-        """Initialize the health service with optional logger."""
+
+    # Default publish interval used to derive per-probe timeouts when no
+    # Config is supplied. Kept in sync with RedisConfig.HEALTH_MESSAGE_RATE.
+    _DEFAULT_HEALTH_MESSAGE_RATE = 3.0
+
+    def __init__(
+        self,
+        logger: Optional[logging.Logger] = None,
+        config: Optional[Any] = None,
+    ):
+        """Initialize the health service.
+
+        Args:
+            logger: Optional logger instance.
+            config: Application Config (class or instance) exposing
+                ``REDIS_HEALTH_MESSAGE_RATE``. Used to bound per-proxy health
+                probe timeouts so a single probe cannot overlap into the
+                next health publisher iteration.
+        """
         self.logger = logger or logging.getLogger(__name__)
+        self.config = config
+
+    @property
+    def health_publish_interval(self) -> float:
+        """Configured health publish interval in seconds."""
+        if self.config is not None:
+            rate = getattr(self.config, "REDIS_HEALTH_MESSAGE_RATE", None)
+            if rate is not None:
+                try:
+                    return float(rate)
+                except (TypeError, ValueError):
+                    pass
+        return self._DEFAULT_HEALTH_MESSAGE_RATE
+
+    def _probe_timeout(self, margin: float = 0.5, floor: float = 0.5) -> float:
+        """Compute a per-probe timeout strictly below the publish interval.
+
+        Ensures a slow proxy probe cannot overlap into the next iteration of
+        the health publisher loop.
+        """
+        return max(floor, self.health_publish_interval - margin)
     
     async def get_detailed_health_status(self, proxies_dict: Dict[str, Any]) -> DetailedHealthResponse:
         """
@@ -717,17 +755,32 @@ class HealthService:
                 s3_test = None
                 try:
                     if proxy.s3_client:
-                        # Try to list a few objects to test S3 connectivity
-                        # This is a minimal operation that tests the connection
-                        test_result = await proxy._loop.run_in_executor(
-                            proxy._exe,
-                            lambda: proxy.s3_client.list_objects_v2(
-                                Bucket=proxy.bucket_name,
-                                Prefix=proxy.upload_prefix,
-                                MaxKeys=1
-                            )
+                        # Try to list a few objects to test S3 connectivity.
+                        # boto3's list_objects_v2 is a blocking call with no
+                        # client-side timeout configured here, so wrap it in
+                        # asyncio.wait_for to ensure the health check cannot
+                        # hang indefinitely (which would starve the executor
+                        # and stall every subsequent health probe).
+                        #
+                        # The timeout is derived from the Config injected
+                        # into HealthService so it is kept strictly below
+                        # the health publish interval and a single slow
+                        # probe can never overlap into the next iteration
+                        # of the publisher loop.
+                        s3_probe_timeout = self._probe_timeout()
+
+                        test_result = await asyncio.wait_for(
+                            proxy._loop.run_in_executor(
+                                proxy._exe,
+                                lambda: proxy.s3_client.list_objects_v2(
+                                    Bucket=proxy.bucket_name,
+                                    Prefix=proxy.upload_prefix,
+                                    MaxKeys=1
+                                )
+                            ),
+                            timeout=s3_probe_timeout,
                         )
-                        
+
                         s3_test = S3TestInfo(
                             connectivity="ok",
                             can_access_bucket=True,
@@ -739,6 +792,18 @@ class HealthService:
                             can_access_bucket=False,
                             bucket_accessible=False
                         )
+                except asyncio.TimeoutError:
+                    self.logger.warning(
+                        "S3 list_objects_v2 health probe timed out after %.2fs "
+                        "(kept below health publish interval to avoid overlap)",
+                        s3_probe_timeout,
+                    )
+                    s3_test = S3TestInfo(
+                        connectivity="timeout",
+                        can_access_bucket=False,
+                        bucket_accessible=False,
+                        error=f"S3 list_objects_v2 timed out after {s3_probe_timeout:.2f}s"
+                    )
                 except Exception as e:
                     s3_test = S3TestInfo(
                         connectivity="error",
@@ -806,9 +871,36 @@ class HealthService:
     async def _check_mqtt_proxy(self, proxy: MQTTProxy) -> MqttProxyHealth:
         """Check MQTT proxy health."""
         try:
-            # Use the proxy's built-in health check method
-            health_status = await proxy.health_check()
-            
+            # Bound the probe by the publish interval so a slow MQTT
+            # health call (which goes through the single MQTTProxy executor
+            # shared with subscribe/publish RPCs) cannot stall the health
+            # publisher loop. Mirrors the S3 probe's protection above.
+            mqtt_probe_timeout = self._probe_timeout()
+            try:
+                health_status = await asyncio.wait_for(
+                    proxy.health_check(),
+                    timeout=mqtt_probe_timeout,
+                )
+            except asyncio.TimeoutError:
+                self.logger.warning(
+                    "MQTT health_check timed out after %.2fs "
+                    "(kept below health publish interval to avoid overlap)",
+                    mqtt_probe_timeout,
+                )
+                return MqttProxyHealth(
+                    status="unhealthy",
+                    details=(
+                        f"MQTT health_check timed out after "
+                        f"{mqtt_probe_timeout:.2f}s"
+                    ),
+                    connection={
+                        "ts_client": False,
+                        "callback_server": False,
+                        "connected": False,
+                    },
+                    error="timeout",
+                )
+
             if health_status.get("status") == "healthy":
                 return MqttProxyHealth(
                     status="healthy",
@@ -880,11 +972,24 @@ class HealthService:
 _health_service: Optional[HealthService] = None
 
 
-def get_health_service(logger: Optional[logging.Logger] = None) -> HealthService:
-    """Get or create the global health service instance."""
+def get_health_service(
+    logger: Optional[logging.Logger] = None,
+    config: Optional[Any] = None,
+) -> HealthService:
+    """Get or create the global health service singleton.
+
+    On subsequent calls, ``logger`` and ``config`` (if provided) update the
+    existing singleton in place so callers can lazily attach them after
+    construction.
+    """
     global _health_service
     if _health_service is None:
-        _health_service = HealthService(logger)
+        _health_service = HealthService(logger, config)
+    else:
+        if logger is not None:
+            _health_service.logger = logger
+        if config is not None:
+            _health_service.config = config
     return _health_service
 
 
@@ -895,3 +1000,12 @@ def set_health_service_logger(logger: logging.Logger) -> None:
         _health_service = HealthService(logger)
     else:
         _health_service.logger = logger
+
+
+def set_health_service_config(config: Any) -> None:
+    """Set the Config used by the global health service singleton."""
+    global _health_service
+    if _health_service is None:
+        _health_service = HealthService(config=config)
+    else:
+        _health_service.config = config

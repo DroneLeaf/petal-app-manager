@@ -83,6 +83,7 @@ class Config:
         TEST_TOPIC = os.environ.get('PETAL_TEST_TOPIC', 'command')
         COMMAND_WEB_TOPIC = os.environ.get('PETAL_COMMAND_WEB_TOPIC', 'command/web')
         HEALTH_CHECK_INTERVAL = float(os.environ.get('PETAL_MQTT_HEALTH_CHECK_INTERVAL', 10.0))
+        HEALTH_PROBE_TIMEOUT_S = float(os.environ.get('PETAL_MQTT_HEALTH_PROBE_TIMEOUT', 2.0))
     # Misc
     class PetalUserJourneyCoordinatorConfig:
         DEBUG_SQUARE_TEST = os.environ.get("PETAL_DEBUG_SQUARE_TEST", "false").lower() in ("true", "1", "yes")
@@ -155,6 +156,7 @@ class Config:
     TEST_TOPIC = MQTTConfig.TEST_TOPIC
     COMMAND_WEB_TOPIC = MQTTConfig.COMMAND_WEB_TOPIC
     MQTT_HEALTH_CHECK_INTERVAL = MQTTConfig.HEALTH_CHECK_INTERVAL
+    MQTT_HEALTH_PROBE_TIMEOUT_S = MQTTConfig.HEALTH_PROBE_TIMEOUT_S
 
     MQTT_RETRY_INTERVAL = ProxyConfig.MQTT_RETRY_INTERVAL
     CLOUD_RETRY_INTERVAL = ProxyConfig.CLOUD_RETRY_INTERVAL

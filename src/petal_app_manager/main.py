@@ -136,6 +136,7 @@ def build_app() -> FastAPI:
                         test_topic=Config.TEST_TOPIC,
                         command_web_topic=Config.COMMAND_WEB_TOPIC,
                         health_check_interval=Config.MQTT_HEALTH_CHECK_INTERVAL,
+                        health_probe_timeout_s=Config.MQTT_HEALTH_PROBE_TIMEOUT_S,
                     )
                 elif proxy_name == "cloud":
                     proxies["cloud"] = CloudDBProxy(
@@ -213,7 +214,7 @@ def build_app() -> FastAPI:
         
         # Import the unified health service
         from .health_service import get_health_service
-        health_service = get_health_service(logger)
+        health_service = get_health_service(logger, Config)
         
         # Get petal names from config
         startup_petal_names = list(proxies_config.get("startup_petals") or [])
@@ -253,8 +254,9 @@ def build_app() -> FastAPI:
         nonlocal health_publisher_task
         
         # Step 0: Initialize health service with logger
-        from .health_service import set_health_service_logger
+        from .health_service import set_health_service_logger, set_health_service_config
         set_health_service_logger(logger)
+        set_health_service_config(Config)
         
         # Step 1: Start OrganizationManager first
         logger.info("Starting OrganizationManager...")
