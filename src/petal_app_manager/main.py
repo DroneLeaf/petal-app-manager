@@ -136,6 +136,7 @@ def build_app() -> FastAPI:
                         test_topic=Config.TEST_TOPIC,
                         command_web_topic=Config.COMMAND_WEB_TOPIC,
                         health_check_interval=Config.MQTT_HEALTH_CHECK_INTERVAL,
+                        health_probe_timeout_s=Config.MQTT_HEALTH_PROBE_TIMEOUT_S,
                     )
                 elif proxy_name == "cloud":
                     proxies["cloud"] = CloudDBProxy(

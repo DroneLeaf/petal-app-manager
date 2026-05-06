@@ -66,7 +66,8 @@ class MQTTProxy(BaseProxy):
         response_topic: str = "response",
         test_topic: str = "command",
         command_web_topic: str = "command/web",
-        health_check_interval: float = 10.0
+        health_check_interval: float = 10.0,
+        health_probe_timeout_s: float = 2.0,
     ):
         self.ts_client_host = ts_client_host
         self.ts_client_port = ts_client_port
@@ -107,6 +108,7 @@ class MQTTProxy(BaseProxy):
         # Health monitoring
         self._health_monitor_task = None
         self._health_check_interval = health_check_interval
+        self._health_probe_timeout_s = health_probe_timeout_s
 
         self._loop = None
         self._exe = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="MQTTProxy")
@@ -142,23 +144,58 @@ class MQTTProxy(BaseProxy):
             
             if is_healthy:
                 self.log.info("TypeScript MQTT client is healthy")
-                # Mark as connected since TypeScript client is healthy
-                self.is_connected = True
-                
-                # Try to subscribe to default device topics if organization ID is available
+                # Try to subscribe to default device topics if organization ID is available.
+                # NOTE: ``/health`` returning 200 does NOT guarantee the TS
+                # sidecar's broker connection is established — it can return
+                # 200 a few hundred ms before the AWS-IoT MQTT session is
+                # actually up, in which case our /subscribe RPC succeeds at
+                # the HTTP layer but the broker silently drops the
+                # subscription.  We therefore mark ``is_connected`` only
+                # once :meth:`_ensure_subscriptions` reports convergence;
+                # if the first pass doesn't converge, the health monitor
+                # below will keep retrying every health-check interval
+                # until the TS sidecar fully accepts every expected topic.
                 organization_id = self._get_organization_id()
                 if organization_id:
                     self.log.info("Organization ID available, subscribing to device topics...")
                     try:
                         from .. import Config
-                        await asyncio.wait_for(self._subscribe_to_device_topics(), timeout=Config.MQTT_SUBSCRIBE_TIMEOUT)
-                        self.log.info("Successfully subscribed to device topics")
+                        await asyncio.wait_for(
+                            self._ensure_subscriptions(),
+                            timeout=Config.MQTT_SUBSCRIBE_TIMEOUT,
+                        )
                     except asyncio.TimeoutError:
-                        self.log.warning("Timeout subscribing to device topics during startup")
+                        self.log.warning(
+                            "Timeout subscribing to device topics during startup; "
+                            "health monitor will keep retrying."
+                        )
                     except Exception as e:
-                        self.log.error(f"Failed to subscribe to device topics: {e}")
+                        self.log.error(
+                            f"Failed to subscribe to device topics during startup: {e}; "
+                            f"health monitor will keep retrying."
+                        )
+                    # Reflect actual subscription state, not optimistic.
+                    self.is_connected = (
+                        len(
+                            [t for t in self._expected_device_topics()
+                             if t not in self.subscribed_topics]
+                        ) == 0
+                    )
+                    if self.is_connected:
+                        self.log.info("Successfully subscribed to all device topics")
+                    else:
+                        self.log.warning(
+                            "Initial subscribe did not fully converge "
+                            "(TS sidecar may still be connecting to broker); "
+                            "health monitor will keep retrying every %.1fs.",
+                            self._health_check_interval,
+                        )
                 else:
-                    self.log.info("Organization ID not available, skipping device topic subscription")
+                    self.log.info(
+                        "Organization ID not available; deferring device topic "
+                        "subscription. Health monitor will subscribe once org_id arrives."
+                    )
+                    self.is_connected = False
             else:
                 self.log.warning("TypeScript MQTT client is not accessible - will monitor and retry")
                 self.is_connected = False
@@ -189,7 +226,7 @@ class MQTTProxy(BaseProxy):
         # clear all registered handlers
         self._handlers.clear()
 
-        for topic in self.subscribed_topics:
+        for topic in list(self.subscribed_topics):
             await self._unsubscribe_from_topic(topic)
 
         self.subscribed_topics.clear()
@@ -354,75 +391,158 @@ class MQTTProxy(BaseProxy):
             self.log.error(f"Error in callback for topic {topic}: {e}")
 
     # ------ TypeScript Client Communication ------ #
-    
+
     async def _check_ts_client_health(self) -> bool:
-        """Check if TypeScript MQTT client is healthy."""
+        """Check if TypeScript MQTT client is healthy.
+
+        Uses the per-instance ``_health_probe_timeout_s`` (configured via
+        ``Config.MQTT_HEALTH_PROBE_TIMEOUT_S``) so a hung sidecar cannot
+        block the single MQTTProxy executor thread for the full
+        ``request_timeout`` (30 s) and starve subscribe/publish RPCs.
+        """
         try:
             response = await self._loop.run_in_executor(
                 self._exe,
-                lambda: requests.get(f"{self.ts_base_url}/health", timeout=self.request_timeout)
+                lambda: requests.get(
+                    f"{self.ts_base_url}/health",
+                    timeout=self._health_probe_timeout_s,
+                ),
             )
             return response.status_code == 200
         except Exception as e:
             self.log.debug(f"TypeScript client unreachable: {type(e).__name__}")
             return False
 
+    def _expected_device_topics(self) -> List[str]:
+        """Return the fully-qualified set of device topics this proxy
+        expects to be subscribed to whenever TS+org are both available."""
+        base_topic = self._get_base_topic()
+        if not base_topic:
+            return []
+        return [
+            f"{base_topic}/{self.command_edge_topic}",
+            f"{base_topic}/{self.response_topic}",
+            f"{base_topic}/{self.test_topic}",
+        ]
+
+    async def _ensure_subscriptions(self) -> bool:
+        """Re-subscribe to any expected device topics that aren't already in
+        ``self.subscribed_topics``.  Returns True iff every expected topic
+        is subscribed at the end of the call.
+
+        This is the single place that drives convergence between
+        "what we want" (``_expected_device_topics``) and "what the TS
+        sidecar has accepted" (``self.subscribed_topics``).  It is
+        invoked on every healthy poll of the health monitor so that a
+        startup race (TS ``/health`` returns 200 before its broker
+        connection finishes — silently dropping our subscribe RPC), a
+        late-arriving org_id, or a silent broker flap all self-heal.
+        """
+        expected = self._expected_device_topics()
+        if not expected:
+            # No org_id / device_id yet; nothing to do.
+            return False
+
+        base_topic = self._get_base_topic()
+        missing = [t for t in expected if t not in self.subscribed_topics]
+        if not missing:
+            return True
+
+        self.log.info(
+            "Re-subscribing to %d/%d missing device topics...",
+            len(missing), len(expected),
+        )
+        for topic in missing:
+            relative = topic[len(base_topic) + 1:] if topic.startswith(base_topic + "/") else topic
+            ok = await self._subscribe_to_topic(relative)
+            if not ok:
+                self.log.warning(
+                    "Subscribe failed for %s; will retry on next health poll.",
+                    topic,
+                )
+
+        # Register the default device-topic handler once (idempotent),
+        # but only after the command_edge topic is actually subscribed —
+        # ``register_handler`` refuses to attach to an unsubscribed
+        # topic.  We guard against duplicate registrations across
+        # reconnects by checking the handler list first.
+        cmd_edge_full = f"{base_topic}/{self.command_edge_topic}"
+        if cmd_edge_full in self.subscribed_topics:
+            existing = self._handlers.get(cmd_edge_full, [])
+            already_registered = any(
+                h.get("callback") is self._default_message_handler for h in existing
+            )
+            if not already_registered:
+                self.register_handler(self._default_message_handler)
+
+        # Re-evaluate after attempts.
+        still_missing = [t for t in expected if t not in self.subscribed_topics]
+        if still_missing:
+            self.log.warning(
+                "After re-subscribe pass, %d/%d device topics still missing; "
+                "will retry on next health poll.",
+                len(still_missing), len(expected),
+            )
+            return False
+
+        self.log.info("All device topic subscriptions converged.")
+        return True
+
     async def _health_monitor_loop(self):
-        """Background task to monitor TypeScript client health and restore device topic subscriptions."""
+        """Periodically poll the TypeScript MQTT sidecar's health and
+        keep our device-topic subscriptions converged with what the
+        sidecar accepts.
+
+        On every iteration:
+          * If the sidecar is unhealthy, mark disconnected and clear our
+            local subscription view (so the next recovery re-subscribes
+            to every expected topic instead of believing it's still
+            subscribed).
+          * If the sidecar is healthy, drive
+            :meth:`_ensure_subscriptions` to convergence — this handles
+            the startup race where ``/health`` is 200 but the sidecar's
+            broker connection isn't ready yet (silently dropped subs),
+            late-arriving org_id, and any broker flap that doesn't
+            also flip ``/health`` to non-200.
+        """
         self.log.info("Health monitor started")
-        last_health_status = self.is_connected
-        
+
         while not self._shutdown_flag:
             try:
                 await asyncio.sleep(self._health_check_interval)
-                
-                # Check TypeScript client health
+
                 is_healthy = await self._check_ts_client_health()
-                
-                # If health status changed
-                if is_healthy != last_health_status:
-                    if is_healthy:
-                        self.log.info("TypeScript client health restored")
-                        # Check if we have organization ID
-                        organization_id = self._get_organization_id()
-                        if organization_id:
-                            # Get expected device topics
-                            expected_topics = [
-                                f"{self._get_base_topic()}/{self.command_edge_topic}",
-                                f"{self._get_base_topic()}/{self.response_topic}",
-                                f"{self._get_base_topic()}/{self.test_topic}"
-                            ]
-                            
-                            # Check which topics are missing
-                            missing_topics = [t for t in expected_topics if t not in self.subscribed_topics]
-                            
-                            if missing_topics:
-                                self.log.info(f"Re-subscribing to {len(missing_topics)} missing device topics...")
-                                for topic in missing_topics:
-                                    # Extract relative topic from full path
-                                    base_topic = self._get_base_topic()
-                                    relative_topic = topic[len(base_topic)+1:] if topic.startswith(base_topic) else topic
-                                    await self._subscribe_to_topic(relative_topic)
-                                self.log.info("Device topic subscriptions restored")
-                            else:
-                                self.log.info("All device topics already subscribed")
-                            
-                            self.is_connected = True
-                        else:
-                            self.log.debug("Health restored but organization ID not available yet")
-                    else:
-                        self.log.warning("TypeScript client health check failed - marking as disconnected")
+
+                if not is_healthy:
+                    if self.is_connected or self.subscribed_topics:
+                        self.log.warning(
+                            "TypeScript client health check failed - marking as disconnected"
+                        )
+                    self.is_connected = False
+                    self.subscribed_topics.clear()
+                    continue
+
+                organization_id = self._get_organization_id()
+                if not organization_id:
+                    # Healthy but org_id not available yet — wait for it.
+                    if self.is_connected:
                         self.is_connected = False
-                    
-                    last_health_status = is_healthy
-                    
+                    self.log.info(
+                        "TS healthy but organization ID not available yet; "
+                        "deferring subscription convergence."
+                    )
+                    continue
+
+                converged = await self._ensure_subscriptions()
+                self.is_connected = converged
+
             except asyncio.CancelledError:
                 self.log.info("Health monitor cancelled")
                 break
             except Exception as e:
                 self.log.error(f"Error in health monitor loop: {e}")
                 # Continue monitoring despite errors
-                
+
         self.log.info("Health monitor stopped")
 
     async def _make_ts_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -526,11 +646,26 @@ class MQTTProxy(BaseProxy):
             }
             
             result = await self._make_ts_request("POST", "/subscribe", request_data)
-            
+            self.log.info(f"Subscribe request for {topic_subscribe} returned: {result}")
+
+            if not isinstance(result, dict):
+                self.log.error(
+                    f"Failed to subscribe to {topic_subscribe}: "
+                    f"unexpected response type {type(result).__name__}"
+                )
+                return False
+
             if "error" in result:
                 self.log.error(f"Failed to subscribe to {topic_subscribe}: {result['error']}")
                 return False
 
+            if result.get("success") is not True:
+                self.log.warning(
+                    f"Subscribe to {topic_subscribe} did not return success=true "
+                    f"(broker likely not ready yet); will retry on next health poll. "
+                    f"Response: {result}"
+                )
+                return False
 
             self.subscribed_topics.add(topic_subscribe)
 
@@ -543,26 +678,65 @@ class MQTTProxy(BaseProxy):
 
     async def _unsubscribe_from_topic(self, topic: str) -> bool:
         """
-        Unsubscribe from an MQTT topic.
+        Unsubscribe from an MQTT topic on the TypeScript client.
+
+        Accepts either a full topic (``org/<id>/device/<id>/...``) or a
+        relative topic (the base prefix is added automatically).  This
+        keeps backward compatibility with both calling styles.
+
         Args:
-            topic: Topic to unsubscribe from (relative to base topic)
+            topic: Topic to unsubscribe from (full or relative).
         Returns:
-            True if unsubscribed successfully, False otherwise
+            True if the TS client acknowledged the unsubscribe, False otherwise.
         """
+        topic_unsubscribe = topic  # default for the except-block log
         try:
-            # make sure topic just does not have a leading slash
+            # strip a single leading slash if present
             if topic.startswith("/"):
                 topic = topic[1:]
 
-            topic_unsubscribe = f"{self._get_base_topic()}/{topic}"
+            base_topic = self._get_base_topic()
+            if base_topic and topic.startswith(base_topic + "/"):
+                topic_unsubscribe = topic
+            elif base_topic:
+                topic_unsubscribe = f"{base_topic}/{topic}"
+            else:
+                # No base topic available; trust caller-supplied value.
+                topic_unsubscribe = topic
 
-            # Unsubscribe using the subscription ID
-            if topic_unsubscribe in self.subscribed_topics:
-                self.subscribed_topics.remove(topic_unsubscribe)
+            result = await self._make_ts_request(
+                "POST",
+                "/unsubscribe",
+                {"topic": topic_unsubscribe},
+            )
 
+            self.log.info(f"Unsubscribe request for {topic_unsubscribe} returned: {result}")
+
+            if not isinstance(result, dict):
+                self.log.error(
+                    f"Failed to unsubscribe from {topic_unsubscribe}: "
+                    f"unexpected response type {type(result).__name__}"
+                )
+                return False
+
+            if "error" in result:
+                self.log.warning(
+                    f"TS client returned error on unsubscribe of {topic_unsubscribe}: "
+                    f"{result['error']}"
+                )
+                return False
+
+            if result.get("success") is not True:
+                self.log.warning(
+                    f"Unsubscribe of {topic_unsubscribe} did not return success=true; "
+                    f"keeping local subscription. Response: {result}"
+                )
+                return False
+
+            self.subscribed_topics.discard(topic_unsubscribe)
             self.log.info(f"Unsubscribed from topic: {topic_unsubscribe}")
             return True
-            
+
         except Exception as e:
             self.log.error(f"Error unsubscribing from {topic_unsubscribe}: {e}")
             return False
@@ -642,11 +816,25 @@ class MQTTProxy(BaseProxy):
             }
             
             result = await self._make_ts_request("POST", "/publish", request_data)
-            
+
+            if not isinstance(result, dict):
+                self.log.error(
+                    f"Failed to publish message to {topic_publish}: "
+                    f"unexpected response type {type(result).__name__}"
+                )
+                return False
+
             if "error" in result:
                 self.log.error(f"Failed to publish message to {topic_publish}: {result['error']}")
                 return False
-            
+
+            if result.get("success") is not True:
+                self.log.error(
+                    f"Publish to {topic_publish} did not return success=true; "
+                    f"broker likely not ready. Response: {result}"
+                )
+                return False
+
             self.log.debug(f"Published message to topic: {topic_publish}")
             return True
             

@@ -871,9 +871,36 @@ class HealthService:
     async def _check_mqtt_proxy(self, proxy: MQTTProxy) -> MqttProxyHealth:
         """Check MQTT proxy health."""
         try:
-            # Use the proxy's built-in health check method
-            health_status = await proxy.health_check()
-            
+            # Bound the probe by the publish interval so a slow MQTT
+            # health call (which goes through the single MQTTProxy executor
+            # shared with subscribe/publish RPCs) cannot stall the health
+            # publisher loop. Mirrors the S3 probe's protection above.
+            mqtt_probe_timeout = self._probe_timeout()
+            try:
+                health_status = await asyncio.wait_for(
+                    proxy.health_check(),
+                    timeout=mqtt_probe_timeout,
+                )
+            except asyncio.TimeoutError:
+                self.logger.warning(
+                    "MQTT health_check timed out after %.2fs "
+                    "(kept below health publish interval to avoid overlap)",
+                    mqtt_probe_timeout,
+                )
+                return MqttProxyHealth(
+                    status="unhealthy",
+                    details=(
+                        f"MQTT health_check timed out after "
+                        f"{mqtt_probe_timeout:.2f}s"
+                    ),
+                    connection={
+                        "ts_client": False,
+                        "callback_server": False,
+                        "connected": False,
+                    },
+                    error="timeout",
+                )
+
             if health_status.get("status") == "healthy":
                 return MqttProxyHealth(
                     status="healthy",
