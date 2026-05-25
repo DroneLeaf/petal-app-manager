@@ -30,7 +30,7 @@ permissions:
 env:
   app_name: petal-app-manager
   release_version: ${{ github.ref_name }} #${{ replace(github.ref_name, 'v', '') }}
-  ARCH: ${{ runner.arch }}
+  ARCH: ${{ runner.architecture }}
 
 jobs:
   build:
@@ -54,7 +54,7 @@ jobs:
       - name: Set architecture
         id: arch
         run: |
-          if [[ "${{ runner.arch }}" == "ARM" || "${{ runner.arch }}" == "ARM64" ]]; then
+          if [[ "${{ runner.architecture }}" == "ARM" || "${{ runner.architecture }}" == "ARM64" ]]; then
             echo "ARCH=arm64" >> $GITHUB_OUTPUT
           else
             echo "ARCH=all" >> $GITHUB_OUTPUT
