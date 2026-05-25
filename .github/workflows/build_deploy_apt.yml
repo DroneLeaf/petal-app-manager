@@ -30,7 +30,6 @@ permissions:
 env:
   app_name: petal-app-manager
   release_version: ${{ github.ref_name }} #${{ replace(github.ref_name, 'v', '') }}
-  ARCH: ${{ runner.architecture }}
 
 jobs:
   build:
