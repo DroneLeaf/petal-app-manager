@@ -379,7 +379,7 @@ touch "\${SETUP_FLAG}"
 echo "==> Starting \${SERVICE_NAME}..."
 systemctl daemon-reload
 systemctl enable  "\${SERVICE_NAME}"
-systemctl start   "\${SERVICE_NAME}" || true
+systemctl start --no-block "\${SERVICE_NAME}" || true
 
 echo ""
 echo "======================================================="
