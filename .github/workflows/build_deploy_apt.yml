@@ -1,0 +1,143 @@
+#
+# Petal App Manager as a Debian Package:
+# -------------------------------------
+# 
+# Overview:
+# This workflow builds the Petal App Manager as a Debian package and publish the generated release
+# to the DroneLeaf APT repository (repo.droneleaf.io/repository/apt).
+# so that the installation can be done via: sudo apt install petal-app-manager
+# and that will enhance the user experience by having a single package to install all the petal apps.
+# also reduces the overhead of the installation process on the target.
+#
+# Maintainer:
+# Hashem Allaham <hashem.allaham@droneleaf.io>
+#
+# Notes: 
+# - This workflow is only triggered when a new release is created.
+# - Please name the tag as "vX.Y.Z" so that the .deb package version will be X.Y.Z.
+# - The .deb package is built using the build-deb.sh script.
+# - The format of generated package is: petal-app-manager_X.Y.Z_<arch>.deb
+#
+name: Build and Release to APT Repository
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+env:
+  app_name: petal-app-manager
+  release_version: ${{ github.ref_name }} #${{ replace(github.ref_name, 'v', '') }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: set_version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT # vX.Y.Z -> X.Y.Z
+
+      - name: Ensure correct version syntax
+        run: |
+          if [[ ! ${{ steps.set_version.outputs.VERSION }} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version number must be in the format X.Y.Z"
+            exit 1
+          fi
+
+      - name: Set architecture
+        id: arch
+        run: |
+          if [[ "${{ runner.architecture }}" == "ARM" || "${{ runner.architecture }}" == "ARM64" ]]; then
+            echo "ARCH=arm64" >> $GITHUB_OUTPUT
+          else
+            echo "ARCH=all" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verbose
+        run: |
+          echo "--- Project/Runner Info ---"
+          echo "Application Name: ${{ env.app_name }}"
+          echo "Release Version: ${{ env.release_version }}"
+          echo "Runner Architecture: ${{ runner.arch }}"
+          echo "--- Package Info ---"
+          echo "Package Version: ${{ steps.set_version.outputs.VERSION }}"
+          echo "Package Architecture: ${{ steps.arch.outputs.ARCH }}"
+          echo "Package Name: ${{ env.app_name }}_${{ steps.set_version.outputs.VERSION }}_${{ steps.arch.outputs.ARCH }}.deb"
+          
+      - name: Compute package name
+        id: pkg
+        run: |
+          package_name="${{ env.app_name }}_${{ steps.set_version.outputs.VERSION }}_${{ steps.arch.outputs.ARCH }}.deb"
+          echo "package_name=$package_name" >> $GITHUB_OUTPUT
+
+      - name: Install build dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y dpkg-dev rsync
+
+      - name: Run the build script
+        run: |
+          # verify existence of build-deb.sh
+          if [ ! -f build-deb.sh ]; then
+            echo "build-deb.sh not found"
+            exit 1
+          fi
+          chmod +x build-deb.sh
+          PKG_VERSION="${{ steps.set_version.outputs.VERSION }}" PKG_ARCH="${{ steps.arch.outputs.ARCH }}" ./build-deb.sh
+
+      - name: Verify build results
+        run: |
+          ls -la *.deb
+          echo ""
+          echo "Package Metadata:"
+          echo "-----------------"
+          dpkg -I ${{ steps.pkg.outputs.package_name }}
+          echo ""
+          echo "Package Contents:"
+          echo "-----------------"
+          dpkg -c ${{ steps.pkg.outputs.package_name }}
+          
+      - name: Upload Debian package as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.app_name }}-deb
+          path: ${{ steps.pkg.outputs.package_name }}
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: ${{ steps.pkg.outputs.package_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Debian package
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.app_name }}-deb
+          path: ./
+
+      - name: Publish to APT repository
+        env:
+          REPOSITORY_USERNAME: ${{ secrets.REPOSITORY_USERNAME }}
+          REPOSITORY_PASSWORD: ${{ secrets.REPOSITORY_PASSWORD }}
+          REPOSITORY_SERVER_IP: ${{ secrets.REPOSITORY_SERVER_IP }}
+          REPOSITORY_HOSTNAME: ${{ secrets.REPOSITORY_HOSTNAME }}
+        run: |
+          ls -la *.deb
+          DEB_FILE=$(ls *.deb)
+          echo "uploading: $DEB_FILE"
+          curl -v -u "$REPOSITORY_USERNAME:$REPOSITORY_PASSWORD" \
+            -H "Content-Type: multipart/form-data" \
+            --data-binary "@$DEB_FILE" \
+            http://$REPOSITORY_SERVER_IP:80/repository/apt/ \
+            -H "Host: $REPOSITORY_HOSTNAME"
