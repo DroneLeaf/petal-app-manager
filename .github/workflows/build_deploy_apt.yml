@@ -64,7 +64,7 @@ jobs:
           echo "--- Project/Runner Info ---"
           echo "Application Name: ${{ env.app_name }}"
           echo "Release Version: ${{ env.release_version }}"
-          echo "Runner Architecture: ${{ runner.arch }}"
+          echo "Runner Architecture: ${{ runner.architecture }}"
           echo "--- Package Info ---"
           echo "Package Version: ${{ steps.set_version.outputs.VERSION }}"
           echo "Package Architecture: ${{ steps.arch.outputs.ARCH }}"
