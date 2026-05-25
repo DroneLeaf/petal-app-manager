@@ -125,7 +125,7 @@ trap cleanup EXIT
 # Banner
 # ------------------------------------------------------------------------------
 
-clear
+clear 2>/dev/null || true
 echo ""
 echo "======================================================="
 echo " Building ${PKG_NAME} ${PKG_VERSION}"
