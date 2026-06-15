@@ -33,7 +33,7 @@ set -Eeuo pipefail
 
 PKG_NAME="petal-app-manager"
 PKG_VERSION="${PKG_VERSION:-0.0.0}"
-PKG_ARCH="${PKG_ARCH:-$(dpkg --print-architecture)}"
+PKG_ARCH="${PKG_ARCH:-all}"
 PKG_MAINTAINER="DroneLeaf Team <https://droneleaf.io>"
 PKG_DESCRIPTION="Petal App Manager — modular FastAPI runtime for DroneLeaf petals"
 PKG_HOMEPAGE="https://github.com/DroneLeaf/petal-app-manager"
@@ -90,10 +90,6 @@ PKG_DEPENDS=(
     "lsb-release"
     "apt-transport-https"
     "git"
-    "build-essential"
-    "libffi-dev"
-    "libssl-dev"
-    "zlib1g-dev"
 )
 
 DEPENDS=$(IFS=', '; echo "${PKG_DEPENDS[*]}")
@@ -500,7 +496,7 @@ fi
 echo "==> [3/5] Linking python3.11 system-wide..."
 ln -sf "\${PYTHON_BIN}" /usr/local/bin/python3.11
 ln -sf "\${PYTHON_DIR}/bin/pip3.11" /usr/local/bin/pip3.11
-echo "    python3.11 → \$(python3.11 --version)"
+echo "    python3.11 → \$("\${PYTHON_BIN}" --version)"
 
 # ── [4/5] PDM ─────────────────────────────────────────────────────────────────
 # Prebuilt CPython already ships pip — no ensurepip bootstrap needed.
@@ -678,6 +674,9 @@ chmod 755 \
     "${BUILD_DIR}/DEBIAN/prerm" \
     "${BUILD_DIR}/DEBIAN/postrm" \
     "${BUILD_DIR}${INSTALL_DIR}/scripts/setup-complete.sh"
+
+# Restore execute bit on bundled native binaries stripped by the blanket 644 pass
+find "${BUILD_DIR}${INSTALL_DIR}/src" -type f -name "machineid_*" -exec chmod 755 {} \;
 
 # .env not world-readable in the package tree either
 chmod 640 "${BUILD_DIR}${INSTALL_DIR}/.env"
