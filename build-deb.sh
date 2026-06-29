@@ -188,7 +188,7 @@ cat > "${BUILD_DIR}${INSTALL_DIR}/.env" <<'ENVEOF'
 # ── General ──────────────────────────────────────────────────────────────────
 PETAL_LOG_LEVEL=INFO
 PETAL_LOG_TO_FILE=true
-PETAL_LOG_DIR=logs
+PETAL_LOG_DIR=/var/log/petal-app-manager
 
 # ── MAVLink ──────────────────────────────────────────────────────────────────
 PETAL_MAVLINK_ENDPOINT=udp:127.0.0.1:14551
@@ -196,13 +196,15 @@ PETAL_MAVLINK_BAUD=115200
 PETAL_MAVLINK_MAXLEN=200
 PETAL_MAVLINK_WORKER_SLEEP_MS=1
 PETAL_MAVLINK_WORKER_THREADS=4
+PETAL_MAVLINK_SOURCE_SYSTEM_ID=2
+PETAL_MAVLINK_SOURCE_COMPONENT_ID=140
 PETAL_MAVLINK_HEARTBEAT_SEND_FREQUENCY=5.0
 PETAL_ROOT_SD_PATH=fs/microsd/log
 
 # ── Cloud ────────────────────────────────────────────────────────────────────
 PETAL_ACCESS_TOKEN_URL=http://localhost:3001/session-manager/access-token
 PETAL_SESSION_TOKEN_URL=http://localhost:3001/session-manager/session-token
-PETAL_S3_BUCKET_NAME=devhube21f2631b51e4fa69c771b1e8107b21cb431a-dev
+PETAL_S3_BUCKET_NAME=devhub8758ad6384364de695c9cfd133281305b99cc-dev
 PETAL_CLOUD_ENDPOINT=https://api.droneleaf.io
 
 # ── Local database ───────────────────────────────────────────────────────────
@@ -215,6 +217,7 @@ PETAL_REDIS_PORT=6379
 PETAL_REDIS_DB=0
 PETAL_REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis-server.sock
 PETAL_REDIS_HEALTH_MESSAGE_RATE=3.0
+PETAL_REDIS_WORKER_THREADS=4
 
 # ── Data operations ──────────────────────────────────────────────────────────
 PETAL_GET_DATA_URL=/drone/onBoard/config/getData
@@ -226,7 +229,7 @@ PETAL_SET_DATA_URL=/drone/onBoard/config/setData
 PETAL_TS_CLIENT_HOST=localhost
 PETAL_TS_CLIENT_PORT=3004
 PETAL_CALLBACK_HOST=localhost
-PETAL_CALLBACK_PORT=3005
+PETAL_CALLBACK_PORT=9000
 PETAL_POLL_INTERVAL=1.0
 PETAL_ENABLE_CALLBACKS=true
 PETAL_COMMAND_EDGE_TOPIC=command/edge
@@ -234,6 +237,7 @@ PETAL_RESPONSE_TOPIC=response
 PETAL_TEST_TOPIC=command
 PETAL_COMMAND_WEB_TOPIC=command/web
 PETAL_MQTT_HEALTH_CHECK_INTERVAL=10.0
+PETAL_HEALTH_PROBE_TIMEOUT_S=2.0
 
 # ── Proxy retry ──────────────────────────────────────────────────────────────
 PETAL_MQTT_RETRY_INTERVAL=10.0
@@ -244,6 +248,17 @@ PETAL_MQTT_SUBSCRIBE_TIMEOUT=5.0
 
 # ── Petal User Journey Coordinator ───────────────────────────────────────────
 PETAL_DEBUG_SQUARE_TEST=false
+
+# ── Petal Reboot ─────────────────────────────────────────────────────────────
+PETAL_REBOOT_SITL_MODE=false
+PETAL_REBOOT_ACK_TIMEOUT=3.0
+PETAL_REBOOT_HB_DROP_WINDOW=15.0
+PETAL_REBOOT_HB_DROP_GAP=1.5
+PETAL_REBOOT_HB_RETURN_WINDOW=60.0
+PETAL_REBOOT_HB_POLL_INTERVAL=0.05
+
+# ── Simulation ───────────────────────────────────────────────────────────────
+PETAL_SIMULATION_MODE=false
 ENVEOF
 
 ok ".env written"

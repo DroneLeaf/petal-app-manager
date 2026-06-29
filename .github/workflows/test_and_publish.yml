@@ -62,11 +62,18 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pdm build
-        
+
+    - name: Set version from tag
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        VERSION=${GITHUB_REF_NAME#v}
+        sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+        echo "Version set to $VERSION"
+
     - name: Build package
       run: |
         pdm build
-        
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -122,24 +129,14 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v') # Only run on version tags
-    
+
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
       with:
-        python-version: '3.10'
-        
-    - name: Install build tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install pdm build
-        
-    - name: Build package
-      run: |
-        pdm build
-        
+        name: python-package-distributions
+        path: dist/
+
     - name: Publish to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
@@ -157,3 +154,91 @@ jobs:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
         skip-existing: true
+
+  build-deb:
+    needs: publish
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set version
+        id: set_version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Ensure correct version syntax
+        run: |
+          if [[ ! ${{ steps.set_version.outputs.VERSION }} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version number must be in the format X.Y.Z"
+            exit 1
+          fi
+
+      - name: Set architecture
+        id: arch
+        run: |
+          if [[ "${{ runner.architecture }}" == "ARM" || "${{ runner.architecture }}" == "ARM64" ]]; then
+            echo "ARCH=arm64" >> $GITHUB_OUTPUT
+          else
+            echo "ARCH=all" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Compute package name
+        id: pkg
+        run: |
+          echo "package_name=petal-app-manager_${{ steps.set_version.outputs.VERSION }}_${{ steps.arch.outputs.ARCH }}.deb" >> $GITHUB_OUTPUT
+
+      - name: Install build dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y dpkg-dev rsync
+
+      - name: Run build script
+        run: |
+          chmod +x build-deb.sh
+          PKG_VERSION="${{ steps.set_version.outputs.VERSION }}" PKG_ARCH="${{ steps.arch.outputs.ARCH }}" ./build-deb.sh
+
+      - name: Verify build
+        run: |
+          ls -la *.deb
+          dpkg -I ${{ steps.pkg.outputs.package_name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: petal-app-manager-deb
+          path: ${{ steps.pkg.outputs.package_name }}
+
+      - name: Attach to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.pkg.outputs.package_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-apt:
+    needs: build-deb
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: petal-app-manager-deb
+          path: ./
+
+      - name: Publish to APT repository
+        env:
+          REPOSITORY_USERNAME: ${{ secrets.REPOSITORY_USERNAME }}
+          REPOSITORY_PASSWORD: ${{ secrets.REPOSITORY_PASSWORD }}
+          REPOSITORY_SERVER_IP: ${{ secrets.REPOSITORY_SERVER_IP }}
+          REPOSITORY_HOSTNAME: ${{ secrets.REPOSITORY_HOSTNAME }}
+        run: |
+          DEB_FILE=$(ls *.deb)
+          echo "Uploading: $DEB_FILE"
+          curl -v -u "$REPOSITORY_USERNAME:$REPOSITORY_PASSWORD" \
+            -H "Content-Type: multipart/form-data" \
+            --data-binary "@$DEB_FILE" \
+            http://$REPOSITORY_SERVER_IP:80/repository/apt/ \
+            -H "Host: $REPOSITORY_HOSTNAME"
