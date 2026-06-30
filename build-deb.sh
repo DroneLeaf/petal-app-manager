@@ -250,7 +250,7 @@ PETAL_MQTT_SUBSCRIBE_TIMEOUT=5.0
 PETAL_DEBUG_SQUARE_TEST=false
 
 # ── Petal Reboot ─────────────────────────────────────────────────────────────
-PETAL_REBOOT_SITL_MODE=false
+PETAL_REBOOT_SITL_MODE=true
 PETAL_REBOOT_ACK_TIMEOUT=3.0
 PETAL_REBOOT_HB_DROP_WINDOW=15.0
 PETAL_REBOOT_HB_DROP_GAP=1.5
@@ -554,6 +554,18 @@ echo " Setup log      : ${LOG_DIR}/setup.log"
 echo " After setup    : systemctl status ${SERVICE_NAME}"
 echo ""
 
+# ── Convenience symlink for the installing user ───────────────────────────────
+if [ -n "\${SUDO_USER}" ] && [ "\${SUDO_USER}" != "root" ]; then
+    _target_home="\$(getent passwd "\${SUDO_USER}" | cut -d: -f6)"
+    if [ -n "\${_target_home}" ] && [ -d "\${_target_home}" ]; then
+        mkdir -p "\${_target_home}/.droneleaf"
+        ln -sfn "${INSTALL_DIR}" "\${_target_home}/.droneleaf/petal-app-manager"
+        chown -h "\${SUDO_USER}:\${SUDO_USER}" "\${_target_home}/.droneleaf/petal-app-manager"
+        chown    "\${SUDO_USER}:\${SUDO_USER}" "\${_target_home}/.droneleaf"
+        echo " Symlink : \${_target_home}/.droneleaf/petal-app-manager → ${INSTALL_DIR}"
+    fi
+fi
+
 exit 0
 EOF
 
@@ -590,6 +602,11 @@ case "\${1:-}" in
         rm -rf "${INSTALL_DIR}"          # removes python, .venv, .env, scripts
         rm -f  /etc/apt/sources.list.d/redis.list
         rm -f  /usr/share/keyrings/redis-archive-keyring.gpg
+        # Remove convenience symlinks from all home directories
+        for _h in /home/* /root; do
+            _link="\${_h}/.droneleaf/petal-app-manager"
+            [ -L "\${_link}" ] && rm -f "\${_link}" || true
+        done
         ;;
 esac
 
