@@ -12,7 +12,7 @@ set -Eeuo pipefail
 #
 # Two-phase install design
 # ────────────────────────
-# postinst   : user creation · pyenv · Python 3.11 (compiled) · PDM
+# postinst   : user creation · prebuilt Python 3.11 (python-build-standalone) · PDM
 #              Writes Redis apt-repo config files (no apt-get — dpkg lock safe)
 #              Enables + starts  petal-app-manager-setup.service  (--no-block)
 #
@@ -33,7 +33,7 @@ set -Eeuo pipefail
 
 PKG_NAME="petal-app-manager"
 PKG_VERSION="${PKG_VERSION:-0.0.0}"
-PKG_ARCH="${PKG_ARCH:-$(dpkg --print-architecture)}"
+PKG_ARCH="${PKG_ARCH:-all}"
 PKG_MAINTAINER="DroneLeaf Team <https://droneleaf.io>"
 PKG_DESCRIPTION="Petal App Manager — modular FastAPI runtime for DroneLeaf petals"
 PKG_HOMEPAGE="https://github.com/DroneLeaf/petal-app-manager"
@@ -57,18 +57,27 @@ SETUP_SERVICE_NAME="${PKG_NAME}-setup.service"
 SETUP_FLAG="${INSTALL_DIR}/.setup-complete"
 
 # ------------------------------------------------------------------------------
-# Python / pyenv  (installed on target via postinst)
+# Python  (prebuilt relocatable CPython, fetched on target via postinst)
+#
+# python-build-standalone tarballs are linked against glibc 2.17, so one
+# aarch64 build runs on Ubuntu 20.04 focal (glibc 2.31) AND 24.04 noble (2.39)
+# with no on-target compilation.  Bump PBS_RELEASE + PYTHON_VERSION together to
+# a pair that exists at:
+#   https://github.com/astral-sh/python-build-standalone/releases
 # ------------------------------------------------------------------------------
 
-PYTHON_VERSION="3.11.9"
-PYENV_ROOT="${INSTALL_DIR}/.pyenv"
-PYTHON_BIN="${PYENV_ROOT}/versions/${PYTHON_VERSION}/bin/python3.11"
-PDM_BIN="${PYENV_ROOT}/versions/${PYTHON_VERSION}/bin/pdm"
+PYTHON_VERSION="3.11.15"
+PBS_RELEASE="20260610"
+PYTHON_DIR="${INSTALL_DIR}/python"
+PYTHON_BIN="${PYTHON_DIR}/bin/python3.11"
+PDM_BIN="${PYTHON_DIR}/bin/pdm"
 
 # ------------------------------------------------------------------------------
 # Debian package dependencies
 #
-# • pyenv Python build requirements (README §1)
+# • Prebuilt Python (python-build-standalone) needs no compiler toolchain for
+#   CPython itself.  build-essential + a few -dev libs are kept only in case a
+#   prod dependency wheel builds from sdist; trim further if none do.
 # • Redis apt-key / repo tools (README §3) — curl+gnupg needed in postinst to
 #   write the keyring file.  Redis server itself is NOT listed here; the setup
 #   service installs Redis 7.2+ from the official apt repo after dpkg exits.
@@ -76,29 +85,11 @@ PDM_BIN="${PYENV_ROOT}/versions/${PYTHON_VERSION}/bin/pdm"
 
 PKG_DEPENDS=(
     "curl"
-    "wget"
-    "git"
-    "make"
-    "build-essential"
-    "libssl-dev"
-    "zlib1g-dev"
-    "libbz2-dev"
-    "libreadline-dev"
-    "libsqlite3-dev"
-    "libffi-dev"
-    "liblzma-dev"
-    "libncurses5-dev"
-    "libncursesw5-dev"
-    "xz-utils"
-    "tk-dev"
-    "libgdbm-dev"
-    "libnss3-dev"
-    "llvm"
-    "software-properties-common"
     "ca-certificates"
-    "lsb-release"
     "gnupg"
+    "lsb-release"
     "apt-transport-https"
+    "git"
 )
 
 DEPENDS=$(IFS=', '; echo "${PKG_DEPENDS[*]}")
@@ -129,7 +120,7 @@ clear 2>/dev/null || true
 echo ""
 echo "======================================================="
 echo " Building ${PKG_NAME} ${PKG_VERSION}"
-echo " arch: ${PKG_ARCH}   python: ${PYTHON_VERSION} (pyenv)"
+echo " arch: ${PKG_ARCH}   python: ${PYTHON_VERSION} (prebuilt)"
 echo "======================================================="
 echo ""
 
@@ -197,7 +188,7 @@ cat > "${BUILD_DIR}${INSTALL_DIR}/.env" <<'ENVEOF'
 # ── General ──────────────────────────────────────────────────────────────────
 PETAL_LOG_LEVEL=INFO
 PETAL_LOG_TO_FILE=true
-PETAL_LOG_DIR=logs
+PETAL_LOG_DIR=/var/log/petal-app-manager
 
 # ── MAVLink ──────────────────────────────────────────────────────────────────
 PETAL_MAVLINK_ENDPOINT=udp:127.0.0.1:14551
@@ -205,13 +196,15 @@ PETAL_MAVLINK_BAUD=115200
 PETAL_MAVLINK_MAXLEN=200
 PETAL_MAVLINK_WORKER_SLEEP_MS=1
 PETAL_MAVLINK_WORKER_THREADS=4
+PETAL_MAVLINK_SOURCE_SYSTEM_ID=2
+PETAL_MAVLINK_SOURCE_COMPONENT_ID=140
 PETAL_MAVLINK_HEARTBEAT_SEND_FREQUENCY=5.0
 PETAL_ROOT_SD_PATH=fs/microsd/log
 
 # ── Cloud ────────────────────────────────────────────────────────────────────
 PETAL_ACCESS_TOKEN_URL=http://localhost:3001/session-manager/access-token
 PETAL_SESSION_TOKEN_URL=http://localhost:3001/session-manager/session-token
-PETAL_S3_BUCKET_NAME=devhube21f2631b51e4fa69c771b1e8107b21cb431a-dev
+PETAL_S3_BUCKET_NAME=devhub8758ad6384364de695c9cfd133281305b99cc-dev
 PETAL_CLOUD_ENDPOINT=https://api.droneleaf.io
 
 # ── Local database ───────────────────────────────────────────────────────────
@@ -224,6 +217,7 @@ PETAL_REDIS_PORT=6379
 PETAL_REDIS_DB=0
 PETAL_REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis-server.sock
 PETAL_REDIS_HEALTH_MESSAGE_RATE=3.0
+PETAL_REDIS_WORKER_THREADS=4
 
 # ── Data operations ──────────────────────────────────────────────────────────
 PETAL_GET_DATA_URL=/drone/onBoard/config/getData
@@ -235,7 +229,7 @@ PETAL_SET_DATA_URL=/drone/onBoard/config/setData
 PETAL_TS_CLIENT_HOST=localhost
 PETAL_TS_CLIENT_PORT=3004
 PETAL_CALLBACK_HOST=localhost
-PETAL_CALLBACK_PORT=3005
+PETAL_CALLBACK_PORT=9000
 PETAL_POLL_INTERVAL=1.0
 PETAL_ENABLE_CALLBACKS=true
 PETAL_COMMAND_EDGE_TOPIC=command/edge
@@ -243,6 +237,7 @@ PETAL_RESPONSE_TOPIC=response
 PETAL_TEST_TOPIC=command
 PETAL_COMMAND_WEB_TOPIC=command/web
 PETAL_MQTT_HEALTH_CHECK_INTERVAL=10.0
+PETAL_HEALTH_PROBE_TIMEOUT_S=2.0
 
 # ── Proxy retry ──────────────────────────────────────────────────────────────
 PETAL_MQTT_RETRY_INTERVAL=10.0
@@ -253,6 +248,17 @@ PETAL_MQTT_SUBSCRIBE_TIMEOUT=5.0
 
 # ── Petal User Journey Coordinator ───────────────────────────────────────────
 PETAL_DEBUG_SQUARE_TEST=false
+
+# ── Petal Reboot ─────────────────────────────────────────────────────────────
+PETAL_REBOOT_SITL_MODE=false
+PETAL_REBOOT_ACK_TIMEOUT=3.0
+PETAL_REBOOT_HB_DROP_WINDOW=15.0
+PETAL_REBOOT_HB_DROP_GAP=1.5
+PETAL_REBOOT_HB_RETURN_WINDOW=60.0
+PETAL_REBOOT_HB_POLL_INTERVAL=0.05
+
+# ── Simulation ───────────────────────────────────────────────────────────────
+PETAL_SIMULATION_MODE=false
 ENVEOF
 
 ok ".env written"
@@ -276,7 +282,7 @@ APP_GROUP="${APP_GROUP}"
 INSTALL_DIR="${INSTALL_DIR}"
 DATA_DIR="${DATA_DIR}"
 LOG_DIR="${LOG_DIR}"
-PYENV_ROOT="${PYENV_ROOT}"
+PYTHON_DIR="${PYTHON_DIR}"
 PYTHON_VERSION="${PYTHON_VERSION}"
 PDM_BIN="${PDM_BIN}"
 SETUP_FLAG="${SETUP_FLAG}"
@@ -447,7 +453,7 @@ chmod 755 "${BUILD_DIR}/DEBIAN/preinst"
 #
 # This script:
 #   1. Creates the system user
-#   2. Installs pyenv + Python 3.11 (git clone + compile — no apt needed)
+#   2. Downloads prebuilt Python 3.11 (python-build-standalone — no apt, no compile)
 #   3. Creates system-wide python3.11 symlinks
 #   4. Installs PDM via pip + configures venv.with_pip
 #   5. Writes the Redis official apt repo config (key + source list) — file
@@ -468,8 +474,9 @@ INSTALL_DIR="${INSTALL_DIR}"
 DATA_DIR="${DATA_DIR}"
 LOG_DIR="${LOG_DIR}"
 
-PYENV_ROOT="${PYENV_ROOT}"
+PYTHON_DIR="${PYTHON_DIR}"
 PYTHON_VERSION="${PYTHON_VERSION}"
+PBS_RELEASE="${PBS_RELEASE}"
 PYTHON_BIN="${PYTHON_BIN}"
 PDM_BIN="${PDM_BIN}"
 
@@ -479,30 +486,36 @@ SETUP_SERVICE_NAME="${SETUP_SERVICE_NAME}"
 # Running as root
 echo "==> [1/5] Running as root — skipping user creation."
 
-# ── [2/5] pyenv ───────────────────────────────────────────────────────────────
-echo "==> [2/5] Installing pyenv → \${PYENV_ROOT}..."
-if [ ! -d "\${PYENV_ROOT}" ]; then
-    git clone --depth=1 https://github.com/pyenv/pyenv.git "\${PYENV_ROOT}"
-fi
-
-export PYENV_ROOT="\${PYENV_ROOT}"
-export PATH="\${PYENV_ROOT}/bin:\${PATH}"
-
-# ── [3/5] Python 3.11 via pyenv ───────────────────────────────────────────────
-echo "==> [3/5] Compiling Python \${PYTHON_VERSION} via pyenv..."
+# ── [2/5] Python 3.11 — prebuilt relocatable build (no compilation) ───────────
+# python-build-standalone ships a portable CPython linked against glibc 2.17,
+# so one aarch64 tarball runs on both Ubuntu 20.04 (focal) and 24.04 (noble).
+# Replaces the old pyenv source compile that segfaulted on noble/aarch64.
+echo "==> [2/5] Installing prebuilt Python \${PYTHON_VERSION}..."
 if [ ! -x "\${PYTHON_BIN}" ]; then
-    MAKE_OPTS="-j\$(nproc 2>/dev/null || echo 2)" \
-        "\${PYENV_ROOT}/bin/pyenv" install -s "\${PYTHON_VERSION}"
+    case "\$(uname -m)" in
+        aarch64|arm64) PBS_ARCH="aarch64-unknown-linux-gnu" ;;
+        x86_64|amd64)  PBS_ARCH="x86_64-unknown-linux-gnu"  ;;
+        *) echo "ERROR: unsupported architecture \$(uname -m)"; exit 1 ;;
+    esac
+    PBS_URL="https://github.com/astral-sh/python-build-standalone/releases/download/\${PBS_RELEASE}/cpython-\${PYTHON_VERSION}%2B\${PBS_RELEASE}-\${PBS_ARCH}-install_only.tar.gz"
+    _tmp="\$(mktemp -d)"
+    echo "    downloading \${PBS_URL}"
+    curl -fsSL --retry 3 "\${PBS_URL}" -o "\${_tmp}/python.tar.gz"
+    # tarball extracts to a top-level 'python/' dir → \${PYTHON_DIR}
+    rm -rf "\${PYTHON_DIR}"
+    tar -xzf "\${_tmp}/python.tar.gz" -C "\${INSTALL_DIR}"
+    rm -rf "\${_tmp}"
 fi
 
-# System-wide symlinks (README §1 — keeps system python untouched)
+# ── [3/5] System-wide symlinks (keeps system python untouched) ────────────────
+echo "==> [3/5] Linking python3.11 system-wide..."
 ln -sf "\${PYTHON_BIN}" /usr/local/bin/python3.11
-ln -sf "\${PYENV_ROOT}/versions/\${PYTHON_VERSION}/bin/pip3.11" /usr/local/bin/pip3.11
-echo "    python3.11 → \$(python3.11 --version)"
+ln -sf "\${PYTHON_DIR}/bin/pip3.11" /usr/local/bin/pip3.11
+echo "    python3.11 → \$("\${PYTHON_BIN}" --version)"
 
 # ── [4/5] PDM ─────────────────────────────────────────────────────────────────
+# Prebuilt CPython already ships pip — no ensurepip bootstrap needed.
 echo "==> [4/5] Installing PDM..."
-"\${PYTHON_BIN}" -m ensurepip --upgrade
 "\${PYTHON_BIN}" -m pip install --quiet --upgrade pip pdm
 
 # Required so packages inside the PDM venv can use pip (README §2)
@@ -541,6 +554,18 @@ echo " Setup log      : ${LOG_DIR}/setup.log"
 echo " After setup    : systemctl status ${SERVICE_NAME}"
 echo ""
 
+# ── Convenience symlink for the installing user ───────────────────────────────
+if [ -n "\${SUDO_USER}" ] && [ "\${SUDO_USER}" != "root" ]; then
+    _target_home="\$(getent passwd "\${SUDO_USER}" | cut -d: -f6)"
+    if [ -n "\${_target_home}" ] && [ -d "\${_target_home}" ]; then
+        mkdir -p "\${_target_home}/.droneleaf"
+        ln -sfn "${INSTALL_DIR}" "\${_target_home}/.droneleaf/petal-app-manager"
+        chown -h "\${SUDO_USER}:\${SUDO_USER}" "\${_target_home}/.droneleaf/petal-app-manager"
+        chown    "\${SUDO_USER}:\${SUDO_USER}" "\${_target_home}/.droneleaf"
+        echo " Symlink : \${_target_home}/.droneleaf/petal-app-manager → ${INSTALL_DIR}"
+    fi
+fi
+
 exit 0
 EOF
 
@@ -574,9 +599,14 @@ case "\${1:-}" in
     purge)
         rm -rf "${DATA_DIR}"
         rm -rf "${LOG_DIR}"
-        rm -rf "${INSTALL_DIR}"          # removes pyenv, .venv, .env, scripts
+        rm -rf "${INSTALL_DIR}"          # removes python, .venv, .env, scripts
         rm -f  /etc/apt/sources.list.d/redis.list
         rm -f  /usr/share/keyrings/redis-archive-keyring.gpg
+        # Remove convenience symlinks from all home directories
+        for _h in /home/* /root; do
+            _link="\${_h}/.droneleaf/petal-app-manager"
+            [ -L "\${_link}" ] && rm -f "\${_link}" || true
+        done
         ;;
 esac
 
@@ -604,7 +634,7 @@ ConditionPathExists=!${SETUP_FLAG}
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=${INSTALL_DIR}/scripts/setup-complete.sh
-# Python compilation on an RPi can take 15+ min; pdm install also takes time
+# pdm install of prod deps can take a few min on an RPi
 TimeoutStartSec=1800
 StandardOutput=journal
 StandardError=journal
@@ -676,6 +706,9 @@ chmod 755 \
     "${BUILD_DIR}/DEBIAN/prerm" \
     "${BUILD_DIR}/DEBIAN/postrm" \
     "${BUILD_DIR}${INSTALL_DIR}/scripts/setup-complete.sh"
+
+# Restore execute bit on bundled native binaries stripped by the blanket 644 pass
+find "${BUILD_DIR}${INSTALL_DIR}/src" -type f -name "machineid_*" -exec chmod 755 {} \;
 
 # .env not world-readable in the package tree either
 chmod 640 "${BUILD_DIR}${INSTALL_DIR}/.env"
